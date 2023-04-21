@@ -8,13 +8,13 @@ different works with small differences ([Scapin et al. 2020](#scapin2020volume),
 consists in solving an additional Poisson equation that allows a velocity
 potential $\phi$ to be computed:
 $$
-\nabla^2 \phi
+\nabla \cdot \left( \alpha \nabla \phi \right)
 =
-\dot{m} \left( \frac{1}{\rho_g} - \frac{1}{\rho_l} \right) \delta_\Gamma \\
+\dfrac{\dot{m}}{\Delta t} \left( \frac{1}{\rho_g} - \frac{1}{\rho_l} \right) \delta_\Gamma \\
 $$
 The stefan velocity can be obtained from the velocity potential as:
 $$
-\mathbf{u}^S = -\nabla \phi 
+\mathbf{u}^S = -\Delta t \alpha \nabla \phi
 $$
 We then calculate the extended velocity by subtracting the stefan velocity
 from the field velocity. The resulting extended velocity field will be
@@ -35,38 +35,17 @@ face vector ufs[], ufext[];
 mgstats mgpsf;
 
 /**
-The volume expansion term is declared in [evaporation.h](/sandbox/ecipriano/src/evaporation.h). */
+The volume expansion term is declared in
+[evaporation.h](/sandbox/ecipriano/src/evaporation.h). */
 
 extern scalar stefanflow;
 
 /**
-## Boundary conditions
+## Helper functions
 
-It is important to impose for ps the same boundary conditions and the
-same tolerance used in the Poisson equation for the pressure *p*. */
-
-ps[right] = neumann (neumann_pressure(ghost));
-ps[left]  = neumann (- neumann_pressure(0));
-
-#if AXI
-ufs.n[bottom] = 0.;
-ufs.t[bottom] = dirichlet(0);
-ps[top]    = neumann (neumann_pressure(ghost));
-#else // !AXI
-#  if dimension > 1
-ps[top]    = neumann (neumann_pressure(ghost));
-ps[bottom] = neumann (- neumann_pressure(0));
-#  endif
-#  if dimension > 2
-ps[front]  = neumann (neumann_pressure(ghost));
-ps[back]   = neumann (- neumann_pressure(0));
-#  endif
-#endif // !AXI
-
-/**
 We define the function that performs the projection
 of the stefan velocity onto a field with divergence
-equal to the volume expansion term.. */
+equal to the volume expansion term. */
 
 trace
 mgstats project_sv (struct Project q)
@@ -92,6 +71,32 @@ mgstats project_sv (struct Project q)
 }
 
 /**
+## Boundary conditions
+
+It is important to impose for *ps* the same boundary conditions and the
+same tolerance used in the Poisson equation for the pressure *p*. */
+
+ps[right] = neumann (neumann_pressure(ghost));
+ps[left]  = neumann (- neumann_pressure(0));
+
+#if AXI
+ufs.n[bottom] = 0.;
+ufs.t[bottom] = dirichlet(0);
+ps[top]    = neumann (neumann_pressure(ghost));
+#else // !AXI
+#  if dimension > 1
+ps[top]    = neumann (neumann_pressure(ghost));
+ps[bottom] = neumann (- neumann_pressure(0));
+#  endif
+#  if dimension > 2
+ps[front]  = neumann (neumann_pressure(ghost));
+ps[back]   = neumann (- neumann_pressure(0));
+#  endif
+#endif // !AXI
+
+/**
+## Extended velocity
+
 We perform the projection of the stefan velocity
 by overloading the event end_timestep, defined in
 [navier-stokes/centered.h](/src/navier-stokes/centered.h). */
