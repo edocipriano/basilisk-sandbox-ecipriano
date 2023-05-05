@@ -2,26 +2,36 @@
 # Main Evaporation Module
 
 Include this file every time you need to perform simulations
-with phase change. It contains the declaration of the fields
+with phase change. It contains the declaration of fields
 that are useful to every phase change model, it computes the
-total evaporation rate and the phase change velocity. This
-file must be used in conjuction with a phase change model (i.e.
-multicomponent.h temperature-gradient.h, species-gradient.h). */
+total evaporation rate and the phase change velocity, it performs
+the stefan flow shifting, and it manages the advection of volume
+fraction and tracers.
+This file must be used in combination with a phase change model (i.e.
+[multicomponent.h](multicomponent.h), 
+[temperature-gradient.h](temperature-gradient.h), 
+[species-gradient.h](species-gradient.h), 
+[fixedflux.h](fixedflux.h)). */
 
 #include "common-evaporation.h"
 #include "fracface.h"
 
 /**
-If DIFFUSIVE conditions are defined, the scalar fields are
-advected using the VOF-consistent method as f.tracers. In
-this case $stefanflow$ is null. If DIFFUSIVE conditions are
-not defined, then the default configuration is used, where
-$stefanflow$ is computed, the liquid phase is advected using
-the vof-consistent method, while the gas phase is advected
-by the [tracer-noncons.h] module. Define NOCONSISTENTPHASE
-to suppress the use of VOF-consistent advection for the
-scalar fields, and use CONSISTENTPHASE2 to apply the VOF-
-consistent advection to the gas phase instead of the liquid. */
+## Setup tracers advection
+
+* *CONSISTENTPHASE1* (default): the liquid phase tracers are
+advected using the velocity $\mathbf{u}^E$, associated
+with the list fuext.tracers, while the gas phase tracers
+are advected using $\mathbf{u}$ associated with the list fu.tracers.
+* *CONSISTENTPHASE2*: the gas phase tracers are
+advected using the velocity $\mathbf{u}^E$, associated
+with the list fuext.tracers, while the liquid phase tracers
+are advected using $\mathbf{u}$ using the list fu.tracers.
+* *DIFFUSIVE*: the Stefan flow is neglected and no interface
+velocity jump is present. Therefore, both the liquid and the
+gas phase tracers are transported using $\mathbf{u}^E$ which
+will be equal to $\mathbf{u}$, using the list fuext.tracers.
+*/
 
 #ifndef DIFFUSIVE
 # ifndef CONSISTENTPHASE2
@@ -35,76 +45,115 @@ consistent advection to the gas phase instead of the liquid. */
 #endif
 
 /**
-By default, the *stefanflow* is shifted toward the liquid-phase
-cells close to the interface. If **SHIFT_TO_GAS** is defined, then
-the *stefanflow* field will be shifted toward the gas-phase cells. */
+## Setup Stefan flow
+
+* *SHIFTING* (default): the volume expansion term is shifted.
+* *NOSHIFTING*: do not apply shifting procedure.
+* *SHIFT_TO_LIQ* (default): shifting toward the liquid phase (i.e. droplet evaporation).
+* *SHIFT_TO_GAS*: shifting toward the gas phase (i.e. boiling problems).
+*/
 
 #define SHIFTING
 #ifndef SHIFT_TO_GAS
 # define SHIFT_TO_LIQ
 #endif
 
-/**
-It **NOSHIFTING** is defined, no *stefanflow* shifting procedure
-is applied. */
-
 #ifdef NOSHIFTING
 # undef SHIFTING
 #endif
 
-scalar mEvapTot[];      // [kg/m2/s]
+/**
+## Fields
+
+We initialize fields useful to any phase change model:
+
+* *mEvapTot*: total vaporization rate per unit of interface surface [kg/m2/s]
+* *stefanflow*: expansion term used in the projection step of
+[navier-stokes/centered-evaporation.h](navier-stokes/centered-evaporation.h)
+* *vpc*: interface regression velocity [m/s]
+* *fu*: dummy volume fraction used for the advection of scalar fields
+using the directionally-split procedure, with the velocity $\mathbf{u}$
+* *fuext*: dummy volume fraction used for the advection of scalar fields
+using the directionally-split procedure, with the velocity $\mathbf{u}^E$
+* *uf_save*: helper field used to store and recover a velocity before and
+afer calling *vof_advection*
+*/
+
+scalar mEvapTot[];
 scalar stefanflow[];
 face vector vpc[];
 scalar fu[], fuext[];
-
-// Helper fields
 face vector uf_save[];
 
-// Externally defined variables
+/**
+## Extern fields
+
+We initialize fields that must be defined externally. In particular,
+*mEvapList* should be declared in the specific phase change model, and it
+must contains a list of every contribution to the phase change (for example,
+the vaporization rate of each chemical species).
+*/
+
 extern scalar * mEvapList;
 extern double rho1, rho2;
 extern face vector ufext;
 extern scalar rho;
 
 /**
-Dynamically change shrinking options. */
+We add a bool that allows the droplet volume changes to be disabled. */
 
 bool is_shrinking;
+
+/**
+## Init event
+
+We activate the shrinking and we set the dummy volume fractions to the
+value of the vof field.
+*/
 
 event init (i = 0)
 {
   is_shrinking = true;
-  
+
   foreach() {
     fu[] = f[];
     fuext[] = f[];
   }
   boundary({fu,fuext});
-  
 }
 
 /**
-Main phase-change event. Computes the total vaporization
-flowrate [kg/m2/s] and interpolates the cell-centered normals
-and mEvap in order to compute a face change velocity $vpc$,
-defined as a face vector. */
+We add an event that can be overloaded by the user in order to
+change some initialization parameters before starting the phase
+change event (for example, initialize chemical species and temperature
+to a specific initial solution).
+*/
+
+event end_init (i = 0);
+
+/**
+## Phase Change event
+
+We computes the total vaporization rate per unit of surface
+by summing all the contributions in *mEvapList*. We interpolate
+the cell-centered normals and the mEvap field  in order to
+compute a face change velocity *vpc*, defined at the edges.
+*/
 
 event phasechange (i++)
 {
-  event ("source_mEvap");
-
   /**
-  We store the value of *f* in the *fu* and *fuext* fields
+  We restore the value of the *fu* and *fuext* fields
   at the beginning of the time step. */
-  
+
   foreach() {
     fu[] = f[];
     fuext[] = f[];
   }
   boundary({fu,fuext});
-  
+
   /**
-  Update vaporization mass-flowrate. */
+  We compute the total vaporization mass-flowrate *mEvapTot*. */
 
   foreach() {
     mEvapTot[] = 0.;
@@ -113,7 +162,7 @@ event phasechange (i++)
   }
 
   /**
-  Update phase-change regression velocity. */
+  We update phase-change regression velocity *vpc*. */
 
   foreach_face() {
     vpc.x[] = 0.;
@@ -143,7 +192,8 @@ event phasechange (i++)
   }
 
   /**
-  Update stefan flow source term for continuity equation. */
+  We compute the expansion source term for the
+  continuity equation *stefanflow*. */
 
   foreach() {
     stefanflow[] = 0.;
@@ -165,65 +215,37 @@ event phasechange (i++)
   }
 }
 
-#ifdef SHIFTING
-event shiftsf (i++) {
+/**
+If *SHIFTING* is defined, we shift the expansion
+source term. */
 
-  scalar avg[];
+scalar stefanflowext[];
 
-#if TREE
-  avg.refine = avg.prolongation = refinement_avg;
-  avg.restriction = no_restriction;
-  avg.dirty = true;
+event shifting (i++) {
+#ifdef EXT_STEFANFLOW
+  foreach()
+    stefanflowext[] = stefanflow[];
 #endif
-
-  // Compute avg
-  foreach() {
-    avg[] = 0.;
-    if (f[] > F_ERR && f[] < 1. - F_ERR) {
-      int count = 0;
-      foreach_neighbor(1) {
-#ifndef SHIFT_TO_LIQ
-        if (f[] < F_ERR) // Number of pure-gas cells close to the interfacial cell
+#ifdef SHIFT_TO_LIQ
+  int dir = 1;
 #else
-        if (f[] > 1.-F_ERR) // Number of pure-liquid cells close to the interfacial cell
+  int dir = 0;
 #endif
-          count ++;
-      }
-      avg[] = count;
-    }
-  }
-
-  scalar sf0[];
-  foreach() {
-    sf0[] = stefanflow[];
-    stefanflow[] = 0.;
-  }
-  boundary({sf0,stefanflow});
-
-  // Compute m
-  foreach() {
-#ifndef SHIFT_TO_LIQ
-    if (f[] < F_ERR) { // Move toward pure-gas
-#else
-    if (f[] > 1.-F_ERR) { // Move toward pure-liquid
+  shift_field (stefanflow, f, dir);
+#ifdef EXT_STEFANFLOW
+  shift_field (stefanflowext, f, 0);
 #endif
-      double val = 0.;
-      foreach_neighbor(1) {
-        if (f[] > F_ERR && f[] < 1. - F_ERR && avg[] > 0) {
-          val += sf0[]/avg[];
-        }
-      }
-      stefanflow[] = val;
-    }
-    else {
-      stefanflow[] = 0.;
-    }
-  }
+  //distribute_field (stefanflow, f, dir);
+  //distribute_field (stefanflowext, f, 0);
 }
-#endif
 
 /**
-Overloading VOF event in order to include the phase-change velocity. */
+## VOF event
+
+We overload the vof event in order to include the phase-change
+velocity. Therefore, we perform the advection of the volume
+fraction and we restore the original velocity field.
+*/
 
 static scalar * interfaces1 = NULL;
 
@@ -240,7 +262,10 @@ event vof (i++)
 #endif
   }
   boundary((scalar*){uf});
-  //event ("stability");
+
+  // fixme: it can be useful to compute the stability
+  // conditions based on this modified velocity
+  event ("stability");
 
   vof_advection ({f}, i);
   boundary ({f});
@@ -259,6 +284,16 @@ event vof (i++)
   interfaces1 = interfaces, interfaces = NULL;
 }
 
+/**
+## Tracer Advection event
+
+We use the directionally-split advection procedure in order
+to resolve the convective transport of the scalar fields,
+through the use of the dummy tracers *fu* and *fuext* which
+exploit the velocity $\mathbf{u}_f$ and $\mathbf{u}_f^E$
+respectively.
+*/
+
 event tracer_advection (i++)
 {
   /**
@@ -273,6 +308,10 @@ event tracer_advection (i++)
   }
   boundary((scalar *){uf});
 
+  /**
+  We call the vof_advection function to transport
+  the volume fraction *fuext* and associated tracers. */
+
   vof_advection ({fuext}, i);
   boundary({fuext});
 
@@ -281,20 +320,15 @@ event tracer_advection (i++)
   boundary({uf});
 
   /**
-  First we store the velocity field $\mathbf{uf}$ which contains
-  the Stefan convection and we add the interface regression
-  velocity contribution $\mathbf{vpc}$. */
-
-  /**
-  We call the vof_advection function that transports the
-  volume fraction fu and the associated tracers. */
+  We call the vof_advection function to transport
+  the volume fraction *fu* and associated tracers. */
 
   vof_advection ({fu}, i);
   boundary({fu});
 
   /**
   We restore the original list of interfaces, which is
-  required by [tension.h]. */
+  required by [tension.h](src/tension.h). */
 
   interfaces = interfaces1;
 }

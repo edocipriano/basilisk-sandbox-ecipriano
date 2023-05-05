@@ -53,6 +53,68 @@ scalar pfext[];
 face vector ufext[];
 
 /**
+## Helper functions
+
+We define the function that performs the projection
+step with the volume expansion term due to the phase
+change. */
+
+extern scalar stefanflowext;
+
+trace
+mgstats project_sfext (struct Project q)
+{
+  face vector uf = q.uf;
+  scalar p = q.p;
+  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
+  double dt = q.dt ? q.dt : 1.;
+  int nrelax = q.nrelax ? q.nrelax : 4;
+  
+  /**
+  We allocate a local scalar field and compute the divergence of
+  $\mathbf{u}_f$. The divergence is scaled by *dt* so that the
+  pressure has the correct dimension. */
+
+  scalar div[];
+  foreach() {
+    div[] = 0.;
+    foreach_dimension()
+      div[] += uf.x[1] - uf.x[];
+    div[] /= dt*Delta;
+  }
+
+  /**
+  We add the volume expansion contribution. */
+
+  foreach() {
+    div[] += stefanflowext[]/dt;
+#ifdef VARPROP
+    div[] += drhodt[]/dt;
+#endif
+  }
+
+  /**
+  We solve the Poisson problem. The tolerance (set with *TOLERANCE*) is
+  the maximum relative change in volume of a cell (due to the divergence
+  of the flow) during one timestep i.e. the non-dimensional quantity 
+  $$
+  |\nabla\cdot\mathbf{u}_f|\Delta t 
+  $$ 
+  Given the scaling of the divergence above, this gives */
+
+  mgstats mgp = poisson (p, div, alpha,
+       tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
+
+  /**
+  And compute $\mathbf{u}_f^{n+1}$ using $\mathbf{u}_f$ and $p$. */
+
+  foreach_face()
+    uf.x[] -= dt*alpha.x[]*face_gradient_x (p, 0);
+
+  return mgp;
+}
+
+/**
 In the case of variable density, the user will need to define both the
 face and centered specific volume fields ($\alpha$ and $\alpha_c$
 respectively) i.e. $1/\rho$. If not specified by the user, these
@@ -305,7 +367,7 @@ event advection_term (i++,last)
 {
   if (!stokes) {
     prediction_ext();
-    mgpf = project (ufext, pfext, alpha, dt/2., mgpf_ext.nrelax);
+    mgpf = project_sfext (ufext, pfext, alpha, dt/2., mgpf_ext.nrelax);
     advection ((scalar *){uext}, ufext, dt, (scalar *){gext});
   }
 }
@@ -408,7 +470,7 @@ next timestep). Then compute the centered gradient field *g*. */
 
 event projection (i++,last)
 {
-  mgp_ext = project (ufext, pext, alpha, dt, mgp_ext.nrelax);
+  mgp_ext = project_sfext (ufext, pext, alpha, dt, mgp_ext.nrelax);
   centered_gradient (pext, gext);
 
   /**

@@ -10,10 +10,10 @@ the following balance:
 
 $$
 \dot{m}_{Evap} \Delta h_{ev} =
-    \mathbf{\dot{q}}_L \cdot \mathbf{n_\Gamma}
-  + \mathbf{\dot{q}}_G \cdot \mathbf{n_\Gamma} =
-  - \lambda_L \nabla T_L \cdot \mathbf{n_\Gamma}
-  - \lambda_G \nabla T_G \cdot \mathbf{n_\Gamma}
+    \mathbf{\dot{q}}_l \cdot \mathbf{n_\Gamma}
+  + \mathbf{\dot{q}}_g \cdot \mathbf{n_\Gamma} =
+  - \lambda_l \left.\dfrac{\partial T_l}{\partial \mathbf{n}_\Gamma}\right\vert_l
+  - \lambda_g \left.\dfrac{\partial T_g}{\partial \mathbf{n}_\Gamma}\right\vert_g
 $$
 
 where $\lambda$ is the thermal conductivity, $\Delta h_{ev}$
@@ -178,8 +178,8 @@ event phasechange (i++)
       double area = plane_area_center (n, alpha, &p);
       normalize (&n);
 
-      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TIntVal, &success);
-      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, TIntVal, &success);
+      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TIntVal, false);
+      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, TIntVal, false);
 
       double lheatflux = lambda1*ltrgrad;
       double gheatflux = lambda2*gtrgrad;
@@ -258,6 +258,68 @@ event tracer_diffusion (i++)
   face_fraction (fL, fsL);
   face_fraction (fG, fsG);
 
+#ifdef MODIFIED_DIFFUSION
+  vector pcs1[], pcs2[];
+
+  foreach() {
+    if (fL[] > F_ERR && fL[] < 1.-F_ERR) {
+      coord m = mycs (point, fL); 
+      double alpha = plane_alpha (fL[], m); 
+      coord prel;
+      plane_area_center (m, alpha, &prel);
+      coord pc; 
+      plane_center (m, alpha, fL[], &pc);
+
+      pcs1.x[] = x + pc.x*Delta;
+      pcs1.y[] = y + pc.y*Delta;
+      pcs1.z[] = z + pc.z*Delta;
+    }
+    else {
+      pcs1.x[] = x;
+      pcs1.y[] = y;
+      pcs1.z[] = z;
+    }
+
+    if (fG[] > F_ERR && fG[] < 1.-F_ERR) {
+      coord m = mycs (point, fG); 
+      double alpha = plane_alpha (fG[], m); 
+      coord prel;
+      plane_area_center (m, alpha, &prel);
+      coord pc; 
+      plane_center (m, alpha, fG[], &pc);
+
+      pcs2.x[] = x + pc.x*Delta;
+      pcs2.y[] = y + pc.y*Delta;
+      pcs2.z[] = z + pc.z*Delta;
+    }
+    else {
+      pcs2.x[] = x;
+      pcs2.y[] = y;
+      pcs2.z[] = z;
+    }
+  }
+
+  face vector corrdist1[], corrdist2[];
+  foreach_face() {
+    corrdist1.x[] = Delta/fabs (pcs1.x[] - pcs1.x[-1]);
+    corrdist2.x[] = Delta/fabs (pcs2.x[] - pcs2.x[-1]);
+
+    // check: Palmore version, I don't think it's correct
+
+    //double magdist1 = 0., magdist2 = 0.;
+    //foreach_dimension() {
+    //  magdist1 += sq (pcs1.x[] - pcs1.x[-1]);
+    //  magdist2 += sq (pcs2.x[] - pcs2.x[-1]);
+    //}
+    //magdist1 = sqrt (magdist1);
+    //magdist2 = sqrt (magdist2);
+
+    //corrdist1.x[] = Delta*(pcs1.x[] - pcs1.x[-1])/magdist1;
+    //corrdist2.x[] = Delta*(pcs2.x[] - pcs2.x[-1])/magdist2;
+  }
+  boundary({corrdist2});
+#endif
+
   /**
   We solve the diffusion equations, confined by means of
   the face fraction fields *fsL* and *fsG*. */
@@ -265,6 +327,10 @@ event tracer_diffusion (i++)
   foreach_face() {
     lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
     lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
+#ifdef MODIFIED_DIFFUSION
+    lambda1f.x[] *= corrdist1.x[];  
+    lambda2f.x[] *= corrdist2.x[];
+#endif
   }
   boundary((scalar *){lambda1f,lambda2f});
 

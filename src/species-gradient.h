@@ -10,10 +10,11 @@ vapor pressure). Therefore, the vaporization rate is computed
 from the following balance:
 
 $$
-\dot{m}_{Evap} = -\rho_G D_G \dfrac{\nabla Y_G \cdot \mathbf{n_\Gamma}}{1 - \hat{Y}_G}
+\dot{m}_{Evap} = -\dfrac{\rho_g\mathcal{D}_g}{1-\hat{Y}_G}
+\left.\dfrac{\partial T}{\partial \mathbf{n}_\Gamma}\right\vert_g
 $$
 
-where $D_G$ is the diffusivity coefficient in the gas phase,
+where $\mathcal{D}_G$ is the diffusivity coefficient in the gas phase,
 while $\hat{Y}_G$ is the saturation mass fraction on the
 gas phase side. If *DIFFUSIVE* conditions are defined, the
 stefan convection is neglected from the mass balance, and
@@ -21,7 +22,8 @@ the vaporization rate is computed with the same formula
 but neglecting the denominator:
 
 $$
-\dot{m}_{Evap} = -\rho_G D_G \nabla Y_G \cdot \mathbf{n_\Gamma}
+\dot{m}_{Evap} = -\rho_g\mathcal{D}_g
+\left.\dfrac{\partial T}{\partial \mathbf{n}_\Gamma}\right\vert_g
 $$
 
 which results in a vaporization rate proportional to the diffusive

@@ -24,9 +24,23 @@ external dependencies:
 
 #pragma autolink -L$OPENSMOKE_INTERFACE/build -lopensmoke
 
+/**
+## User Data
+
+The variable *kinfolder*, with the path of the kinetic scheme folder
+relative to the path $OPENSMOKE_INTERFACE/kinetics, must be set by the
+user.
+*/
+
+char * kinfolder;
+
 event defaults (i = 0)
 {
-  OpenSMOKE_ReadKinetics();
+  char kinfolder_root[120];
+  sprintf (kinfolder_root, "%s/kinetics/%s/kinetics",
+      getenv ("OPENSMOKE_INTERFACE"), kinfolder);
+
+  OpenSMOKE_ReadKinetics (kinfolder_root);
   //OpenSMOKE_ReadLiquidKinetics();
   //OpenSMOKE_ReadLiquidProperties();
 }
@@ -51,3 +65,4 @@ event cleanup (t = end)
 }
 ~~~
 */
+

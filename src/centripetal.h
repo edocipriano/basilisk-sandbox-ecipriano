@@ -3,9 +3,9 @@
 
 Implementation of the method proposed by [Saufi et al. 2019](#saufi2019dropletsmoke)
 that allows to suspend liquid droplets on a specific point of the domain.
-The idea is to remove the surface tension, and to use an artificial
-suspending force to maintain the center of the droplet approximately at
-the same coordinate, also when the gravity force is present.
+The idea is to to use an artificial suspending force to maintain
+the center of the droplet approximately at the same coordinate,
+also when the gravity force is present.
 
 This method defines a centripetal potential as:
 $$

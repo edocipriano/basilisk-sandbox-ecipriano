@@ -44,7 +44,7 @@ coord normal (Point point, scalar c)
 }
 
 /**
-## *mass2molefrac()*: Compute mole fractions from mass fractions:
+## *mass2molefrac()*: Compute mole fractions from mass fractions
 
 * *X*: vector filled with mole fractions
 * *W*: vector with the mass fractions
@@ -64,7 +64,7 @@ void mass2molefrac (double * X, const double * W, const double * MW, const int N
 }
 
 /**
-## *mole2massfrac()*: Compute mass fractions from mole fractions:
+## *mole2massfrac()*: Compute mass fractions from mole fractions
 
 * *W*: vector filled with mole fractions
 * *X*: vector with the mass fractions
@@ -84,7 +84,45 @@ void mole2massfrac (double * W, const double * X, const double * MW, const int N
 }
 
 /**
-## *avg_neighbor()*: Compute the average value of a scalar field Y in a 3x3 stencil around the current cell. */
+## *mass2mw()*: Compute mixture molecular weight from mass fractions
+
+* *W*: vector with the mass fractions
+* *MW*: vector with the molecular weights of each species
+* *NS*: total number of species (vectors length)
+*/
+
+double mass2mw (const double * W, const double * MW, const int NS)
+{
+  double MWmix = 0.;
+  for (int i=0; i<NS; i++) {
+    MWmix += W[i]/MW[i];
+  }
+  return 1./(MWmix + 1.e-10);
+}
+
+/**
+## *mole2mw()*: Compute mixture molecular weight from mole fractions
+
+* *X*: vector with the mass fractions
+* *MW*: vector with the molecular weights of each species
+* *NS*: total number of species (vectors length)
+*/
+
+double mole2mw (const double * X, const double * MW, const int NS)
+{
+  double MWmix = 0.;
+  for (int i=0; i<NS; i++) {
+    MWmix += X[i]*MW[i];
+  }
+  return MWmix;
+}
+
+/**
+## *avg_neighbor()*: Compute the average value of a scalar field Y in a 3x3 stencil around the current cell
+* *point*: current cell location
+* *Y*: field to average
+* *f*: vof volume fraction field
+*/
 
 double avg_neighbor (Point point, scalar Y, scalar f) {
   double fYnei = 0., fnei = 0.;
@@ -96,7 +134,10 @@ double avg_neighbor (Point point, scalar Y, scalar f) {
 }
 
 /**
-## *avg_interface()*: Compute the average value of a scalar field Y in a region around the interface. */
+## *avg_interface()*: Compute the average value of a scalar field Y in a region around the interface
+* *Y*: fields to average
+* *f*: vof volume fraction field
+*/
 
 double avg_interface (scalar Y, scalar f) {
   double Yavg = 0.;
@@ -108,5 +149,197 @@ double avg_interface (scalar Y, scalar f) {
     }
   }
   return Yavg / counter;
+}
+
+/**
+## *smooth_field()*: Smooth a discontinuous field, from sf calculation in two-phase.h
+
+* *sf*: smoothed scalar field
+* *f*: initial scalar field
+* *ncycles*: number of smoothing cycles
+*/
+
+//void smooth_field (scalar sf, scalar f, int ncycles) {
+//  for (int i=0; i<ncycles; i++) {
+//#if dimension <= 2
+//    foreach()
+//      sf[] = (4.*f[] + 
+//        2.*(f[0,1] + f[0,-1] + f[1,0] + f[-1,0]) +
+//        f[-1,-1] + f[1,-1] + f[1,1] + f[-1,1])/16.;
+//#else // dimension == 3
+//    foreach()
+//      sf[] = (8.*f[] +
+//        4.*(f[-1] + f[1] + f[0,1] + f[0,-1] + f[0,0,1] + f[0,0,-1]) +
+//        2.*(f[-1,1] + f[-1,0,1] + f[-1,0,-1] + f[-1,-1] + 
+//      f[0,1,1] + f[0,1,-1] + f[0,-1,1] + f[0,-1,-1] +
+//      f[1,1] + f[1,0,1] + f[1,-1] + f[1,0,-1]) +
+//        f[1,-1,1] + f[-1,1,1] + f[-1,1,-1] + f[1,1,1] +
+//        f[1,1,-1] + f[-1,-1,-1] + f[1,-1,-1] + f[-1,-1,1])/64.;
+//#endif
+//    foreach()
+//      f[] = sf[];
+//  }
+//}
+
+/**
+## *shift_field()*: Shift a field localized at the interface toward the closest pure gas or liquid cells
+
+* *fts*: field to shift
+* *f*: vof volume fraction field
+* *dir*: shifting direction: 1 liquid, gas otherwise
+*/
+
+void shift_field (scalar fts, scalar f, int dir) {
+
+  scalar avg[];
+#if TREE
+  avg.refine = avg.prolongation = refinement_avg;
+  avg.restriction = no_restriction;
+  avg.dirty = true;
+#endif
+
+  // Compute avg
+  foreach() {
+    avg[] = 0.;
+    if (f[] > F_ERR && f[] < 1. - F_ERR) {
+      if (dir == 1) {
+        int count = 0;
+        foreach_neighbor (1) {
+          if (f[] > 1.-F_ERR) // Number of pure-liquid cells close to the interfacial cell
+            count ++;
+        }
+        avg[] = count;
+      }
+      else {
+        int count = 0;
+        foreach_neighbor (1) {
+          if (f[] < F_ERR) // Number of pure-gas cells close to the interfacial cell
+            count ++;
+        }
+        avg[] = count;
+      }
+    }
+  }
+
+  scalar sf0[];
+  foreach() {
+    sf0[] = fts[];
+    fts[] = 0.;
+  }
+  boundary({sf0,fts});
+
+  // Compute m
+  foreach() {
+    if (dir == 1) {
+      if (f[] > 1.-F_ERR) { // Move toward pure-liquid
+        double val = 0.;
+        foreach_neighbor (1) {
+          if (f[] > F_ERR && f[] < 1. - F_ERR && avg[] > 0) {
+            val += sf0[]/avg[];
+          }
+        }
+        fts[] = val;
+      }
+      else {
+        fts[] = 0.;
+      }
+    }
+    else {
+      if (f[] < F_ERR) { // Move toward pure-gas
+        double val = 0.;
+        foreach_neighbor (1) {
+          if (f[] > F_ERR && f[] < 1. - F_ERR && avg[] > 0) {
+            val += sf0[]/avg[];
+          }
+        }
+        fts[] = val;
+      }
+      else {
+        fts[] = 0.;
+      }
+    }
+  }
+}
+
+/**
+## *distribute_field()*: Distribute a field localized at the interface in the closest pure gas or liquid cells (5x5 stencil)
+*/
+
+void distribute_field (scalar ftd, scalar f, int dir) {
+  scalar mdisttot[], df[];
+  vector mf[];
+  foreach() {
+    mdisttot[] = 0.;
+    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+      coord m = mycs (point, f);
+      coord n = normal (point, f);
+      double alpha = plane_alpha (f[], m);
+      coord prel;
+      plane_area_center (m, alpha, &prel);
+      foreach_dimension()
+        mf.x[] = m.x;
+
+      double mdisttothere = 0.;
+      foreach_neighbor (2) {
+        if ( (f[] > 1.-F_ERR && dir == 1) || (f[] < F_ERR && dir != 1 ) ) {
+          coord dist;
+          foreach_dimension()
+            dist.x = prel.x - x;
+          double magdist = 0.;
+          foreach_dimension()
+            magdist += sq (dist.x);
+          magdist = sqrt (magdist);
+          double epsi = 0.;
+          foreach_dimension()
+            epsi += fabs (dist.x*n.x);
+          mdisttothere += epsi/magdist;
+        }
+      }
+      mdisttot[] = mdisttothere;
+    }
+  }
+
+  foreach() {
+    df[] = 0.;
+    if ( (f[] > 1.-F_ERR && dir == 1) || (f[] < F_ERR && dir != 1 ) ) {
+      double dfhere = 0.;
+      foreach_neighbor (2) {
+        if (f[] > F_ERR && f[] < 1.-F_ERR) {
+          coord m, n;
+          foreach_dimension() {
+            m.x = mf.x[];
+            n.x = mf.x[];
+          }
+          double nnorm = 0.;
+          foreach_dimension()
+            nnorm += sq (n.x);
+          nnorm = sqrt (nnorm);
+          foreach_dimension()
+            n.x /= nnorm;
+          double alpha = plane_alpha (f[], m);
+          coord prel;
+          plane_area_center (m, alpha, &prel);
+
+          coord dist;
+          foreach_dimension()
+            dist.x = prel.x - x;
+          double magdist = 0.;
+          foreach_dimension()
+            magdist += sq (dist.x);
+          magdist = sqrt (magdist);
+          double epsi = 0.;
+          foreach_dimension()
+            epsi += fabs (dist.x*n.x);
+          double mdist = epsi/magdist;
+
+          dfhere += ftd[]*mdist/mdisttot[];
+        }
+      }
+      df[] += dfhere;
+    }
+  }
+
+  foreach()
+    ftd[] = df[];
 }
 

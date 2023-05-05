@@ -84,4 +84,5 @@ event set_spark (i++) {
   publisher={ACS Publications}
 }
 ~~~
+*/
 
