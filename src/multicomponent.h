@@ -187,11 +187,11 @@ scalar f0[];
 scalar divu[], fold[];
 
 /**
-## Defaults Event
+## Defaults
 
-The lists containing the species are initialized from
-the lists of species names in gas and liquid phase.
-The tracers are assigned in this event.
+In the defaults event, the lists containing the species
+are initialized from the lists of species names in gas
+and liquid phase. The tracers are assigned in this event.
 */
 
 event defaults (i = 0)
@@ -446,10 +446,10 @@ event defaults (i = 0)
 }
 
 /**
-## Init Event
+## Init
 
-We initialize the temperature and chemical species
-and set to zero additional fields. */
+In the init event, We initialize the temperature and
+chemical species and set to zero additional fields. */
 
 event init (i = 0)
 {
@@ -531,7 +531,7 @@ event init (i = 0)
 }
 
 /**
-## Cleanup Event
+## Cleanup
 
 We deallocate the various lists from the memory. */
 
@@ -557,7 +557,7 @@ event cleanup (t = end)
 }
 
 /**
-## Phase Change Event
+## Phase Change
 
 In the *phasechange* event, the vaporization rate is computed
 and the diffusion step for the mass fraction field (in liquid

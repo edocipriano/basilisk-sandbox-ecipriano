@@ -39,11 +39,13 @@ intensity of the suspending force *eps*.
 struct SuspendingForceModel {
   coord p;
   double eps;
+  double sigma;
 };
 
 struct SuspendingForceModel sfm = {
   .p = {0., 0., 0.},
   .eps = 1.25e-4,
+  .sigma = 0.,
 };
 
 /**
@@ -65,6 +67,43 @@ event init (i = 0) {
     phicentripetal[] = 1./magdistance;
   }
   boundary({phicentripetal});
+}
+
+/**
+## Stability condition
+
+We add the possibility to compute the stability conditions based on
+the time step required for the time-explicit discretization of the
+surface tension force. This allows to have a reliable time-step when
+using this module without surface tension. The coefficient $\sigma$
+is set as *sfm.sigma*. */
+
+event stability (i++)
+{
+
+  /**
+  We first compute the minimum and maximum values of $\alpha/f_m =
+  1/\rho$, as well as $\Delta_{min}$. */
+
+  double amin = HUGE, amax = -HUGE, dmin = HUGE;
+  foreach_face (reduction(min:amin) reduction(max:amax) reduction(min:dmin))
+    if (fm.x[] > 0.) {
+      if (alpha.x[]/fm.x[] > amax) amax = alpha.x[]/fm.x[];
+      if (alpha.x[]/fm.x[] < amin) amin = alpha.x[]/fm.x[];
+      if (Delta < dmin) dmin = Delta;
+    }
+  double rhom = (1./amin + 1./amax)/2.;
+
+  /**
+  The maximum timestep is set using the sum of surface tension
+  coefficients. */
+
+  double sigma = sfm.sigma;
+  if (sigma) {
+    double dt = sqrt (rhom*cube(dmin)/(pi*sigma));
+    if (dt < dtmax)
+      dtmax = dt;
+  }
 }
 
 /**

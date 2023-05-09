@@ -1,5 +1,6 @@
 /**
 # Species Gradient Phase Change Model
+
 This phase change model is suitable for vaporization driven
 by a gradient of chemical species, between the interface
 and the sorrounding gas phase. The vaporization rate (per
@@ -42,10 +43,12 @@ the Stefan convection.
 
 /**
 ## Memory Allocations
+
 This phase change model defines a list of vaporization
 rates *mEvapList* which is populated by a single scalar
 *mEvap* because a single chemical species in liquid phase is
-considered. */
+considered.
+*/
 
 #ifndef PHASECHANGE
 scalar mEvap[];
@@ -74,18 +77,21 @@ face vector fsL[], fsG[];
 #endif
 
 /**
+## Field Allocations
+
 * *Y* one-field mass fraction of the chemical species to be solved
 * *YL* liquid-phase mass fraction
 * *YG* gas-phase mass fraction
-* *YInt* value of mass fraction at the interface (could be avoided)
+* *YInt* value of mass fraction at the interface
 */
 
 scalar Y[], YL[], YG[], YInt[];
 
 /**
 ## User Data
+
 Using this phase change model, the user should define the
-following variables:
+following variables (SI units):
 
 * *Dmix1* Diffusivity coefficient in the liquid phase
 * *Dmix2* Diffusivity coefficient in the gas phase
@@ -105,6 +111,12 @@ scalar thetacorr1[], thetacorr2[];
 scalar sgS[], slS[];
 scalar slimp[], sgimp[];
 
+/**
+## Defaults
+
+In the defaults event we setup the tracer lists for the
+advection of the mass fraction fields. */
+
 event defaults (i = 0,last)
 {
   YL.inverse = false;
@@ -120,18 +132,21 @@ event defaults (i = 0,last)
 
 #ifdef CONSISTENTPHASE1
   fuext.tracers = list_concat (fuext.tracers, liq_tracers);
-  //fu.tracers = list_concat (fu.tracers, liq_tracers);
 #else
   fu.tracers = list_concat (fu.tracers, liq_tracers);
-  //fuext.tracers = list_concat (fuext.tracers, liq_tracers);
 #endif
 #ifdef CONSISTENTPHASE2
-  //f.tracers = list_concat (f.tracers, gas_tracers);
   fuext.tracers = list_concat (fuext.tracers, gas_tracers);
 #else
   fu.tracers = list_concat (fu.tracers, gas_tracers);
 #endif
 }
+
+/**
+## Init
+
+In the init event, we avoid dumping all the fields that we
+don't need to visualize. */
 
 event init (i = 0,last)
 {
@@ -143,6 +158,11 @@ event init (i = 0,last)
   thetacorr2.nodump = true;
 }
 
+/**
+## Finalise
+
+We deallocate the various lists from the memory. */
+
 event finalise (t = end)
 {
   gas_tracers    = NULL;
@@ -153,7 +173,8 @@ event finalise (t = end)
 }
 
 /**
-## Vaporization Rate and Diffusion Equations
+## Phase Change
+
 In the *phasechange* event, the vaporization rate is computed
 and the diffusion step for the mass fraction field (in liquid
 and gas phase) is solved. */
@@ -244,13 +265,21 @@ event phasechange (i++)
   boundary({YL,YG,Y});
 }
 
-event tracer_advection (i++)
-{
-  /**
-  We let the volume fractions *fu* and *fuext* to
-  advect the fields YL and YG, as implemented in
-  the tracer_advection event of [evaporation.h](evaporation.h) */
-}
+/**
+## Tracer Advection
+
+We let the volume fractions *fu* and *fuext* to
+advect the fields YL and YG, as implemented in
+the tracer_advection event of [evaporation.h](evaporation.h)
+*/
+
+event tracer_advection (i++);
+
+/**
+## Tracer Diffusion
+
+We solve the diffusion equations for the mass fraction fields
+accounting for the phase change contributions. */
 
 event tracer_diffusion (i++)
 {

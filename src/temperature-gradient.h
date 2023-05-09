@@ -1,5 +1,6 @@
 /**
 # Temperature Gradient Phase Change Model
+
 This phase change model is suitable for boiling conditions.
 The vaporization rate is computed from an energy balance at
 the interface (in every interfacial cell), assuming that
@@ -31,13 +32,34 @@ the Stefan convection.
 #include "fracface.h"
 #include "diffusion.h"
 
+/**
+## Memory Allocations
+
+This phase change model defines a list of vaporization
+rates *mEvapList* which is populated by a single scalar
+*mEvap* because a single contribution to the vaporization
+rate is considered.
+*/
+
 #ifndef PHASECHANGE
 scalar mEvap[];
 scalar * mEvapList = {mEvap};
 
+/**
+The following list allows different methods for the advection
+of the tracers in liquid and gas phase to be selected. The
+user should not call these lists. */
+
 scalar * gas_tracers = NULL;
 scalar * liq_tracers = NULL;
 scalar * ftracersorig = NULL;
+
+/**
+*fL* and *fG* store the value of volume fractions for the
+calculation of the interface gradients, while the vectors
+*fsL* and *fsG* contain the face fraction fields computed
+using the [fracface.h](/sandbox/ecipriano/src/fracface.h)
+module. */
 
 scalar fL[], fG[], f0[];
 face vector fsL[], fsG[];
@@ -46,7 +68,30 @@ face vector s[];
 # define PHASECHANGE
 #endif
 
+/**
+## Field Allocations
+
+* *T* one-field temperature
+* *TL* liquid-phase temperature field
+* *TG* gas-phase temperature field
+* *TInt* value of temperature at the interface
+*/
+
 scalar T[], TL[], TG[], TInt[];
+
+/**
+## User Data
+
+Using this phase change model, the user should define the
+following variables (SI units):
+
+* *lambda1* Thermal conductivity in liquid phase
+* *lambda2* Thermal conductivity in gas phase
+* *dhev* Latent heat of vaporization
+* *cp1* Specific heat capacity in liquid phase
+* *cp2* Specific heat capacity in gas phase
+* *TIntVal* Interface temperature value
+*/
 
 extern double lambda1, lambda2, dhev, cp1, cp2;
 extern double TIntVal;
@@ -59,6 +104,12 @@ the diffusion equation. */
 face vector lambda1f[], lambda2f[];
 scalar thetacorr1[], thetacorr2[];
 scalar sgT[], slT[], sgTimp[], slTimp[];
+
+/**
+## Defaults
+
+In the defaults event we setup the tracer lists for the
+advection of the temperature fields. */
 
 event defaults (i = 0,last)
 {
@@ -74,20 +125,22 @@ event defaults (i = 0,last)
   ftracersorig = f.tracers;
 
 #ifdef CONSISTENTPHASE1
-  //f.tracers = list_concat (f.tracers, liq_tracers);
   fuext.tracers = list_concat (fuext.tracers, liq_tracers);
 #else
-  //f.tracers = list_concat (f.tracers, liq_tracers);
   fu.tracers = list_concat (fu.tracers, liq_tracers);
 #endif
 #ifdef CONSISTENTPHASE2
-  //f.tracers = list_concat (f.tracers, gas_tracers);
   fuext.tracers = list_concat (fuext.tracers, gas_tracers);
 #else
-  //f.tracers = list_concat (f.tracers, gas_tracers);
   fu.tracers = list_concat (fu.tracers, gas_tracers);
 #endif
 }
+
+/**
+## Init
+
+In the init event, we avoid dumping all the fields that we
+don't need to visualize. */
 
 event init (i = 0,last)
 {
@@ -99,6 +152,11 @@ event init (i = 0,last)
   thetacorr2.nodump = true;
 }
 
+/**
+## Finalise
+
+We deallocate the various lists from the memory. */
+
 event finalise (t = end)
 {
   gas_tracers    = NULL;
@@ -109,8 +167,10 @@ event finalise (t = end)
 }
 
 /**
+## Phase Change
+
 In the *phasechange* event, the vaporization rate is computed
-and the diffusion step for the temperature field (in liquid
+and the diffusion step for the mass fraction field (in liquid
 and gas phase) is solved. */
 
 event phasechange (i++)
@@ -183,19 +243,13 @@ event phasechange (i++)
 
       double lheatflux = lambda1*ltrgrad;
       double gheatflux = lambda2*gtrgrad;
-      //double lheatflux = mEvapTot[]*dhev;
-      //double gheatflux = mEvapTot[]*dhev;
 
 #ifdef AXI
       slT[] = lheatflux/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
       sgT[] = gheatflux/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      //slT[] = mEvap[]*dhev/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      //sgT[] = mEvap[]*dhev/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
       slT[] = lheatflux/rho1/cp1*area/Delta*cm[];
       sgT[] = gheatflux/rho2/cp2*area/Delta*cm[];
-      //slT[] = mEvap[]*dhev/rho1/cp1*area/Delta*cm[]*f[];
-      //sgT[] = mEvap[]*dhev/rho2/cp2*area/Delta*cm[]*(1. - f[]);
 #endif
     }
   }
@@ -212,13 +266,21 @@ event phasechange (i++)
   boundary({TL,TG,T});
 }
 
-event tracer_advection (i++)
-{
-  /**
-  We let the volume fractions *fu* and *fuext* to
-  advect the fields TL and TG, as implemented in
-  the tracer_advection event of [evaporation.h](evaporation.h) */
-}
+/**
+## Tracer Advection
+
+We let the volume fractions *fu* and *fuext* to
+advect the fields YL and YG, as implemented in
+the tracer_advection event of [evaporation.h](evaporation.h)
+*/
+
+event tracer_advection (i++);
+
+/**
+## Tracer Diffusion
+
+We solve the diffusion equations for the temperature fields
+accounting for the phase change contributions. */
 
 event tracer_diffusion (i++)
 {
@@ -258,68 +320,6 @@ event tracer_diffusion (i++)
   face_fraction (fL, fsL);
   face_fraction (fG, fsG);
 
-#ifdef MODIFIED_DIFFUSION
-  vector pcs1[], pcs2[];
-
-  foreach() {
-    if (fL[] > F_ERR && fL[] < 1.-F_ERR) {
-      coord m = mycs (point, fL); 
-      double alpha = plane_alpha (fL[], m); 
-      coord prel;
-      plane_area_center (m, alpha, &prel);
-      coord pc; 
-      plane_center (m, alpha, fL[], &pc);
-
-      pcs1.x[] = x + pc.x*Delta;
-      pcs1.y[] = y + pc.y*Delta;
-      pcs1.z[] = z + pc.z*Delta;
-    }
-    else {
-      pcs1.x[] = x;
-      pcs1.y[] = y;
-      pcs1.z[] = z;
-    }
-
-    if (fG[] > F_ERR && fG[] < 1.-F_ERR) {
-      coord m = mycs (point, fG); 
-      double alpha = plane_alpha (fG[], m); 
-      coord prel;
-      plane_area_center (m, alpha, &prel);
-      coord pc; 
-      plane_center (m, alpha, fG[], &pc);
-
-      pcs2.x[] = x + pc.x*Delta;
-      pcs2.y[] = y + pc.y*Delta;
-      pcs2.z[] = z + pc.z*Delta;
-    }
-    else {
-      pcs2.x[] = x;
-      pcs2.y[] = y;
-      pcs2.z[] = z;
-    }
-  }
-
-  face vector corrdist1[], corrdist2[];
-  foreach_face() {
-    corrdist1.x[] = Delta/fabs (pcs1.x[] - pcs1.x[-1]);
-    corrdist2.x[] = Delta/fabs (pcs2.x[] - pcs2.x[-1]);
-
-    // check: Palmore version, I don't think it's correct
-
-    //double magdist1 = 0., magdist2 = 0.;
-    //foreach_dimension() {
-    //  magdist1 += sq (pcs1.x[] - pcs1.x[-1]);
-    //  magdist2 += sq (pcs2.x[] - pcs2.x[-1]);
-    //}
-    //magdist1 = sqrt (magdist1);
-    //magdist2 = sqrt (magdist2);
-
-    //corrdist1.x[] = Delta*(pcs1.x[] - pcs1.x[-1])/magdist1;
-    //corrdist2.x[] = Delta*(pcs2.x[] - pcs2.x[-1])/magdist2;
-  }
-  boundary({corrdist2});
-#endif
-
   /**
   We solve the diffusion equations, confined by means of
   the face fraction fields *fsL* and *fsG*. */
@@ -327,10 +327,6 @@ event tracer_diffusion (i++)
   foreach_face() {
     lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
     lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
-#ifdef MODIFIED_DIFFUSION
-    lambda1f.x[] *= corrdist1.x[];  
-    lambda2f.x[] *= corrdist2.x[];
-#endif
   }
   boundary((scalar *){lambda1f,lambda2f});
 
@@ -340,23 +336,10 @@ event tracer_diffusion (i++)
   }
   boundary({thetacorr1,thetacorr2});
 
-  foreach() {
-    //slTimp[] = -(f[] - f0[])/dt;
-    slTimp[] = (f[] - f0[])/dt;
-    sgTimp[] = -(f0[] - f[])/dt;
-#ifdef AXI
-    slTimp[] *= y;
-    sgTimp[] *= y;
-#endif
-  }
-  boundary({slTimp,sgTimp});
-
 #ifndef SOLVE_LIQONLY
-  //diffusion (TG, dt, D=lambda2f, r=sgT, beta=sgTimp, theta=thetacorr2);
   diffusion (TG, dt, D=lambda2f, r=sgT, theta=thetacorr2);
 #endif
 #ifndef SOLVE_GASONLY
-  //diffusion (TL, dt, D=lambda1f, r=slT, beta=slTimp, theta=thetacorr1);
   diffusion (TL, dt, D=lambda1f, r=slT, theta=thetacorr1);
 #endif
 

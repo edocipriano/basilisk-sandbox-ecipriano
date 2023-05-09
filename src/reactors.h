@@ -27,6 +27,8 @@ $$
 This procedure is managed by the OpenSMOKE++ library ([opensmoke.h](opensmoke.h)).
 */
 
+#include "radiation.h"
+
 /**
 ## User Data
 Structure that gathers arguments that can be used inside the batch
@@ -142,6 +144,12 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   }
   rho = ctot*MWMix;
 
+  OpticallyThinProperties otp;
+  otp.T = Temperature;
+  otp.P = Pressure;
+  otp.xH2O = molefracs[otm.indexH2O];
+  otp.xCO2 = molefracs[otm.indexCO2];
+
   ///**
   //Define array with concentrations of every chemical
   //species (must be computed), and array with reaction
@@ -174,7 +182,8 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   equation for the temperature. */
 
   double QR = OpenSMOKE_GasProp_HeatRelease (ri);
-  dy[OpenSMOKE_NumberOfSpecies()] = QR/rho/cp;
+  dy[OpenSMOKE_NumberOfSpecies()] = (QR + divq_rad (&otp))/rho/cp;
+  //dy[OpenSMOKE_NumberOfSpecies()] = QR/rho/cp;
 }
 
 /**

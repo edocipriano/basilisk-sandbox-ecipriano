@@ -65,12 +65,15 @@ We compute the radiation according to the optically-thin model. */
 double optically_thin (void * p) {
 
   /**
-  We extract the data from the void pointer. */
+  We extract the data from the void pointer. We limit the temperature
+  to 2500K because it's the range of reliability of the Plank-mean
+  absorption coefficients. Normally the temperature is not higher than
+  that, but when the spark is present it can give problems. */
 
   OpticallyThinProperties * otp;
   otp = (OpticallyThinProperties *)p;
 
-  double T = otp->T, P = otp->P;
+  double T = otp->T, P = otp->P, uT = 1000./T;
   double xCO2 = otp->xCO2, xH2O = otp->xH2O;
 
   /**
@@ -82,18 +85,24 @@ double optically_thin (void * p) {
   We compute the Plank-mean absorption coefficients using
   coefficients from [NIST](#grosshandler1993radcal). */
 
-  double apCO2 = 18.741 - 121.310*(1000./T) + 273.500*pow (1000./T, 2.)
-    - 194.050*pow (1000./T, 3.) + 56.310*pow (1000./T, 4.) - 5.8169*pow (1000./T, 5.);
+  //double apCO2 = 18.741 - 121.310*(1000./T) + 273.500*pow (1000./T, 2.)
+  //  - 194.050*pow (1000./T, 3.) + 56.310*pow (1000./T, 4.) - 5.8169*pow (1000./T, 5.);
+  //double apH2O = - 0.23093 - 1.12390*(1000./T) + 9.41530*pow (1000./T, 2.)
+  //  - 2.99880*pow (1000./T, 3.) + 0.51382*pow (1000./T, 4.) - 1.86840e-5*pow (1000./T, 5.);
 
-  double apH2O = - 0.23093 - 1.12390*(1000./T) + 9.41530*pow (1000./T, 2.)
-    - 2.99880*pow (1000./T, 3.) + 0.51382*pow (1000./T, 4.) - 1.86840e-5*pow (1000./T, 5.);
+  /**
+  We try to use the following correlations ([Chu 2014](#chu2014calculations)),
+  that do not degenerate above 2500K. */
+
+  double apCO2 = 18.741 +uT*(-121.31+uT*(273.5 +uT*(-194.05 +uT*( 56.31 + uT*(-5.8169)))));
+  double apH2O = -0.23093 + uT*(-1.1239 + uT*(9.4153 + uT*(-2.9988 + uT*(0.51382 + uT*(-1.8684e-5)))));
 
   double sum_pa = (apCO2*xCO2 + apH2O*xH2O)*P;
 
   /**
   We return the flux of radiant energy. */
 
-  return 4.*STEFAN_BOLTZMANN*sum_pa*( pow (T, 4.) - pow (300., 4.) );
+  return -4.*STEFAN_BOLTZMANN*sum_pa*( pow (T, 4.) - pow (300., 4.) );
 }
 
 /**
@@ -150,6 +159,15 @@ event init (i = 0) {
   journal={Calculations in a Combustion Environment, NIST Technical Note},
   volume={1402},
   year={1993}
+}
+@article{chu2014calculations,
+  title={Calculations of narrow-band transimissities and the Planck mean absorption coefficients of real gases using line-by-line and statistical narrow-band models},
+  author={Chu, Huaqiang and Gu, Mingyan and Zhou, Huaichun and Liu, Fengshan},
+  journal={Frontiers in Energy},
+  volume={8},
+  pages={41--48},
+  year={2014},
+  publisher={Springer}
 }
 ~~~
 

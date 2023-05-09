@@ -15,6 +15,7 @@ functions that can be called from Basilisk. It can be downloaded
 from [github](https://github.com/edocipriano/OpenSMOKEppInterface)
 and it can be easily compiled using cmake, provided the following
 external dependencies: 
+[OpenSMOKE++](#cuoci2015opensmoke++), 
 [boost](https://www.boost.org/), 
 [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page), 
 [libconfig++](https://github.com/hyperrealm/libconfig).
