@@ -263,7 +263,7 @@ event vof (i++)
   }
   boundary((scalar*){uf});
 
-  // fixme: it can be useful to compute the stability
+  // It can be useful to compute the stability
   // conditions based on this modified velocity
   event ("stability");
 
@@ -332,7 +332,4 @@ event tracer_advection (i++)
 
   interfaces = interfaces1;
 }
-
-event logfile (i++,last);
-event movie (i++,last);
 
