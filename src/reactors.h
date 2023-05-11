@@ -70,16 +70,24 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
   OpenSMOKE_GasProp_SetPressure (Pressure);
 
   /**
-  Define array with concentrations of every chemical
-  species (must be computed), and array with reaction
-  rate (can be null). */
+  We create a vector with the mass fractions and we
+  convert it to mole fractions. */
 
+  double massfracs[NGS], molefracs[NGS];
+  for (int jj=0; jj<NGS; jj++) {
+    massfracs[jj] = y[jj];
+  }
+
+  mass2molefrac (molefracs, massfracs, inMW, NGS);
+  double MWMix = mass2mw (massfracs, inMW, NGS);
+
+  double ctot = Pressure/(R_GAS*1000.)/Temperature;
   double ci[NGS], ri[NGS];
   for (int jj=0; jj<NGS; jj++) {
-    ci[jj] = y[jj]*rho/OpenSMOKE_MW(jj);
-    ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
+    ci[jj] = ctot*molefracs[jj];
     ri[jj] = 0.;
   }
+  rho = ctot*MWMix;
 
   /**
   Compute the kinetic constant, reaction rates,
@@ -150,18 +158,6 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   otp.xH2O = molefracs[otm.indexH2O];
   otp.xCO2 = molefracs[otm.indexCO2];
 
-  ///**
-  //Define array with concentrations of every chemical
-  //species (must be computed), and array with reaction
-  //rate (can be null). */
-
-  //double ci[NGS], ri[NGS];
-  //for (int jj=0; jj<NGS; jj++) {
-  //  ci[jj] = y[jj]*rho/OpenSMOKE_MW(jj);
-  //  ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
-  //  ri[jj] = 0.; 
-  //}
-
   /**
   Compute the kinetic constant, reaction rates,
   and formation rates. */
@@ -178,12 +174,12 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   }
 
   /**
-  Get the heat of reaction and compute the
-  equation for the temperature. */
+  Get the heat of reaction and compute the equation for the
+  temperature. We add non-linear contributions such as the
+  heat dissipated for radiation */
 
   double QR = OpenSMOKE_GasProp_HeatRelease (ri);
   dy[OpenSMOKE_NumberOfSpecies()] = (QR + divq_rad (&otp))/rho/cp;
-  //dy[OpenSMOKE_NumberOfSpecies()] = QR/rho/cp;
 }
 
 /**
