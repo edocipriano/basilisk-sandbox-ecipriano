@@ -129,7 +129,7 @@ event movie (t += 0.001; t <= tend) {
 The centripetal force applied to the interface onlye does
 not lead to liquid internal recirculation of the tracer.
 
-![Evolution of the tracer](centripetal/movie.mp4)(width="800" height="600")
+![Evolution of the tracer](icentripetal/movie.mp4)(width="800" height="600")
 
 Also the velocity field remains stable at lower values
 with respect to the volumetric formulation.
