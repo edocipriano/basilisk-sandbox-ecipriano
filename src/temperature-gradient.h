@@ -68,8 +68,7 @@ face vector s[];
 * *TInt* value of temperature at the interface
 */
 
-scalar T[], TInt[];
-scalar TL, TG;
+scalar T[], TL[], TG[], TInt[];
 
 /**
 ## User Data
@@ -103,11 +102,8 @@ scalar sgT[], slT[], sgTimp[], slTimp[];
 In the defaults event we setup the tracer lists for the
 advection of the temperature fields. */
 
-event defaults (i = 0,last)
+event defaults (i = 0)
 {
-  TL = new scalar;
-  TG = new scalar;
-
   TL.inverse = false;
   TG.inverse = true;
 
@@ -167,7 +163,6 @@ event cleanup (t = end)
 {
   delete (fu.tracers), free (fu.tracers), fu.tracers = NULL;
   delete (fuext.tracers), free (fuext.tracers), fuext.tracers = NULL;
-  delete ({TL,TG});
 }
 
 /**
