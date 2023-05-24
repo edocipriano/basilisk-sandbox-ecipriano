@@ -166,6 +166,8 @@ event init (i = 0) {
 }
 
 /**
+## Post-Processing
+
 We write in the stdout the simulation time, the amount of
 gas in the domain, the Nusselt number from this simulation:
 $$
