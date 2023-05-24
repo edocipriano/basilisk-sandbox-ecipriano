@@ -1,4 +1,4 @@
 include $(BASILISK)/Makefile.defs
 
 # the default CFLAGS are set in $(BASILISK)/config
-CFLAGS += -O2 -DMTRACE=3 -I../src
+CFLAGS += -O2 -I../src
