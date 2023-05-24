@@ -46,15 +46,6 @@ scalar mEvap[];
 scalar * mEvapList = {mEvap};
 
 /**
-The following list allows different methods for the advection
-of the tracers in liquid and gas phase to be selected. The
-user should not call these lists. */
-
-scalar * gas_tracers = NULL;
-scalar * liq_tracers = NULL;
-scalar * ftracersorig = NULL;
-
-/**
 *fL* and *fG* store the value of volume fractions for the
 calculation of the interface gradients, while the vectors
 *fsL* and *fsG* contain the face fraction fields computed
@@ -77,7 +68,8 @@ face vector s[];
 * *TInt* value of temperature at the interface
 */
 
-scalar T[], TL[], TG[], TInt[];
+scalar T[], TInt[];
+scalar TL, TG;
 
 /**
 ## User Data
@@ -113,26 +105,21 @@ advection of the temperature fields. */
 
 event defaults (i = 0,last)
 {
+  TL = new scalar;
+  TG = new scalar;
+
   TL.inverse = false;
   TG.inverse = true;
 
-  gas_tracers = NULL;
-  liq_tracers = NULL;
-
-  gas_tracers = {TG};
-  liq_tracers = {TL};
-
-  ftracersorig = f.tracers;
-
 #ifdef CONSISTENTPHASE1
-  fuext.tracers = list_concat (fuext.tracers, liq_tracers);
+  fuext.tracers = list_append (fuext.tracers, TL);
 #else
-  fu.tracers = list_concat (fu.tracers, liq_tracers);
+  fu.tracers = list_append (fu.tracers, TL);
 #endif
 #ifdef CONSISTENTPHASE2
-  fuext.tracers = list_concat (fuext.tracers, gas_tracers);
+  fuext.tracers = list_append (fuext.tracers, TG);
 #else
-  fu.tracers = list_concat (fu.tracers, gas_tracers);
+  fu.tracers = list_append (fu.tracers, TG);
 #endif
 
   /**
@@ -142,8 +129,8 @@ event defaults (i = 0,last)
 
 #if TREE
 #if EMBED
-      TL.refine = s.prolongation = refine_embed_linear;
-      TG.refine = s.prolongation = refine_embed_linear;
+      TL.refine = TL.prolongation = refine_embed_linear;
+      TG.refine = TG.prolongation = refine_embed_linear;
 #else
       TL.refine  = refine_linear;
       TG.refine  = refine_linear;
@@ -176,13 +163,11 @@ event init (i = 0,last)
 
 We deallocate the various lists from the memory. */
 
-event finalise (t = end)
+event cleanup (t = end)
 {
-  gas_tracers    = NULL;
-  liq_tracers    = NULL;
-  fu.tracers     = NULL;
-  fuext.tracers  = NULL;
-  f.tracers      = ftracersorig;
+  delete (fu.tracers), free (fu.tracers), fu.tracers = NULL;
+  delete (fuext.tracers), free (fuext.tracers), fuext.tracers = NULL;
+  delete ({TL,TG});
 }
 
 /**
