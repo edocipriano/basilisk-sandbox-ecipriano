@@ -178,7 +178,7 @@ define the pressure gradient for prolongation of pressure close to
 embedded boundaries. */
 
 #if TREE && EMBED
-void pressure_embed_gradient (Point point, scalar p, coord * g)
+void pressure_embed_gradient_ext (Point point, scalar p, coord * g)
 {
   foreach_dimension()
     g->x = rho[]/(cm[] + SEPS)*(a.x[] + a.x[1])/2.;
@@ -232,7 +232,7 @@ event defaults (i = 0)
     s.depends = list_add (s.depends, cs);
   }
   for (scalar s in {pext, pfext})
-    s.embed_gradient = pressure_embed_gradient;
+    s.embed_gradient = pressure_embed_gradient_ext;
 #endif // EMBED
 #endif // TREE
 }

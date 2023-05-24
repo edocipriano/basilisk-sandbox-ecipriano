@@ -134,6 +134,25 @@ event defaults (i = 0,last)
 #else
   fu.tracers = list_concat (fu.tracers, gas_tracers);
 #endif
+
+  /**
+  On adaptive meshes, tracers need to use linear interpolation (rather
+  than the default bilinear interpolation) to ensure conservation when
+  refining cells. */
+
+#if TREE
+#if EMBED
+      TL.refine = s.prolongation = refine_embed_linear;
+      TG.refine = s.prolongation = refine_embed_linear;
+#else
+      TL.refine  = refine_linear;
+      TG.refine  = refine_linear;
+#endif
+      TL.restriction = restriction_volume_average;
+      TL.dirty = true; // boundary conditions need to be updated
+      TG.restriction = restriction_volume_average;
+      TG.dirty = true; // boundary conditions need to be updated
+#endif
 }
 
 /**
@@ -188,7 +207,7 @@ event phasechange (i++)
     TL[] = f[] > F_ERR ? TL[]/f[] : 0.;
     TG[] = ((1. - f[]) > F_ERR) ? TG[]/(1. - f[]) : 0.;
   }
-  boundary({fL,fG,TL,TG,f0});
+  //boundary({fL,fG,TL,TG,f0});
 
   /**
   We compute the value of volume fraction *f* on the
@@ -223,7 +242,7 @@ event phasechange (i++)
 #endif
     }
   }
-  boundary({mEvap});
+  //boundary({mEvap});
 
   /**
   The calculation of the interface gradients is used
@@ -263,7 +282,7 @@ event phasechange (i++)
     TG[] *= (1. - f[])*((1. - f[]) > F_ERR);
     T[]  = TL[] + TG[];
   }
-  boundary({TL,TG,T});
+  //boundary({TL,TG,T});
 }
 
 /**
@@ -310,7 +329,7 @@ event tracer_diffusion (i++)
 #endif
     fL[] = f[]; fG[] = 1. - f[];
   }
-  boundary({fL,fG,TL,TG});
+  //boundary({fL,fG,TL,TG});
 
   /**
   We compute the value of volume fraction *f* on the
@@ -328,26 +347,26 @@ event tracer_diffusion (i++)
     lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
     lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
   }
-  boundary((scalar *){lambda1f,lambda2f});
+  //boundary((scalar *){lambda1f,lambda2f});
 
   foreach() {
     thetacorr1[] = cm[]*max(fL[], F_ERR);
     thetacorr2[] = cm[]*max(fG[], F_ERR);
   }
-  boundary({thetacorr1,thetacorr2});
+  //boundary({thetacorr1,thetacorr2});
 
-#ifndef SOLVE_LIQONLY
+//#ifndef SOLVE_LIQONLY
   diffusion (TG, dt, D=lambda2f, r=sgT, theta=thetacorr2);
-#endif
-#ifndef SOLVE_GASONLY
+//#endif
+//#ifndef SOLVE_GASONLY
   diffusion (TL, dt, D=lambda1f, r=slT, theta=thetacorr1);
-#endif
+//#endif
 
   foreach() {
     TL[] *= fL[];
     TG[] *= (1. - fL[]);
   }
-  boundary({TL,TG});
+  //boundary({TL,TG});
 
   /**
   We reconstruct the one-field temperature field summing
@@ -358,6 +377,6 @@ event tracer_diffusion (i++)
     TG[] = (fG[] > F_ERR) ? TG[] : 0.;
     T[] = TL[] + TG[];
   }
-  boundary({TL,TG,T});
+  //boundary({TL,TG,T});
 }
 
