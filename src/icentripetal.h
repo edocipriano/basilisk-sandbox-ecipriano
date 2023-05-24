@@ -2,7 +2,7 @@
 # Interfacial Suspending Force
 
 We re-express the suspending force in [centripetal.h](centripetal.h)
-as an [interfacial force](iforce.h). The suspending
+as an [interfacial force](/src/iforce.h). The suspending
 force is expressed as a function of the gradient of a potential:
 $$
 \mathbf{f}_m = \rho \alpha \nabla \xi
@@ -28,7 +28,7 @@ $$
 $$
 Therefore, the body force $\mathbf{f}_m$ is replaced by
 an interfacial force, using an approach similar to the
-one used in [tension.h](tension.h) and [reduced.h](reduced.h):
+one used in [tension.h](/src/tension.h) and [reduced.h](/src/reduced.h):
 $$
 -\nabla p' - \xi\nabla\rho =
 -\nabla p' - \phi\nabla H

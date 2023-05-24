@@ -6,7 +6,7 @@ and an ODE system of equations. Despite the general formulation
 of the chemistry, so far it is solved just in the gas phase,
 focusing on the combustion kinetics. Different types of reactions
 may require the implementation of new reactor systems 
-([reactors.h](reactors.H)).
+([reactors.h](reactors.h)).
 */
 
 #include "opensmoke.h"

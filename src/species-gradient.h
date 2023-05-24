@@ -12,7 +12,7 @@ from the following balance:
 
 $$
 \dot{m}_{Evap} = -\dfrac{\rho_g\mathcal{D}_g}{1-\hat{Y}_G}
-\left.\dfrac{\partial T}{\partial \mathbf{n}_\Gamma}\right\vert_g
+\left.\dfrac{\partial Y}{\partial \mathbf{n}_\Gamma}\right\vert_g
 $$
 
 where $\mathcal{D}_G$ is the diffusivity coefficient in the gas phase,
@@ -24,7 +24,7 @@ but neglecting the denominator:
 
 $$
 \dot{m}_{Evap} = -\rho_g\mathcal{D}_g
-\left.\dfrac{\partial T}{\partial \mathbf{n}_\Gamma}\right\vert_g
+\left.\dfrac{\partial Y}{\partial \mathbf{n}_\Gamma}\right\vert_g
 $$
 
 which results in a vaporization rate proportional to the diffusive

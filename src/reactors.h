@@ -20,7 +20,7 @@ chemical reactions. The reaction rate $r_j$ is usually computed as:
 $$
   r_j = k_j \prod \limits_{i=1}^{NS} c_i^{\nu_{i,j}}
 $$
-and the kinetic constant $k_j$ is computed from an Arrhenius equation:
+and the kinetic constant $k_j$ is computed from a modified Arrhenius equation:
 $$
   k_j = AT^n \exp^{-E_a/(RT)}
 $$
