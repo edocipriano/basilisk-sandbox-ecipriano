@@ -241,10 +241,7 @@ A displacement is expected since the correlation describes
 a 3D system, while the simulation is 2D.
 
 ~~~gnuplot Evolution of the Nusselt number
-set xr[0:5]
-set yr[0:80]
-
-set size ratio 0.2
+set yr[0:60]
 
 set xlabel "t [s]"
 set ylabel "Nu [-]"
@@ -257,6 +254,7 @@ to the phase change. The discontinuities correspond to the
 bubbles release.
 
 ~~~gnuplot Evolution of gas volume fraction
+reset
 set xlabel "t [s]"
 set ylabel "gas volume fraction [-]"
 
