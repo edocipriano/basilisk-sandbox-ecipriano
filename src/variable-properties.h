@@ -20,7 +20,7 @@ diffusivity of the chemical species, for example.
 
 (const) scalar rho1v = zeroc, rho2v = zeroc;
 (const) scalar mu1v = zeroc, mu2v = zeroc;
-(const) scalar lambda1v = zeroc, lambda2v = zeroc;
+(const) face vector lambda1v = zerof, lambda2v = zerof;
 (const) scalar cp1v = zeroc, cp2v = zeroc;
 
 /**
@@ -44,10 +44,10 @@ for each property of interest for the gas phase.
 
 typedef struct {
   // Mixture properties
-  double (* rho) (void *);
-  double (* mu) (void *);
-  double (* lambda) (void *);
-  double (* cp) (void *);
+  double (* rhov) (void *);
+  double (* muv) (void *);
+  double (* lambdav) (void *);
+  double (* cpv) (void *);
   // Species properties
   double (* pvap) (void *, int);
   double (* dhev) (void *, int);

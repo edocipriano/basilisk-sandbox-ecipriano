@@ -150,16 +150,16 @@ event defaults (i = 0) {
   correct opensmoke functions that compute material
   properties. */
 
-  tp1.rho = opensmoke_liqprop_density_addvol;
-  tp1.mu = opensmoke_liqprop_viscosity;
-  tp1.lambda = opensmoke_liqprop_thermalconductivity;
-  tp1.cp = opensmoke_liqprop_heatcapacity;
+  tp1.rhov = opensmoke_liqprop_density_addvol;
+  tp1.muv = opensmoke_liqprop_viscosity;
+  tp1.lambdav = opensmoke_liqprop_thermalconductivity;
+  tp1.cpv = opensmoke_liqprop_heatcapacity;
   tp1.pvap = opensmoke_liqprop_pvap;
   tp1.dhev = opensmoke_liqprop_dhev;
 
-  tp2.rho = opensmoke_gasprop_density;
-  tp2.mu = opensmoke_gasprop_viscosity;
-  tp2.lambda = opensmoke_gasprop_thermalconductivity;
-  tp2.cp = opensmoke_gasprop_heatcapacity;
+  tp2.rhov = opensmoke_gasprop_density;
+  tp2.muv = opensmoke_gasprop_viscosity;
+  tp2.lambdav = opensmoke_gasprop_thermalconductivity;
+  tp2.cpv = opensmoke_gasprop_heatcapacity;
 }
 

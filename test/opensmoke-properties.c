@@ -35,18 +35,18 @@ event properties (i++) {
   We update the properties of the variable fields. */
 
   fprintf (stderr, "Gas Properties\n");
-  fprintf (stderr, "rho2 = %f\n", tp2.rho (&ts2));
-  fprintf (stderr, "mu2 = %f\n", tp2.mu (&ts2));
-  fprintf (stderr, "lambda2 = %f\n", tp2.lambda (&ts2));
-  fprintf (stderr, "cp2 = %f\n", tp2.cp (&ts2));
+  fprintf (stderr, "rho2 = %f\n", tp2.rhov (&ts2));
+  fprintf (stderr, "mu2 = %f\n", tp2.muv (&ts2));
+  fprintf (stderr, "lambda2 = %f\n", tp2.lambdav (&ts2));
+  fprintf (stderr, "cp2 = %f\n", tp2.cpv (&ts2));
 
   fprintf (stderr, "\n");
 
   fprintf (stderr, "Liquid Properties\n");
-  fprintf (stderr, "rho1 = %f\n", tp1.rho (&ts1));
-  fprintf (stderr, "mu1 = %f\n", tp1.mu (&ts1));
-  fprintf (stderr, "lambda1 = %f\n", tp1.lambda (&ts1));
-  fprintf (stderr, "cp1 = %f\n", tp1.cp (&ts1));
+  fprintf (stderr, "rho1 = %f\n", tp1.rhov (&ts1));
+  fprintf (stderr, "mu1 = %f\n", tp1.muv (&ts1));
+  fprintf (stderr, "lambda1 = %f\n", tp1.lambdav (&ts1));
+  fprintf (stderr, "cp1 = %f\n", tp1.cpv (&ts1));
 
   for (unsigned int i=0; i<OpenSMOKE_NumberOfLiquidSpecies(); i++) {
     fprintf (stderr, "pvap[%s] = %f\n",
