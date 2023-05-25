@@ -116,7 +116,7 @@ int main (void) {
   /**
   We set the initial and wall temperatures. */
 
-  Tsat = 500., Twall = 505.;
+  Tsat = 500., Twall = 510.;
   TL0 = Tsat, TG0 = Tsat, TIntVal = Tsat;
 
   /**
@@ -135,7 +135,6 @@ int main (void) {
 
   size (3.*wavelength);
   init_grid (1 << maxlevel);
-
   run();
 }
 
@@ -166,8 +165,6 @@ event init (i = 0) {
 }
 
 /**
-## Post-Processing
-
 We write in the stdout the simulation time, the amount of
 gas in the domain, the Nusselt number from this simulation:
 $$
@@ -209,17 +206,19 @@ event logfile (i++) {
 
 /**
 We remove small bubbles formed during the breakups that are
-not important for the process under investigation. */
+not important for the process under investigation, but that
+give some problems during the solution of the diffusion
+part of the temperature equation. */
 
 event remove_droplets (i++) {
-  remove_droplets (f, bubbles=true);
+  remove_droplets (f, threshold=F_ERR, bubbles=true);
 }
 
 /**
 We output a movie with the evolution of the temperature
 field and the volume fraction facets. */
 
-event movie (t += 0.01; t <= 10) {
+event movie (t += 0.01; t <= 5) {
   clear();
   view (ty = -0.5);
   draw_vof ("f", lw = 1.5);
@@ -242,16 +241,24 @@ A displacement is expected since the correlation describes
 a 3D system, while the simulation is 2D.
 
 ~~~gnuplot Evolution of the Nusselt number
-wavelength = 0.0786844
-set xr[0:10]
-set yr[0:80]
-
-set size ratio 0.2
+set yr[0:60]
 
 set xlabel "t [s]"
 set ylabel "Nu [-]"
 
 p "out" u 1:3 w l t "Results", "out" u 1:4 w l t "Berenson"
+~~~
+
+The amount of gas phase volume fraction increases according
+to the phase change. The discontinuities correspond to the
+bubbles release.
+
+~~~gnuplot Evolution of gas volume fraction
+reset
+set xlabel "t [s]"
+set ylabel "gas volume fraction [-]"
+
+p "out" u 1:2 w l t "volume fraction"
 ~~~
 
 ## References
