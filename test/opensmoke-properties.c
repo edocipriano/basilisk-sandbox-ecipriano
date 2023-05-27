@@ -56,3 +56,11 @@ event properties (i++) {
   }
 }
 
+event logfile (i++) {
+  for (double Temp = 290.; Temp <= 500.; Temp += 5.) {
+    double x[] = {1};
+    ts1.T = Temp, ts1.P = 101325., ts1.x = x;
+    fprintf (stdout, "%g %g\n", Temp, liqprop_thermal_expansion (&tp1, &ts1));
+  }
+}
+

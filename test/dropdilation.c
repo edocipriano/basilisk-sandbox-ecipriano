@@ -1,13 +1,14 @@
 #define VARPROP
+#define FILTERED
 
 #include "grid/multigrid.h"
 #include "navier-stokes/centered-evaporation.h"
 #define ufext uf
-#include "two-phase.h"
+#include "two-phase-varprop.h"
+#include "opensmoke-properties.h"
 #include "tension.h"
 #include "evaporation.h"
-#include "opensmoke-properties.h"
-#include "temperature-gradient-varprop.h"
+#include "thermal.h"
 #include "view.h"
 
 scalar drhodt[];
@@ -18,22 +19,24 @@ double lambda1, lambda2, cp1, cp2, dhev, TIntVal;
 double TL0, TG0, volume0;
 
 int main (void) {
-  kinfolder = "materials/water";
+  kinfolder = "materials/n-heptane";
 
   rho1 = 10., rho2 = 1.;
   mu1 = 1.e-4, mu2 = 1.e-5;
   lambda1 = 0.1, lambda2 = 0.01;
-  cp1 = 2000., cp2 = 1000.;
-  dhev = 1e+5;
-  TIntVal = 300., TL0 = 300., TG0 = 400.;
+  cp1 = 2000., cp2 = 1000.; dhev = 0.;
+  TIntVal = 400., TL0 = 400., TG0 = 300.;
 
+  frhocp1.inverse = false;
   frhocp2.inverse = true;
+
   f.sigma = 0.03;
-  f.tracers = {TL,TG,frhocp2};
+  f.tracers = {TL,TG,frhocp1,frhocp2};
 
   size (3.*R0);
   init_grid (1 << maxlevel);
 
+  //TOLERANCE = 1.e-2;
   run();
 }
 
@@ -68,11 +71,11 @@ event movie (i += 50) {
   save ("movie.mp4");
 }
 
-event snapshots (t += 0.01) {
+event snapshots (t += 0.01; t = end) {
   char name[80];
   sprintf (name, "snapshot-%g", t);
   dump (name);
 }
 
-event stop (t = 1);
+event stop (t = 0.01);
 
