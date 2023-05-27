@@ -12,7 +12,7 @@ $$
 We want to test and compare the droplet consumption with
 the exact solution, considering the presence of the Stefan
 flow. The simulation setup used here was adapted from
-[Malan et al, 2018](#malan2021geometric).
+[Malan et al, 2021](#malan2021geometric).
 The animation shows the consuption of the liquid droplet,
 that maintains a perfectly spherical shape throughtout the
 entire lifetime, as well as the radial velocity field
@@ -311,13 +311,7 @@ p \
   "facets/facets-6-1.0" w l lw 2 lc 3 t "LEVEL 6", \
   "facets/facets-6-2.0" w l lw 2 lc 3 notitle, \
   "facets/facets-6-3.0" w l lw 2 lc 3 notitle, \
-  "facets/facets-7-1.0" w l lw 2 lc 4 t "LEVEL 7", \
-  "facets/facets-7-2.0" w l lw 2 lc 4 notitle, \
-  "facets/facets-7-3.0" w l lw 2 lc 4 notitle, \
-  "facets/facets-8-1.0" w l lw 2 lc 5 t "LEVEL 8", \
-  "facets/facets-8-2.0" w l lw 2 lc 5 notitle, \
-  "facets/facets-8-3.0" w l lw 2 lc 5 notitle, \
-  "Circles.dat" u 1:2:3:1 w circles t "Analytical"
+  "Circles.dat" u 1:2:3:1 w circles t "Analytic"
 ~~~
 
 ## References
