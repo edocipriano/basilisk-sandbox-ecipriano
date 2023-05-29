@@ -6,7 +6,7 @@ to pin the liquid droplet at a specific point of the domain.
 
 This configuration is important, from the experimental
 point of view, to suspend droplets on a solid fiber
-in normal gravity conditions in order to study the
+in normal gravity conditions, in order to study the
 evaporation and combustion characteristics of that
 droplet under the influence of gravity.
 
@@ -76,7 +76,7 @@ int main()
   origin (-1);
 
   /**
-  We use a constant viscosity. */
+  We set a small density and viscosity ratio. */
 
   mu1 = 1.;
   mu2 = 0.1;
@@ -91,18 +91,20 @@ int main()
 
   /**
   We set the surface tension coefficient and run for two position of
-  the contact line */
+  the pinning point. */
 
   f.sigma = 1;
+  ap = 0.75;
 
-  for (G.x = 0.; G.x >= -2.5; G.x -= 0.5) {
-    ap = 0.75;
+  /**
+  We run the simulation at different values of gravity .*/
+
+  for (G.x = 0.; G.x >= -2.5; G.x -= 0.5)
     run();
-  }
 }
 
 /**
-The initial drop is a quarter of a circle. */
+We initialize half liquid droplet on the bottom boundary. */
 
 event init (t = 0)
 {

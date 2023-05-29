@@ -5,8 +5,8 @@ We want to extend the simulation in [pinning.c](pinning.c)
 trying to pin a 1mm water droplet to a specific
 point of the domain.
 
-What we see is that, when a density and viscosity ratio is
-imposed, the droplet is deformed in a strange manner.
+What we see is that, when a stronger density and viscosity
+ratio is imposed, the droplet is deformed in a strange manner.
 Trying to figure out what's wrong I noticed the following
 things:
 
@@ -95,7 +95,7 @@ int main()
 }
 
 /**
-The initial drop is a quarter of a circle. */
+We initialize half liquid droplet on the bottom boundary. */
 
 event init (t = 0)
 {
