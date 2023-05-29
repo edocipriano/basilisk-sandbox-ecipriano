@@ -1,8 +1,8 @@
 /**
-# Pinning a 1mm Water Liquid Droplet
+# Pinning a 1mm Water Droplet
 
 We want to extend the simulation in [pinning.c](pinning.c)
-trying to pin a 1mm water liquid droplet to a specific
+trying to pin a 1mm water droplet to a specific
 point of the domain.
 
 What we see is that, when a density and viscosity ratio is
