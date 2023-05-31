@@ -55,15 +55,6 @@ scalar mEvap[];
 scalar * mEvapList = {mEvap};
 
 /**
-The following list allows different methods for the advection
-of the tracers in liquid and gas phase to be selected. The
-user should not call these lists. */
-
-scalar * gas_tracers = NULL;
-scalar * liq_tracers = NULL;
-scalar * ftracersorig = NULL;
-
-/**
 *fL* and *fG* store the value of volume fractions for the
 calculation of the interface gradients, while the vectors
 *fsL* and *fsG* contain the face fraction fields computed
@@ -122,23 +113,15 @@ event defaults (i = 0,last)
   YL.inverse = false;
   YG.inverse = true;
 
-  gas_tracers = NULL;
-  liq_tracers = NULL;
-
-  gas_tracers = {YG};
-  liq_tracers = {YL};
-
-  ftracersorig = f.tracers;
-
 #ifdef CONSISTENTPHASE1
-  fuext.tracers = list_concat (fuext.tracers, liq_tracers);
+  fuext.tracers = list_append (fuext.tracers, YL);
 #else
-  fu.tracers = list_concat (fu.tracers, liq_tracers);
+  fu.tracers = list_append (fu.tracers, YL);
 #endif
 #ifdef CONSISTENTPHASE2
-  fuext.tracers = list_concat (fuext.tracers, gas_tracers);
+  fuext.tracers = list_append (fuext.tracers, YG);
 #else
-  fu.tracers = list_concat (fu.tracers, gas_tracers);
+  fu.tracers = list_append (fu.tracers, YG);
 #endif
 }
 
@@ -148,7 +131,7 @@ event defaults (i = 0,last)
 In the init event, we avoid dumping all the fields that we
 don't need to visualize. */
 
-event init (i = 0,last)
+event init (i = 0)
 {
   sgS.nodump = true;
   slS.nodump = true;
@@ -163,13 +146,10 @@ event init (i = 0,last)
 
 We deallocate the various lists from the memory. */
 
-event finalise (t = end)
+event cleanup (t = end)
 {
-  gas_tracers    = NULL;
-  liq_tracers    = NULL;
-  fu.tracers     = NULL;
-  fuext.tracers  = NULL;
-  f.tracers      = ftracersorig;
+  free (fu.tracers), fu.tracers = NULL;
+  free (fuext.tracers), fuext.tracers = NULL;
 }
 
 /**

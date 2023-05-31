@@ -144,7 +144,7 @@ event defaults (i = 0)
 In the init event, we avoid dumping all the fields that we
 don't need to visualize. */
 
-event init (i = 0,last)
+event init (i = 0)
 {
   sgT.nodump = true;
   slT.nodump = true;
@@ -161,8 +161,8 @@ We deallocate the various lists from the memory. */
 
 event cleanup (t = end)
 {
-  delete (fu.tracers), free (fu.tracers), fu.tracers = NULL;
-  delete (fuext.tracers), free (fuext.tracers), fuext.tracers = NULL;
+  free (fu.tracers), fu.tracers = NULL;
+  free (fuext.tracers), fuext.tracers = NULL;
 }
 
 /**

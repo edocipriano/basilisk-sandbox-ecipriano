@@ -221,23 +221,23 @@ source term. */
 
 scalar stefanflowext[];
 
+#ifdef SHIFTING
 event shifting (i++) {
-#ifdef EXT_STEFANFLOW
+# ifdef EXT_STEFANFLOW
   foreach()
     stefanflowext[] = stefanflow[];
-#endif
-#ifdef SHIFT_TO_LIQ
+# endif
+# ifdef SHIFT_TO_LIQ
   int dir = 1;
-#else
+# else
   int dir = 0;
-#endif
+# endif
   shift_field (stefanflow, f, dir);
-#ifdef EXT_STEFANFLOW
+# ifdef EXT_STEFANFLOW
   shift_field (stefanflowext, f, 0);
-#endif
-  //distribute_field (stefanflow, f, dir);
-  //distribute_field (stefanflowext, f, 0);
+# endif
 }
+#endif
 
 /**
 ## VOF event
