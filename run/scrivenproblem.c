@@ -142,7 +142,7 @@ $$
 $$
 */
 
-#include "gsl/gsl_integration.h"
+#include <gsl/gsl_integration.h>
 #pragma autolink -lgsl -lgslcblas
 
 double intfun (double x, void * params) {
