@@ -86,9 +86,11 @@ u.n[bottom] = dirichlet (0.);
 u.t[bottom] = dirichlet (0.);
 p[bottom] = neumann (0.);
 ps[bottom] = neumann (0.);
-uf.n[bottom] = dirichlet (0.);
-uf.t[bottom] = dirichlet (0.);
-pf[bottom] = neumann (0.);
+
+u.n[top] = neumann (0.);
+u.t[top] = neumann (0.);
+p[top] = dirichlet (0.);
+ps[top] = dirichlet (0.);
 
 f[bottom] = dirichlet (0.);
 TG[bottom] = dirichlet (Twall);
