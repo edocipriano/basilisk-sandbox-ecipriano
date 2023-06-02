@@ -61,6 +61,17 @@ double opensmoke_gasprop_heatcapacity (void * p) {
 }
 
 /**
+### *opensmoke_gasprop_diff()*: diffusion coefficient of a species in gas phase
+*/
+
+double opensmoke_gasprop_diff (void * p, int i) {
+  ThermoState * ts = (ThermoState *)p;
+  OpenSMOKE_GasProp_SetTemperature (ts->T);
+  OpenSMOKE_GasProp_SetPressure (ts->P);
+  return OpenSMOKE_GasProp_Dmix (ts->x, i);
+}
+
+/**
 ### *opensmoke_liqprop_density_addvol()*: liquid phase mixture density with the additive volume method
 */
 
@@ -161,5 +172,6 @@ event defaults (i = 0) {
   tp2.muv = opensmoke_gasprop_viscosity;
   tp2.lambdav = opensmoke_gasprop_thermalconductivity;
   tp2.cpv = opensmoke_gasprop_heatcapacity;
+  tp2.diff = opensmoke_gasprop_diff;
 }
 

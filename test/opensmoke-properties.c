@@ -40,6 +40,11 @@ event properties (i++) {
   fprintf (stderr, "lambda2 = %f\n", tp2.lambdav (&ts2));
   fprintf (stderr, "cp2 = %f\n", tp2.cpv (&ts2));
 
+  for (unsigned int i=0; i<OpenSMOKE_NumberOfSpecies(); i++) {
+    fprintf (stderr, "Dmix[%s] = %f\n",
+        OpenSMOKE_NamesOfSpecies (i), tp2.diff (&ts2, i));
+  }
+
   fprintf (stderr, "\n");
 
   fprintf (stderr, "Liquid Properties\n");
