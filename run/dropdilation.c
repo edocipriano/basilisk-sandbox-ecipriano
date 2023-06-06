@@ -15,6 +15,7 @@ scalar drhodt[];
 
 int maxlevel = 6;
 double R0 = 0.5e-3;
+double DELTAT = 5.;
 double lambda1, lambda2, cp1, cp2, dhev, TIntVal;
 double TL0, TG0, volume0;
 
@@ -25,7 +26,8 @@ int main (void) {
   mu1 = 1.e-4, mu2 = 1.e-5;
   lambda1 = 0.1, lambda2 = 0.01;
   cp1 = 2000., cp2 = 1000.; dhev = 0.;
-  TIntVal = 400., TL0 = 400., TG0 = 300.;
+  TG0 = 300., TL0 = TG0 + DELTAT, TIntVal = TL0;
+  TL0 = 300., TIntVal = TL0, TG0 = TL0 + DELTAT;
 
   frhocp1.inverse = false;
   frhocp2.inverse = true;
@@ -36,14 +38,13 @@ int main (void) {
   size (3.*R0);
   init_grid (1 << maxlevel);
 
-  //TOLERANCE = 1.e-2;
   run();
 }
 
 #define circle(x,y,R)(sq(R) - sq(x) - sq(y));
 
 event init (i = 0) {
-  fraction (f, -circle(x,y,R0));
+  fraction (f, circle(x,y,R0));
   volume0 = 0.;
   foreach(reduction(+:volume0))
     volume0 += (1. - f[])*dv();

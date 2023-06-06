@@ -71,6 +71,7 @@ face vector s[];
 scalar T[], TL[], TG[], TInt[];
 
 #ifdef VARPROP
+scalar rhovold[];
 scalar frhocp1[], frhocp2[];
 scalar frhocp1old[], frhocp2old[];
 #endif
@@ -126,7 +127,11 @@ static void update_properties_constant (void) {
 
     frhocp1[] = f[]*rho1v[]*cp1v[];
     frhocp2[] = (1. - f[])*rho2v[]*cp2v[];
+
+    rhovold[] = rhov[];
+    rhov[] = rho (f[], rho1v[], rho2v[]);
   }
+  boundary({lambda1v, lambda2v});
 }
 
 static void update_properties (void) {
@@ -135,7 +140,12 @@ static void update_properties (void) {
   ts2.T = 300., ts2.P = Pref, ts2.x = x;
 
   foreach() {
-    ts1.T = T[], ts2.T = T[];
+    //ts1.T = T[], ts2.T = T[];
+    double * There1 = &ts1.T;
+    double * There2 = &ts2.T;
+    *There1 = T[];
+    *There2 = T[];
+
     rho1v[] = tp1.rhov (&ts1);
     mu1v[] = tp1.muv (&ts1);
     cp1v[] = tp1.cpv (&ts1);
@@ -254,7 +264,7 @@ event init (i = 0)
     all = list_concat ({lambda1v}, l);
     free (l);
   }
-  update_properties_constant();
+  update_properties();
 }
 
 /**
@@ -273,7 +283,7 @@ and gas phase) is solved. */
 
 event phasechange (i++)
 {
-  update_properties_constant();
+  update_properties();
 
   /**
   We compute the lagrangian derivative which will
@@ -288,7 +298,7 @@ event phasechange (i++)
   face vector lambdagT[];
   foreach_face() {
     double lambdavf = 0.5*(lambdav[] + lambdav[-1]);
-     lambdagT.x[] = lambda2*face_gradient_x (T, 0); /// !<<
+     lambdagT.x[] = lambdavf*face_gradient_x (T, 0); /// !<<
   }
 
   // Compute lagrangian derivative
@@ -297,7 +307,12 @@ event phasechange (i++)
     foreach_dimension()
       laplT += (lambdagT.x[1] - lambdagT.x[]);
     laplT /= Delta;
-    ts1.T = T[], ts2.T = T[];
+    //ts1.T = T[], ts2.T = T[];
+    double * There1 = &ts1.T;
+    double * There2 = &ts2.T;
+    *There1 = T[];
+    *There2 = T[];
+
     double beta2exp = liqprop_thermal_expansion (&tp1, &ts1);
     double drhodt1 = -beta2exp/(rho1v[]*cp1)*laplT;
     double drhodt2 = -1./(rho2v[]*cp2*T[])*laplT;
@@ -405,8 +420,8 @@ event tracer_diffusion (i++)
     sgTimp[] = -(frhocp2[] - frhocp2old[])/dt;
   }
 
-  diffusion (TG, dt, D=lambda2f, r=sgT, theta=thetacorr2, beta=sgTimp);
-  diffusion (TL, dt, D=lambda1f, r=slT, theta=thetacorr1, beta=slTimp);
+  diffusion (TG, dt, D=lambda2f, r=sgT, theta=thetacorr2);
+  diffusion (TL, dt, D=lambda1f, r=slT, theta=thetacorr1);
 
   foreach() {
     TL[] *= f[];
