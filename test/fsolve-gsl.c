@@ -15,7 +15,7 @@ is $(x,y)=(1,1)$.
 */
 
 /**
-We have to define the use of gsl before including folve. */
+We have to define the use of gsl before including fsolve. */
 
 #define USE_GSL
 #include "fsolve-gsl.h"
