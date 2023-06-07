@@ -195,8 +195,6 @@ chemical species, the interface position and the
 grid refinement. */
 
 event movie (t += 2.e-5; t <= 0.004) {
-  scalar YB = YList[1];
-
   clear();
   draw_vof ("f", lw = 1.5);
   squares ("B", linear = true, min = 0., max = 0.56);
@@ -215,11 +213,13 @@ event movie (t += 2.e-5; t <= 0.004) {
   save ("movie.mp4");
 }
 
+#if DUMP
 event snapshot (t += 2.e-4) {
   char name[80];
   sprintf (name, "snapshot-%g", t);
   dump (name);
 }
+#endif
 
 /**
 ## Results
