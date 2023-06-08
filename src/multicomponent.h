@@ -59,15 +59,15 @@ of this code:
 
 If *USE_GSL* is defined, we can solve the jump condition as a non-linear
 system of equations. The calculation of the interface temperature from the
-vaporization rate also relies of this keywork:
+vaporization rate also relies of this keyword:
 
-* *undefined*: temperature not solved and decoupled solution of jump conditions
+* *undefined*: temperature not solved, only decoupled solution of jump conditions
 * *USE_GSL = 0*: decoupled solution of jump condition for the chemical species.
 The interface temperature is obtained from the non-linear algebraic equations solver.
 Required when *SOLVE_TEMPERATURE* is defined.
-* *USE_GSL = 1*: coupdecoupled solution of jump condition and interface temperature
+* *USE_GSL = 1*: decoupled solution of jump condition and interface temperature
 to obtain fist guess values which are then refined by the non-linear algebraic equations
-solver
+solver.
 */
 
 #ifdef USE_GSL

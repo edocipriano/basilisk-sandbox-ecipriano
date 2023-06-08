@@ -81,8 +81,9 @@ void fsolve (struct _FsolveGsl p) {
 ## KINSol Interface
 
 if the [SUNDIALS library](https://github.com/LLNL/sundials) is used,
-the function *fsolve()* rely on the KINSol solver.
-*/
+the function *fsolve()* relies on the KINSol solver. This
+implementation works with Sundials 5.8 and it is not updated
+for Sundials >= 6.0. */
 
 #ifdef USE_SUNDIALS
 
@@ -131,6 +132,7 @@ void fsolve_sundials (struct _FsolveSundials p) {
 
   void * kmem;
   kmem = KINCreate();
+  KINSetUserData (kmem, p.params);
   KINSetFuncNormTol (kmem, KIN_FTOL);
   KINSetScaledStepTol (kmem, KIN_STOL);
   KINInit (kmem, func, u);
