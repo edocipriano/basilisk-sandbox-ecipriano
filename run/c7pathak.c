@@ -14,7 +14,7 @@ interface temperature tends to a plateau, given by the
 interplay between the heat conduction from the environment
 and the evaporation process that cools down the interface.
 
-![Evolution of the temperature field (left) and the n-heptane mass fraction (right)](c7pathk/movie.mp4)(height=400 width=900)
+![Evolution of the temperature field (left) and the n-heptane mass fraction (right)](c7pathak/movie.mp4)(height=400 width=900)
 */
 
 /**
@@ -163,7 +163,7 @@ event init (i = 0) {
 
   /**
   The proper Antoine equation function must be set
-  the attribute *antoine* of the liquid phase mass
+  to the attribute *antoine* of the liquid phase mass
   fraction fields. */
 
   scalar YL = YLList[0];
@@ -231,6 +231,61 @@ event output_data (i++) {
 }
 
 /**
+### Temperature and Mass Fraction Profiles
+
+We write on a file the temperature and mass fraction
+profiles at different time instants. */
+
+event profiles (t = {3.29e-6, 3.e-5, 1.05e-4, 1.5e-4}) {
+  char name[80];
+  sprintf (name, "Profiles-%d", maxlevel);
+
+  /**
+  We create an array with the temperature and mass
+  fraction profiles for each processor. */
+
+  scalar C7 = YList[0];
+
+  Array * arrtemps = array_new();
+  Array * arrmassf = array_new();
+  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
+    double valt = interpolate (T, x, 0.);
+    double valm = interpolate (C7, x, 0.);
+    valt = (valt == nodata) ? 0. : valt;
+    valm = (valm == nodata) ? 0. : valm;
+    array_append (arrtemps, &valt, sizeof(double));
+    array_append (arrmassf, &valm, sizeof(double));
+  }
+  double * temps = (double *)arrtemps->p;
+  double * massf = (double *)arrmassf->p;
+
+  /**
+  We sum each element of the arrays in every processor. */
+
+  @if _MPI
+  int size = arrtemps->len/sizeof(double);
+  MPI_Allreduce (MPI_IN_PLACE, temps, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce (MPI_IN_PLACE, massf, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  @endif
+
+  /**
+  The master node writes the profiles on a file. */
+
+  if (pid() == 0) {
+    static FILE * fpp = fopen (name, "w");
+    int count = 0;
+    for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
+      fprintf (fpp, "%g %g %g\n", x, temps[count], massf[count]);
+      count++;
+    }
+    fprintf (fpp, "\n\n");
+    fflush (fpp);
+  }
+  array_free (arrtemps);
+  array_free (arrmassf);
+}
+
+/**
 ### Movie
 
 We write the animation with the evolution of the
@@ -253,6 +308,10 @@ event movie (t += 2.e-6; t <= 1.6e-4) {
 /**
 ## Results
 
+The numerical results are compared with the results obtained
+by [Pathak et al., 2018](#pathak2018steady) using a radially
+symmetric model, integrated using an ODE solver.
+
 ~~~gnuplot Evolution of the squared diameter decay
 reset
 set xlabel "t [s]"
@@ -273,6 +332,40 @@ set grid
 
 plot "../data/pathak-heptane-T563-temp.csv" w p ps 2 t "Pathank et al., 2018", \
      "OutputData-6" u 1:4 w l lw 2 t "LEVEL 6"
+~~~
+
+~~~gnuplot Evolution of the temperature profiles
+reset
+set xlabel "radius \mu m"
+set ylabel "Temperature [K]"
+set key bottom right
+set grid
+
+plot "../data/pathak-heptane-T563-Tprofile-329e-6.csv" w p pt 8 lc 1 t "time = 3.29x10^{-6} s", \
+     "../data/pathak-heptane-T563-Tprofile-3e-5.csv"   w p pt 8 lc 2 t "time = 3.00x10^{-5} s", \
+     "../data/pathak-heptane-T563-Tprofile-105e-4.csv" w p pt 8 lc 3 t "time = 1.05x10^{-4} s", \
+     "../data/pathak-heptane-T563-Tprofile-150e-4.csv" w p pt 8 lc 4 t "time = 1.50x10^{-4} s", \
+     "Profiles-6" index 0 u ($1*1e+6):2 w l lw 2 lc 1 notitle, \
+     "Profiles-6" index 1 u ($1*1e+6):2 w l lw 2 lc 2 notitle, \
+     "Profiles-6" index 2 u ($1*1e+6):2 w l lw 2 lc 3 notitle, \
+     "Profiles-6" index 3 u ($1*1e+6):2 w l lw 2 lc 4 notitle
+~~~
+
+~~~gnuplot Evolution of the n-heptane mass fraction profiles
+reset
+set xlabel "radius \mu m"
+set ylabel "Mass Fraction [-]"
+set key top right
+set grid
+
+plot "../data/pathak-heptane-T563-Yprofile-329e-6.csv" w p pt 8 lc 1 t "time = 3.29x10^{-6} s", \
+     "../data/pathak-heptane-T563-Yprofile-3e-5.csv"   w p pt 8 lc 2 t "time = 3.00x10^{-5} s", \
+     "../data/pathak-heptane-T563-Yprofile-105e-4.csv" w p pt 8 lc 3 t "time = 1.05x10^{-4} s", \
+     "../data/pathak-heptane-T563-Yprofile-150e-4.csv" w p pt 8 lc 4 t "time = 1.50x10^{-4} s", \
+     "Profiles-6" index 0 u ($1*1e+6):3 w l lw 2 lc 1 notitle, \
+     "Profiles-6" index 1 u ($1*1e+6):3 w l lw 2 lc 2 notitle, \
+     "Profiles-6" index 2 u ($1*1e+6):3 w l lw 2 lc 3 notitle, \
+     "Profiles-6" index 3 u ($1*1e+6):3 w l lw 2 lc 4 notitle
 ~~~
 
 ## References

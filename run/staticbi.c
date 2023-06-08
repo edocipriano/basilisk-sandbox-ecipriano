@@ -30,6 +30,7 @@ different for each chemical species. */
 
 #define NGS 3
 #define NLS 2
+#define USE_GSL 1
 
 /**
 ## Simulation Setup
