@@ -57,21 +57,21 @@ of this code:
 * *USE_CLAPEYRON*: Clausius-Clapeyron equation for the thermodynamic equilibrium
 * *USE_ANTOINE*: Antoine equation for the thermodynamic equilibrium (see [thermodynamics.h](thermodynamics.h))
 
-If *USE_SUNDIALS* is defined, we can solve the jump condition as a non-linear
+If *USE_GSL* is defined, we can solve the jump condition as a non-linear
 system of equations. The calculation of the interface temperature from the
-vaporization rate also relies of this keywork:
+vaporization rate also relies of this keyword:
 
-* *undefined*: temperature not solved and decoupled solution of jump conditions
-* *USE_SUNDIALS = 0*: decoupled solution of jump condition for the chemical species.
+* *undefined*: temperature not solved, only decoupled solution of jump conditions
+* *USE_GSL = 0*: decoupled solution of jump condition for the chemical species.
 The interface temperature is obtained from the non-linear algebraic equations solver.
 Required when *SOLVE_TEMPERATURE* is defined.
-* *USE_SUNDIALS = 1*: coupdecoupled solution of jump condition and interface temperature
+* *USE_GSL = 1*: decoupled solution of jump condition and interface temperature
 to obtain fist guess values which are then refined by the non-linear algebraic equations
-solver
+solver.
 */
 
-#ifdef USE_SUNDIALS
-# include "ijc-coupled.h"
+#ifdef USE_GSL
+# include "ijc-coupled-gsl.h"
 #endif
 
 /**
@@ -800,20 +800,20 @@ event phasechange (i++)
   and the interface temperature gradients. This result in an
   algebraic equation which is numerically zero-ed. */
 
-#ifdef USE_SUNDIALS
+#ifdef USE_GSL
 
-#ifdef SOLVE_TEMPERATURE
+# ifdef SOLVE_TEMPERATURE
   ijc_CoupledTemperature();
-#endif
+# endif
 
   /**
   Finally, we can refine the first guess values from the decoupled
   solution from the fully-coupled interface jump condition. Solved
   as a non-linear system of equations. */
 
-#if USE_SUNDIALS > 0
+# if USE_GSL > 0
   ijc_CoupledNls();
-#endif
+# endif
 
 #endif
 
