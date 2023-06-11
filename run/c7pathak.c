@@ -336,7 +336,7 @@ plot "../data/pathak-heptane-T563-temp.csv" w p ps 2 t "Pathank et al., 2018", \
 
 ~~~gnuplot Evolution of the temperature profiles
 reset
-set xlabel "radius \mu m"
+set xlabel "radius [m] x10^{6}"
 set ylabel "Temperature [K]"
 set key bottom right
 set grid
@@ -353,7 +353,7 @@ plot "../data/pathak-heptane-T563-Tprofile-329e-6.csv" w p pt 8 lc 1 t "time = 3
 
 ~~~gnuplot Evolution of the n-heptane mass fraction profiles
 reset
-set xlabel "radius \mu m"
+set xlabel "radius [m] x10^{6}"
 set ylabel "Mass Fraction [-]"
 set key top right
 set grid
