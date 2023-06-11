@@ -26,11 +26,12 @@ extended velocity. The multicomponent model requires the
 number of gas and liquid species to be set as compiler
 variables. We don't need to solve the temperature field
 because the vapor pressure is set to a constant value,
-different for each chemical species. */
+different for each chemical species. Using GSL at level
+1 we activate the coupled solution of the interfae jump
+condition. */
 
 #define NGS 3
 #define NLS 2
-#define USE_GSL 1
 
 /**
 ## Simulation Setup
