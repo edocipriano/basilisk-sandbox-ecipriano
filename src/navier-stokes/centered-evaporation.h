@@ -79,7 +79,7 @@ The volume expansion term is declared in
 
 extern scalar stefanflow;
 #ifdef VARPROP
-extern scalar drhodt;
+scalar drhodt[];
 #endif
 
 /**

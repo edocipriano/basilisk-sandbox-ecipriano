@@ -57,21 +57,21 @@ of this code:
 * *USE_CLAPEYRON*: Clausius-Clapeyron equation for the thermodynamic equilibrium
 * *USE_ANTOINE*: Antoine equation for the thermodynamic equilibrium (see [thermodynamics.h](thermodynamics.h))
 
-If *USE_SUNDIALS* is defined, we can solve the jump condition as a non-linear
+If *USE_GSL* is defined, we can solve the jump condition as a non-linear
 system of equations. The calculation of the interface temperature from the
-vaporization rate also relies of this keywork:
+vaporization rate also relies of this keyword:
 
-* *undefined*: temperature not solved and decoupled solution of jump conditions
-* *USE_SUNDIALS = 0*: decoupled solution of jump condition for the chemical species.
+* *undefined*: temperature not solved, only decoupled solution of jump conditions
+* *USE_GSL = 0*: decoupled solution of jump condition for the chemical species.
 The interface temperature is obtained from the non-linear algebraic equations solver.
 Required when *SOLVE_TEMPERATURE* is defined.
-* *USE_SUNDIALS = 1*: coupdecoupled solution of jump condition and interface temperature
+* *USE_GSL = 1*: decoupled solution of jump condition and interface temperature
 to obtain fist guess values which are then refined by the non-linear algebraic equations
-solver
+solver.
 */
 
-#ifdef USE_SUNDIALS
-# include "ijc-coupled.h"
+#ifdef USE_GSL
+# include "ijc-coupled-gsl.h"
 #endif
 
 /**
@@ -158,6 +158,10 @@ scalar * slexpList = NULL;    // [NLS]
 scalar * slimpList = NULL;    // [NLS]
 scalar * sgexpList = NULL;    // [NGS]
 scalar * sgimpList = NULL;    // [NGS]
+#ifdef VARPROP
+scalar * Dmix1List = NULL;    // [NLS]
+scalar * Dmix2List = NULL;    // [NGS]
+#endif
 
 /**
 We declare useful fields used for loops over chemical
@@ -186,9 +190,14 @@ scalar f0[];
 
 scalar divu[], fold[];
 
+/**
+Variable properties stuff. */
+
 #ifdef VARPROP
 scalar frho1[], frho2[];
+scalar frho1r[], frho2r[];
 scalar frhocp1[], frhocp2[];
+scalar frhocp1r[], frhocp2r[];
 #endif
 
 /**
@@ -255,6 +264,10 @@ event defaults (i = 0)
   slimpList = NULL;
   sgexpList = NULL;
   sgimpList = NULL;
+#ifdef VARPROP
+  Dmix1List = NULL;
+  Dmix2List = NULL;
+#endif
 
   for (int jj=0; jj<NLS; jj++) {
     scalar a = new scalar;
@@ -354,6 +367,29 @@ event defaults (i = 0)
   reset (sgexpList, 0.);
   reset (sgimpList, 0.);
 
+#ifdef VARPROP
+  for (int jj=0; jj<NLS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "Dmix1_%s", liq_species[jj]);
+    a.name = strdup (name);
+    //a.nodump = true;
+    Dmix1List = list_append (Dmix1List, a);
+  }
+  for (int jj=0; jj<NGS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "Dmix2_%s", gas_species[jj]);
+    a.name = strdup (name);
+    //a.nodump = true;
+    Dmix2List = list_append (Dmix2List, a);
+  }
+  reset (Dmix1List, 0.);
+  reset (Dmix2List, 0.);
+#endif
+
   fL.nodump = true;
   fG.nodump = true;
 
@@ -369,6 +405,26 @@ event defaults (i = 0)
 
   fuext.tracers = NULL;
   fu.tracers    = NULL;
+
+#ifdef VARPROP
+  frho1r.inverse = false;
+  frho2r.inverse = true;
+  frhocp1r.inverse = false;
+  frhocp2r.inverse = true;
+
+  scalar * forig = list_copy (f.tracers);
+  free (f.tracers);
+  f.tracers = list_concat (forig, {frho1r,frho2r,frhocp1r,frhocp2r});
+  free (forig);
+
+  frho1.inverse = false;
+  frho2.inverse = true;
+  frhocp1.inverse = false;
+  frhocp2.inverse = true;
+
+  fuext.tracers = list_concat (fuext.tracers, {frho1,frhocp1});
+  fu.tracers = list_concat (fu.tracers, {frho2,frhocp2});
+#endif
 
 #ifdef CONSISTENTPHASE1
   fuext.tracers = list_concat (fuext.tracers, YLList);
@@ -532,7 +588,65 @@ event init (i = 0)
   }
   boundary({T,TL,TG});
 #endif
-  
+
+#ifdef VARPROP
+  if (is_constant (rho2v)) {
+    scalar * l = list_copy (all);
+    rho2v = new scalar;
+    free (all);
+    all = list_concat ({rho2v}, l);
+    free (l);
+  }
+  if (is_constant (mu2v)) {
+    scalar * l = list_copy (all);
+    mu2v = new scalar;
+    free (all);
+    all = list_concat ({mu2v}, l);
+    free (l);
+  }
+  if (is_constant (cp2v)) {
+    scalar * l = list_copy (all);
+    cp2v = new scalar;
+    free (all);
+    all = list_concat ({cp2v}, l);
+    free (l);
+  }
+  if (is_constant (lambda2v)) {
+    scalar * l = list_copy (all);
+    lambda2v = new scalar;
+    free (all);
+    all = list_concat ({lambda2v}, l);
+    free (l);
+  }
+  if (is_constant (rho1v)) {
+    scalar * l = list_copy (all);
+    rho1v = new scalar;
+    free (all);
+    all = list_concat ({rho1v}, l);
+    free (l);
+  }
+  if (is_constant (mu1v)) {
+    scalar * l = list_copy (all);
+    mu1v = new scalar;
+    free (all);
+    all = list_concat ({mu1v}, l);
+    free (l);
+  }
+  if (is_constant (cp1v)) {
+    scalar * l = list_copy (all);
+    cp1v = new scalar;
+    free (all);
+    all = list_concat ({cp1v}, l);
+    free (l);
+  }
+  if (is_constant (lambda1v)) {
+    scalar * l = list_copy (all);
+    lambda1v = new scalar;
+    free (all);
+    all = list_concat ({lambda1v}, l);
+    free (l);
+  }
+#endif
 }
 
 /**
@@ -559,6 +673,120 @@ event cleanup (t = end)
 #ifdef SOLVE_TEMPERATURE
   delete ({TL,TG});
 #endif
+}
+
+/**
+## Update Properties
+
+Update non-constant properties. */
+
+event properties (i++)
+{
+  /**
+  Update non-constant properties. */
+
+  double yliq[NLS], ygas[NGS];
+  double xliq[NLS], xgas[NGS];
+  double mwl[NLS];
+
+  foreach() {
+    if (f[] > F_ERR) {
+
+      foreach_elem (YLList, jj) {
+        scalar YL = YList[LSI[jj]];
+        yliq[jj] = YL[]/f[];
+        mwl[jj] = inMW[LSI[jj]];
+      }
+      mass2molefrac (xliq, yliq, mwl, NLS);
+
+      ts1.x = xliq;
+      ts1.T = T[];
+      ts1.P = Pref;
+
+      rho1v[] = rho1;
+      mu1v[] = mu1;
+      cp1v[] = cp1;
+      lambda1v[] = lambda1;
+      rho1v[] = tp1.rhov (&ts1);
+      mu1v[] = tp1.muv (&ts1);
+      cp1v[] = tp1.cpv (&ts1);
+      lambda1v[] = tp1.lambdav (&ts1);
+
+      frho1[] = rho1v[];
+      frhocp1[] = rho1v[]*cp1v[];
+
+      // FIXME: Liquid diffusivity not implemented
+      //foreach_elem (Dmix1List, jj) {
+      //  scalar Dmix1v = Dmix1List[jj];
+      //  Dmix1v[] = tp1.diff (&ts1, jj);
+      //}
+    }
+    else {
+      rho1v[] = 0.;
+      mu1v[] = 0.;
+      cp1v[] = 0.;
+      cp1v[] = 0.;
+      lambda1v[] = 0.;
+      frho1[] = 0.;
+      frhocp1[] = 0.;
+
+      foreach_elem (Dmix1List, jj) {
+        scalar Dmix1v = Dmix1List[jj];
+        Dmix1v[] = 0.;
+      }
+    }
+    if ((1. - f[]) > F_ERR) {
+
+      foreach_elem (YGList, jj) {
+        scalar Y = YList[jj];
+        ygas[jj] = Y[];
+      }
+      mass2molefrac (xgas, ygas, inMW, NGS);
+
+      ts2.x = xgas;
+      ts2.T = T[];
+      ts2.P = Pref;
+
+      rho2v[] = rho2;
+      mu2v[] = mu2;
+      cp2v[] = cp2;
+      lambda2v[] = lambda2;
+      rho2v[] = tp2.rhov (&ts2);
+      mu2v[] = tp2.muv (&ts2);
+      cp2v[] = tp2.cpv (&ts2);
+      lambda2v[] = tp2.lambdav (&ts2);
+
+      frho2[] = rho2v[];
+      frhocp2[] = rho2v[]*cp2v[];
+
+      foreach_elem (Dmix2List, jj) {
+        scalar Dmix2v = Dmix2List[jj];
+        Dmix2v[] = tp2.diff (&ts2, jj);
+      }
+    }
+    else {
+      rho2v[] = 0.;
+      mu2v[] = 0.;
+      cp2v[] = 0.;
+      frho2[] = 0.;
+      frhocp2[] = 0.;
+      frhocp2r[] = 0.;
+
+      foreach_elem (Dmix2List, jj) {
+        scalar Dmix2v = Dmix2List[jj];
+        Dmix2v[] = 0.;
+      }
+    }
+    frho1[] *= f[];
+    frho2[] *= (1. - f[]);
+    frhocp1[] *= f[];
+    frhocp2[] *= (1. - f[]);
+
+    frho1r[] = frho1[];
+    frho2r[] = frho2[];
+    frhocp1r[] = frhocp1[];
+    frhocp2r[] = frhocp2[];
+  }
 }
 
 /**
@@ -738,6 +966,11 @@ event phasechange (i++)
         YLInt[] = avg_neighbor (point, YL, f);
         YGInt[] = YGIntConv[jj];
 
+#ifdef VARPROP
+        rho2 = rho2v[];
+        scalar Dmix2v = Dmix2List[jj];
+        inDmix2[LSI[jj]] = Dmix2v[];
+#endif
         double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
         sum_jG += -rho2*inDmix2[LSI[jj]]*gtrgrad;
         sum_YGInt += YGInt[];
@@ -763,6 +996,11 @@ event phasechange (i++)
         scalar YG    = YGList[LSI[jj]];
         scalar YGInt = YGIntList[LSI[jj]];
 
+#ifdef VARPROP
+        rho2 = rho2v[];
+        scalar Dmix2v = Dmix2List[jj];
+        inDmix2[LSI[jj]] = Dmix2v[];
+#endif
         double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
 #ifdef DIFFUSIVE
         mEvap[] = - rho2*inDmix2[LSI[jj]]*gtrgrad;
@@ -805,20 +1043,20 @@ event phasechange (i++)
   and the interface temperature gradients. This result in an
   algebraic equation which is numerically zero-ed. */
 
-#ifdef USE_SUNDIALS
+#ifdef USE_GSL
 
-#ifdef SOLVE_TEMPERATURE
+# ifdef SOLVE_TEMPERATURE
   ijc_CoupledTemperature();
-#endif
+# endif
 
   /**
   Finally, we can refine the first guess values from the decoupled
   solution from the fully-coupled interface jump condition. Solved
   as a non-linear system of equations. */
 
-#if USE_SUNDIALS > 0
+# if USE_GSL > 0
   ijc_CoupledNls();
-#endif
+# endif
 
 #endif
 
@@ -854,6 +1092,10 @@ event phasechange (i++)
         scalar sgimp = sgimpList[jj];
         scalar mEvap = mEvapList[jj];
 
+#ifdef VARPROP
+        rho2 = rho2v[];
+#endif
+
 #ifdef AXI
         sgexp[] = -mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
         sgimp[] = +mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
@@ -867,6 +1109,10 @@ event phasechange (i++)
         scalar slexp = slexpList[jj];
         scalar slimp = slimpList[jj];
         scalar mEvap = mEvapList[LSI[jj]];
+
+#ifdef VARPROP
+        rho1 = rho1v[];
+#endif
 
 #ifdef AXI
         slexp[] = +mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
@@ -882,6 +1128,52 @@ event phasechange (i++)
   boundary(sgexpList);
   boundary(slimpList);
   boundary(sgimpList);
+
+#ifdef SOLVE_TEMPERATURE
+  /**
+  Compute source terms for temperature equations. */
+
+  foreach() {
+    sgT[] = 0.; slT[] = 0.;
+    sgTimp[] = 0.; slTimp[] = 0.;
+    if (f[] > F_ERR && f[] < 1.-F_ERR) { // <<!!
+      coord n = facet_normal (point, fL, fsL), p;
+      double alpha = plane_alpha (fL[], n);
+      double area = plane_area_center (n, alpha, &p);
+      normalize (&n);
+
+      double bc = TInt[];
+      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
+      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
+
+#ifdef VARPROP
+      rho1 = rho1v[];
+      rho2 = rho2v[];
+      cp1 = cp1v[];
+      cp2 = cp2v[];
+      lambda1 = lambda1v[];
+      lambda2 = lambda2v[];
+#endif
+
+      double lheatflux = lambda1*ltrgrad;
+      double gheatflux = lambda2*gtrgrad;
+
+#ifdef AXI
+      slT[] = lheatflux/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgT[] = gheatflux/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      slTimp[] = mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgTimp[] = mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+#else
+      slT[] = lheatflux/rho1/cp1*area/Delta*cm[];
+      sgT[] = gheatflux/rho2/cp2*area/Delta*cm[];
+      slTimp[] = mEvapTot[]/rho1*area/Delta*cm[];
+      sgTimp[] = mEvapTot[]/rho2*area/Delta*cm[];
+#endif
+    }
+  }
+  boundary({slT,sgT});
+  boundary({slTimp, sgTimp});
+#endif
 
   /**
   We restore the tracer form of the liquid and gas-phase
@@ -912,7 +1204,19 @@ advect the fields YL and YG, as implemented in
 the tracer_advection event of [evaporation.h](evaporation.h)
 */
 
-event tracer_advection (i++);
+event tracer_advection (i++)
+{
+  foreach() {
+    for (scalar YL in YLList) {
+      YL[] = (f[] > F_ERR) ? YL[]/f[] : 0.;
+      YL[] *= frho1[];
+    }
+    for (scalar YG in YGList) {
+      YG[] = (1. - f[] > F_ERR) ? YG[]/(1. - f[]) : 0.;
+      YG[] *= frho2[];
+    }
+  }
+}
 
 /**
 ## Tracer Diffusion
@@ -934,16 +1238,25 @@ event tracer_diffusion (i++)
     f[] = (f[] > F_ERR) ? f[] : 0.;
 
     for (scalar YL in YLList)
-      YL[] = (fuext[] > F_ERR) ? YL[]/fuext[] : 0.;
+      YL[] = (fuext[] > F_ERR) ? YL[]/frho1[] : 0.;
     for (scalar YG in YGList)
-      YG[] = ((1. - fu[]) > F_ERR) ? YG[]/(1. - fu[]) : 0.;
+      YG[] = ((1. - fu[]) > F_ERR) ? YG[]/frho2[] : 0.;
 
     fL[] = f[]; fG[] = 1. - f[];
+
+#ifdef VARPROP
+    rho1v[] = (f[] > F_ERR) ? frho1r[]/f[] : 0.;
+    rho2v[] = ((1. - f[]) > F_ERR) ? frho2r[]/(1. - f[]) : 0.;
+#endif
 
 #ifdef SOLVE_TEMPERATURE
     TL[] = (fuext[] > F_ERR) ? TL[]/fuext[] : 0.;
     TG[] = ((1. - fu[]) > F_ERR) ? TG[]/(1. - fu[]) : 0.;
+
+    cp1v[] = (f[] > F_ERR) ? frhocp1r[]/(f[]*rho1v[]) : 0.;
+    cp2v[] = ((1. - f[]) > F_ERR) ? frhocp2r[]/((1. - f[])*rho2v[]) : 0.;
 #endif
+
   }
   boundary({fL,fG});
   boundary(YLList);
@@ -973,75 +1286,11 @@ event tracer_diffusion (i++)
   //theta2.dirty = true;
 #endif
 
-#ifdef MODIFIED_DIFFUSION
-  vector pcs1[], pcs2[];
-
-  foreach() {
-    if (fL[] > F_ERR && fL[] < 1.-F_ERR) {
-      coord m = mycs (point, fL); 
-      double alpha = plane_alpha (fL[], m); 
-      coord prel;
-      plane_area_center (m, alpha, &prel);
-      coord pc; 
-      plane_center (m, alpha, fL[], &pc);
-
-      pcs1.x[] = x + pc.x*Delta;
-      pcs1.y[] = y + pc.y*Delta;
-      pcs1.z[] = z + pc.z*Delta;
-    }
-    else {
-      pcs1.x[] = x;
-      pcs1.y[] = y;
-      pcs1.z[] = z;
-    }
-
-    if (fG[] > F_ERR && fG[] < 1.-F_ERR) {
-      coord m = mycs (point, fG); 
-      double alpha = plane_alpha (fG[], m); 
-      coord prel;
-      plane_area_center (m, alpha, &prel);
-      coord pc; 
-      plane_center (m, alpha, fG[], &pc);
-
-      pcs2.x[] = x + pc.x*Delta;
-      pcs2.y[] = y + pc.y*Delta;
-      pcs2.z[] = z + pc.z*Delta;
-    }
-    else {
-      pcs2.x[] = x;
-      pcs2.y[] = y;
-      pcs2.z[] = z;
-    }
-  }
-
-  face vector corrdist1[], corrdist2[];
-  foreach_face() {
-    corrdist1.x[] = Delta/fabs (pcs1.x[] - pcs1.x[-1]);
-    corrdist2.x[] = Delta/fabs (pcs2.x[] - pcs2.x[-1]);
-
-    // check: Palmore version, I don't think it's correct
-
-    //double magdist1 = 0., magdist2 = 0.;
-    //foreach_dimension() {
-    //  magdist1 += sq (pcs1.x[] - pcs1.x[-1]);
-    //  magdist2 += sq (pcs2.x[] - pcs2.x[-1]);
-    //}
-    //magdist1 = sqrt (magdist1);
-    //magdist2 = sqrt (magdist2);
-
-    //corrdist1.x[] = Delta*(pcs1.x[] - pcs1.x[-1])/magdist1;
-    //corrdist2.x[] = Delta*(pcs2.x[] - pcs2.x[-1])/magdist2;
-  }
-  boundary({corrdist2});
-#endif
-
   for (int jj=0; jj<NLS; jj++) {
     face vector Dmix1f[];
     foreach_face() {
-      Dmix1f.x[] = inDmix1[jj]*fsL.x[]*fm.x[];
-#ifdef MODIFIED_DIFFUSION
-      Dmix1f.x[] *= corrdist1.x[];
-#endif
+      double Dmix1vh = inDmix1[jj];
+      Dmix1f.x[] = Dmix1vh*fsL.x[]*fm.x[];
     }
     boundary((scalar *){Dmix1f});
 
@@ -1072,10 +1321,12 @@ event tracer_diffusion (i++)
 
     face vector Dmix2f[];
     foreach_face() {
-      Dmix2f.x[] = inDmix2[jj]*fsG.x[]*fm.x[];
-#ifdef MODIFIED_DIFFUSION
-      Dmix2f.x[] *= corrdist2.x[];
+      double Dmix2vh = inDmix2[jj];
+#ifdef VARPROP
+      scalar Dmix2v = Dmix2List[jj];
+      Dmix2vh = 0.5*(Dmix2v[] + Dmix2v[-1]);
 #endif
+      Dmix2f.x[] = Dmix2vh*fsG.x[]*fm.x[];
     }
     boundary((scalar *){Dmix2f});
 
@@ -1104,51 +1355,19 @@ event tracer_diffusion (i++)
 #ifdef SOLVE_TEMPERATURE
 
   foreach_face() {
+#ifdef VARPROP
+    double alpha1l = (rho1v[] != 0.) ? lambda1v[]/rho1v[]/cp1v[] : 0.;
+    double alpha1r = (rho1v[-1] != 0.) ? lambda1v[-1]/rho1v[-1]/cp1v[-1] : 0.;
+    double alpha2l = (rho2v[] != 0.) ? lambda2v[]/rho2v[]/cp2v[] : 0.;
+    double alpha2r = (rho2v[-1] != 0.) ? lambda2v[-1]/rho2v[-1]/cp2v[-1] : 0.;
+    lambda1f.x[] = 0.5*(alpha1r + alpha1l)*fsL.x[]*fm.x[];
+    lambda2f.x[] = 0.5*(alpha2r + alpha2l)*fsG.x[]*fm.x[];
+#else
     lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
     lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
-#ifdef MODIFIED_DIFFUSION
-    lambda1f.x[] *= corrdist1.x[];  
-    lambda2f.x[] *= corrdist2.x[];
 #endif
   }
   boundary((scalar*){lambda1f, lambda2f});
-
-  /**
-  Compute source terms for temperature equations. */
-
-  foreach() {
-    sgT[] = 0.; slT[] = 0.;
-    sgTimp[] = 0.; slTimp[] = 0.;
-    theta1[] = cm[]*max(f[], F_ERR);
-    theta2[] = cm[]*max(1. - f[], F_ERR);
-    if (f0[] > F_ERR && f0[] < 1.-F_ERR) {
-      coord n = facet_normal (point, fL, fsL), p;
-      double alpha = plane_alpha (fL[], n);
-      double area = plane_area_center (n, alpha, &p);
-      normalize (&n);
-
-      double bc = TInt[];
-      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
-      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
-
-      double lheatflux = lambda1*ltrgrad;
-      double gheatflux = lambda2*gtrgrad;
-
-#ifdef AXI
-      slT[] = lheatflux/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgT[] = gheatflux/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      slTimp[] = mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgTimp[] = mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-#else
-      slT[] = lheatflux/rho1/cp1*area/Delta*cm[];
-      sgT[] = gheatflux/rho2/cp2*area/Delta*cm[];
-      slTimp[] = mEvapTot[]/rho1*area/Delta*cm[];
-      sgTimp[] = mEvapTot[]/rho2*area/Delta*cm[];
-#endif
-    }
-  }
-  boundary({slT,sgT});
-  boundary({slTimp, sgTimp});
 
   foreach() {
     theta1[] = cm[]*max(fL[], F_ERR);
@@ -1169,17 +1388,24 @@ event tracer_diffusion (i++)
     We reconstruct the mass fractions from the total mass
     in every cell. */
 
+    double rho1vh = rho1;
+    double rho2vh = rho2;
+#ifdef VARPROP
+    rho1vh = rho1v[];
+    rho2vh = rho2v[];
+#endif
+
     double totmassliq = 0.;
     for (scalar YL in YLList)
-      totmassliq += rho1*YL[]*fL[]*dv();
+      totmassliq += rho1vh*YL[]*fL[]*dv();
     for (scalar YL in YLList)
-      YL[] = (totmassliq > 0.) ? rho1*YL[]*fL[]*dv() / totmassliq : 0.;
+      YL[] = (totmassliq > 0.) ? rho1vh*YL[]*fL[]*dv() / totmassliq : 0.;
 
     double totmassgas = 0.;
     for (scalar YG in YGList)
-      totmassgas += rho2*YG[]*fG[]*dv();
+      totmassgas += rho2vh*YG[]*fG[]*dv();
     for (scalar YG in YGList)
-      YG[] = (totmassgas > 0.) ? rho2*YG[]*fG[]*dv() / totmassgas : 0.;
+      YG[] = (totmassgas > 0.) ? rho2vh*YG[]*fG[]*dv() / totmassgas : 0.;
 
     for (scalar YL in YLList)
       YL[] *= f[];

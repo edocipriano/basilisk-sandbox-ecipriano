@@ -52,6 +52,8 @@ averages (i.e. harmonic). */
 # define mu(f,mu1,mu2)  (clamp(f,0.,1.)*(mu1 - mu2) + mu2)
 #endif
 
+#define aavg(f,v1,v2)(clamp(f,0.,1.)*(v1 - v2) + v2)
+
 /**
 We have the option of using some "smearing" of the density/viscosity
 jump. */
@@ -99,17 +101,20 @@ event properties (i++)
     double ff = (sf[] + sf[-1])/2.;
     double rho1vf = 0.5*(rho1v[] + rho1v[-1]);
     double rho2vf = 0.5*(rho2v[] + rho2v[-1]);
-    alphav.x[] = fm.x[]/rho(ff, rho1vf, rho2vf);
+    alphav.x[] = fm.x[]/aavg(ff, rho1vf, rho2vf);
     if (mu1 || mu2) {
       face vector muv = mu;
       double mu1vf = 0.5*(mu1v[] + mu1v[-1]);
       double mu2vf = 0.5*(mu2v[] + mu2v[-1]);
-      muv.x[] = fm.x[]*mu(ff, mu1vf, mu2vf);
+      muv.x[] = fm.x[]*aavg(ff, mu1vf, mu2vf);
     }
   }
   
-  foreach()
-    rhov[] = cm[]*rho(sf[],rho1v[],rho2v[]);
+  foreach() {
+    double rho1here = rho1v[];
+    double rho2here = rho2v[];
+    rhov[] = cm[]*aavg(sf[],rho1here,rho2here);
+  }
 
 #if TREE  
   sf.prolongation = fraction_refine;

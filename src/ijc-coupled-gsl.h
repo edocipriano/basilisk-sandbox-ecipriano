@@ -359,8 +359,13 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
   }
 
   fdata[0] = vapheat
+#ifdef VARPROP
+      + lambda1v[]*ltrgrad
+      + lambda2v[]*gtrgrad
+#else
        + lambda1*ltrgrad
        + lambda2*gtrgrad
+#endif
        ;
 }
 

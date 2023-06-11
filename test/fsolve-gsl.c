@@ -18,6 +18,7 @@ is $(x,y)=(1,1)$.
 We have to define the use of gsl before including fsolve. */
 
 #define USE_GSL
+#include "run.h"
 #include "fsolve-gsl.h"
 
 /**
@@ -34,7 +35,7 @@ equations. For convience, when using different interfaces,
 it is useful to define a common function that uses just
 elementary C types. */
 
-void function (const double * x, double * f, size_t size, void * params) {
+void function (const double * x, double * f, void * params) {
   UserDataNls * data = (UserDataNls *)params;
   double a = data->a;
   double b = data->b;
@@ -48,12 +49,10 @@ The gsl interface requires the use of a specific function
 which can be implemented as follows. */
 
 int function_gsl_interface (const gsl_vector * x, void * params, gsl_vector * f) {
-  size_t size = x->size;
-
   double * xdata = x->data;
   double * fdata = f->data;
 
-  function (xdata, fdata, size, params);
+  function (xdata, fdata, params);
   return GSL_SUCCESS;
 }
 
@@ -70,7 +69,7 @@ int main (void) {
 
     double * unks = (double *)arrUnk->p;
     for (int i=0; i<2; i++)
-      printf ("unk[%d] = %f\n", i, unks[i]);
+      fprintf (stderr, "firstguess[%d] = %f\n", i, unks[i]);
   }
 
   /**
@@ -92,12 +91,13 @@ int main (void) {
   {
     double * unks = (double *)arrUnk->p;
     for (int i=0; i<2; i++)
-      fprintf (stderr, "unk[%d] = %f\n", i, unks[i]);
+      fprintf (stderr, "results[%d] = %f\n", i, unks[i]);
   }
 
   /**
   Cleanup operations. */
 
   array_free (arrUnk);
+  run();
 }
 
