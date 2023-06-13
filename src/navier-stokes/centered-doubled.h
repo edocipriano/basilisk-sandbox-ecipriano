@@ -87,7 +87,9 @@ mgstats project_sfext (struct Project q)
   We add the volume expansion contribution. */
 
   foreach() {
+#ifdef EXT_STEFANFLOW
     div[] += stefanflowext[]/dt;
+#endif
 #ifdef VARPROP
     div[] += drhodt[]/dt;
 #endif

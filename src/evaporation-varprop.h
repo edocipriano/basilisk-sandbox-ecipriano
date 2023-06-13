@@ -172,39 +172,51 @@ event phasechange (i++)
     double mEvapf = 0.;
     if (f[] > F_ERR && f[] < 1.-F_ERR) {
       nf = normal (point, f);
-#ifdef VARPROP
-      rho1 = rho1v[];
-      rho2 = rho2v[];
-#endif
 #ifdef BYRHOGAS
-      mEvapf = mEvapTot[]/rho2;
+      double rho2vh = rho2;
+# ifdef VARPROP
+      rho2vh = rho2v[];
+# endif
+      mEvapf = mEvapTot[]/rho2vh;
 #else
-      mEvapf = mEvapTot[]/rho1;
+      double rho1vh = rho1;
+# ifdef VARPROP
+      rho1vh = rho1v[];
+# endif
+      mEvapf = mEvapTot[]/rho1vh;
 #endif
       if (f[-1] > F_ERR && f[-1] < 1.-F_ERR) {
         coord np = normal (neighborp(-1), f);
         foreach_dimension()
           nf.x = (nf.x + np.x)/2.;
-#ifdef VARPROP
-        rho1 = rho1v[-1];
-        rho2 = rho2v[-1];
-#endif
 #ifdef BYRHOGAS
-        mEvapf = (mEvapf + mEvapTot[-1]/rho2)/2.;
+        double rho2vh = rho2;
+# ifdef VARPROP
+        rho2vh = rho2v[-1];
+# endif
+        mEvapf = (mEvapf + mEvapTot[-1]/rho2vh)/2.;
 #else
-        mEvapf = (mEvapf + mEvapTot[-1]/rho1)/2.;
+        double rho1vh = rho1;
+# ifdef VARPROP
+        rho1vh = rho1v[-1];
+# endif
+        mEvapf = (mEvapf + mEvapTot[-1]/rho1vh)/2.;
 #endif
       }
     }
     else if (f[-1] > F_ERR && f[-1] < 1.-F_ERR) {
-#ifdef VARPROP
-      rho1 = rho1v[-1];
-      rho2 = rho2v[-1];
-#endif
 #ifdef BYRHOGAS
-      mEvapf = mEvapTot[-1]/rho2;
+      double rho2vh = rho2;
+# ifdef VARPROP
+      rho2vh = rho2v[-1];
+# endif
+      mEvapf = mEvapTot[-1]/rho2vh;
 #else
-      mEvapf = mEvapTot[-1]/rho1;
+      double rho1vh = rho1;
+# ifdef VARPROP
+      rho1vh = rho1v[-1];
+# endif
+      mEvapf = mEvapTot[-1]/rho1vh;
 #endif
       nf = normal (neighborp(-1), f);
     }
@@ -225,14 +237,16 @@ event phasechange (i++)
       alpha = plane_alpha (f[], m);
       coord prel;
       segment = plane_area_center (m, alpha, &prel);
+      double rho1vh = rho1;
+      double rho2vh = rho2;
 #ifdef VARPROP
-      rho1 = rho1v[];
-      rho2 = rho2v[];
+      rho1vh = rho1v[];
+      rho2vh = rho2v[];
 #endif
 #ifdef AXI
-      stefanflow[] = cm[]*mEvapTot[]*segment*(y + prel.y*Delta)*(1./rho2 - 1./rho1)/(Delta*y);
+      stefanflow[] = cm[]*mEvapTot[]*segment*(y + prel.y*Delta)*(1./rho2vh - 1./rho1vh)/(Delta*y);
 #else
-      stefanflow[] = mEvapTot[]*segment*(1./rho2 - 1./rho1)/Delta*cm[];
+      stefanflow[] = mEvapTot[]*segment*(1./rho2vh - 1./rho1vh)/Delta*cm[];
 #endif
     }
 #endif

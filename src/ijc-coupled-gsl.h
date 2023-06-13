@@ -8,6 +8,11 @@ extern scalar * YLList;
 extern scalar * YGList;
 extern scalar * YLIntList;
 extern scalar * YGIntList;
+#ifdef VARPROP
+extern scalar * Dmix1List;
+extern scalar * Dmix2List;
+extern scalar * dhevList;
+#endif
 extern double inDmix1[NLS];
 extern double inDmix2[NGS];
 extern double inKeq[NLS];
@@ -355,7 +360,12 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
   for (int jj=0; jj<NLS; jj++) {
     scalar mEvapSi = mEvapList[LSI[jj]];
     mEvapi[jj] = mEvapSi[];
-    vapheat -= mEvapi[jj]*dhev;
+    double dhevvh = dhev;
+#ifdef VARPROP
+    scalar dhevjj = dhevList[jj];
+    dhevvh = dhevjj[jj];
+#endif
+    vapheat -= mEvapi[jj]*dhevvh;
   }
 
   fdata[0] = vapheat

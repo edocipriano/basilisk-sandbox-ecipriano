@@ -111,6 +111,7 @@ numerical simulation. */
 
 int maxlevel, minlevel = 2;
 double D0 = 5.e-6, effective_radius0;
+//double D0 = 0.5e-3, effective_radius0;
 
 int main (void) {
   kinfolder = "evaporation/n-heptane-in-nitrogen";
@@ -134,8 +135,8 @@ int main (void) {
   We change the surface tension coefficient. and we
   decrease the tolerance of the Poisson solver. */
 
-  f.sigma = 0.01;
-  TOLERANCE = 1.e-6;
+  f.sigma = 0.03;
+  //TOLERANCE = 1.e-6;
 
   /**
   We run the simulation at different maximum
@@ -297,6 +298,7 @@ n-heptane mass fraction, the interface position
 and the temperature field. */
 
 event movie (t += 2.e-6) {
+//event movie (t += 2.e-4) {
   clear();
   box();
   view (ty = -0.5, width=1200.);
@@ -309,13 +311,16 @@ event movie (t += 2.e-6) {
   save ("movie.mp4");
 }
 
+#if DUMP
 event snapshots (t += 1.e-5) {
   char name[80];
   sprintf (name, "snapshot-%g", t);
   dump (name);
 }
+#endif
 
 event stop (t = 1.6e-4) {
+//event stop (t = 1.6e-1) {
 }
 
 /**
