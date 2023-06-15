@@ -744,24 +744,37 @@ event properties (i++)
       mu1v[] = mu1;
       cp1v[] = cp1;
       lambda1v[] = lambda1;
-      //rho1v[] = tp1.rhov (&ts1);
-      //mu1v[] = tp1.muv (&ts1);
-      //cp1v[] = tp1.cpv (&ts1);
-      //lambda1v[] = tp1.lambdav (&ts1);
-      //betaexp1[] = liqprop_thermal_expansion (&tp1, &ts1);
+      rho1v[] = tp1.rhov (&ts1);
+      mu1v[] = tp1.muv (&ts1);
+      cp1v[] = tp1.cpv (&ts1);
+      lambda1v[] = tp1.lambdav (&ts1);
+      betaexp1[] = liqprop_thermal_expansion (&tp1, &ts1);
+
+      // We want the liquid phase diffusivity
+      // to be weighted on the mass fractions
+      double x1hbkp[NLS];
+      foreach_elem (YLList, jj) {
+        x1hbkp[jj] = x1h[jj];
+        x1h[jj] = yliq[jj];
+      }
 
       foreach_elem (YLList, jj) {
+        // Enthalpy of evaporation
         scalar dhevjj = dhevList[jj];
         dhevjj[] = dhev;
-        //dhevjj[] = tp1.dhev (&ts1, jj);
-      }
+        dhevjj[] = tp1.dhev (&ts1, jj);
 
-      // FIXME: Variable liquid diffusivity not implemented
-      foreach_elem (Dmix1List, jj) {
+        // Liquid phase diffusivity
         scalar Dmix1v = Dmix1List[jj];
         Dmix1v[] = inDmix1[jj];
-        //Dmix1v[] = tp1.diff (&ts1, jj);
+        Dmix1v[] = tp1.diff (&ts1, jj);
       }
+
+      // We recover the real mole fraction values
+      foreach_elem (YLList, jj) {
+        x1h[jj] = x1hbkp[jj];
+      }
+
     }
     else {
       //rho1v0[] = 0.;
@@ -796,16 +809,16 @@ event properties (i++)
       mu2v[] = mu2;
       cp2v[] = cp2;
       lambda2v[] = lambda2;
-      //rho2v[] = tp2.rhov (&ts2);
-      //mu2v[] = tp2.muv (&ts2);
-      //cp2v[] = tp2.cpv (&ts2);
-      //lambda2v[] = tp2.lambdav (&ts2);
-      //betaexp2[] = gasprop_thermal_expansion (&ts2);
+      rho2v[] = tp2.rhov (&ts2);
+      mu2v[] = tp2.muv (&ts2);
+      cp2v[] = tp2.cpv (&ts2);
+      lambda2v[] = tp2.lambdav (&ts2);
+      betaexp2[] = gasprop_thermal_expansion (&ts2);
 
       foreach_elem (Dmix2List, jj) {
         scalar Dmix2v = Dmix2List[jj];
         Dmix2v[] = inDmix2[jj];
-        //Dmix2v[] = tp2.diff (&ts2, jj);
+        Dmix2v[] = tp2.diff (&ts2, jj);
       }
     }
     else {
@@ -906,25 +919,25 @@ event properties (i++)
     frhocp2r[] = (1. - f[])*rho2v[]*cp2v[];
   }
 
-  // Compute lagrangian derivative of density
-  scalar rhovt[], cpvt[], betavt[], lambdavt[];
-  foreach() {
-    rhovt[] = aavg (f[], rho1v[], rho2v[]);
-    betavt[] = aavg (f[], betaexp1[], betaexp2[]);
-    lambdavt[] = aavg (f[], lambda1v[], lambda2v[]);
-    cpvt[] = aavg (f[], cp1v[], cp2v[]);
+  //// Compute lagrangian derivative of density
+  //scalar rhovt[], cpvt[], betavt[], lambdavt[];
+  //foreach() {
+  //  rhovt[] = aavg (f[], rho1v[], rho2v[]);
+  //  betavt[] = aavg (f[], betaexp1[], betaexp2[]);
+  //  lambdavt[] = aavg (f[], lambda1v[], lambda2v[]);
+  //  cpvt[] = aavg (f[], cp1v[], cp2v[]);
 
-    TL[] = (f[] > F_ERR) ? TL[]/f[] : 0.;
-    TG[] = (1. - f[] > F_ERR) ? TG[]/(1. - f[]) : 0.;
-  }
+  //  TL[] = (f[] > F_ERR) ? TL[]/f[] : 0.;
+  //  TG[] = (1. - f[] > F_ERR) ? TG[]/(1. - f[]) : 0.;
+  //}
 
-  //face_fraction (f, fsL);
+  ////face_fraction (f, fsL);
 
-  face vector lambdagT[];
-  foreach_face() {
-    double lambdavf = 0.5*(lambdavt[] + lambdavt[-1]);
-    lambdagT.x[] = fm.x[]*lambdavf*face_gradient_x (T, 0); /// !<<
-  }
+  //face vector lambdagT[];
+  //foreach_face() {
+  //  double lambdavf = 0.5*(lambdavt[] + lambdavt[-1]);
+  //  lambdagT.x[] = fm.x[]*lambdavf*face_gradient_x (T, 0); /// !<<
+  //}
   //face vector lambdagT[], lambdalT[];
   //foreach_face() {
   //  double lambda1vf = 0.5*(lambda1v[] + lambda1v[-1]);
@@ -933,59 +946,59 @@ event properties (i++)
   //  lambdagT.x[] = fm.x[]*(1. - fsL.x[])*lambda2vf*face_gradient_x (TG, 0);
   //}
 
-  face vector rhovflux[];
-  tracer_fluxes (frho1r, uf, rhovflux, dt, zeroc);
+  //face vector rhovflux[];
+  //tracer_fluxes (frho1r, uf, rhovflux, dt, zeroc);
 
-  foreach() {
-    double laplT = 0.;
-    foreach_dimension()
-      laplT += (lambdagT.x[1] - lambdagT.x[]);
-    laplT /= Delta;
-    //double laplT1 = 0., laplT2 = 0.;
-    //foreach_dimension() {
-    //  laplT1 += (lambdalT.x[1] - lambdalT.x[]);
-    //  laplT2 += (lambdagT.x[1] - lambdagT.x[]);
-    //}
-    //laplT1 /= Delta;
-    //laplT2 /= Delta;
+  //foreach() {
+  //  double laplT = 0.;
+  //  foreach_dimension()
+  //    laplT += (lambdagT.x[1] - lambdagT.x[]);
+  //  laplT /= Delta;
+  //  //double laplT1 = 0., laplT2 = 0.;
+  //  //foreach_dimension() {
+  //  //  laplT1 += (lambdalT.x[1] - lambdalT.x[]);
+  //  //  laplT2 += (lambdagT.x[1] - lambdagT.x[]);
+  //  //}
+  //  //laplT1 /= Delta;
+  //  //laplT2 /= Delta;
 
-    double drho1dt = (f[] > F_ERR) ?
-      betaexp1[]/(rho1v[]*cp1v[])*laplT : 0.;
+  //  double drho1dt = (f[] > F_ERR) ?
+  //    betaexp1[]/(rho1v[]*cp1v[])*laplT : 0.;
 
-    double drho2dt = ((1. - f[]) > F_ERR) ?
-      -1./(rho2v[]*cp2v[]*T[])*laplT : 0.;
+  //  double drho2dt = ((1. - f[]) > F_ERR) ?
+  //    -1./(rho2v[]*cp2v[]*T[])*laplT : 0.;
 
-    //double drho1dt = (f[] > F_ERR) ?
-    //  betaexp1[]/(rho1v[]*cp1v[])*laplT1 : 0.;
+  //  //double drho1dt = (f[] > F_ERR) ?
+  //  //  betaexp1[]/(rho1v[]*cp1v[])*laplT1 : 0.;
 
-    //double drho2dt = ((1. - f[]) > F_ERR) ?
-    //  -betaexp2[]/(rho2v[]*cp2v[])*laplT2 : 0.;
+  //  //double drho2dt = ((1. - f[]) > F_ERR) ?
+  //  //  -betaexp2[]/(rho2v[]*cp2v[])*laplT2 : 0.;
 
-    //drhodt[] = aavg (f[], drho1dt, 0.);
+  //  //drhodt[] = aavg (f[], drho1dt, 0.);
 
-    TL[] *= f[];
-    TG[] *= (1. - f[]);
+  //  TL[] *= f[];
+  //  TG[] *= (1. - f[]);
 
-    //// New calculation using explicit density
-    //double temporal1 = (rho1v[] - rho1v0[])/dt;
-    //double temporal2 = (rho2v[] - rho2v0[])/dt;
-    //double temporal = aavg (f[], temporal1, temporal2);
+  //  //// New calculation using explicit density
+  //  //double temporal1 = (rho1v[] - rho1v0[])/dt;
+  //  //double temporal2 = (rho2v[] - rho2v0[])/dt;
+  //  //double temporal = aavg (f[], temporal1, temporal2);
 
-    //double div_rhov = 0.;
-    //foreach_dimension()
-    //  div_rhov += (rhovflux.x[1] - rhovflux.x[]);
-    //div_rhov /= (Delta*cm[]);
+  //  //double div_rhov = 0.;
+  //  //foreach_dimension()
+  //  //  div_rhov += (rhovflux.x[1] - rhovflux.x[]);
+  //  //div_rhov /= (Delta*cm[]);
 
-    //double div = 0.;
-    //foreach_dimension()
-    //  div += (uf.x[1] - uf.x[]);
-    //div /= Delta;
+  //  //double div = 0.;
+  //  //foreach_dimension()
+  //  //  div += (uf.x[1] - uf.x[]);
+  //  //div /= Delta;
 
-    ////drhodt[] = 1./rhovt[]*(temporal + div_rhov - rhovt[]*div);
-    ////dummy[] = (f[] > 1.e-3) ? 1./rho1v[]*(temporal + div_rhov - rho1v[]*div) : 0.;
-    //dummy[] = (f[] > F_ERR) ? f[]*(1./rho1v[]*((rho1v[] - rho1v0[])/dt*cm[] + div_rhov - rho1v[]*div)) : 0.;
-    //drhodt[] = -dummy[];
-  }
+  //  ////drhodt[] = 1./rhovt[]*(temporal + div_rhov - rhovt[]*div);
+  //  ////dummy[] = (f[] > 1.e-3) ? 1./rho1v[]*(temporal + div_rhov - rho1v[]*div) : 0.;
+  //  //dummy[] = (f[] > F_ERR) ? f[]*(1./rho1v[]*((rho1v[] - rho1v0[])/dt*cm[] + div_rhov - rho1v[]*div)) : 0.;
+  //  //drhodt[] = -dummy[];
+  //}
   }
 }
 

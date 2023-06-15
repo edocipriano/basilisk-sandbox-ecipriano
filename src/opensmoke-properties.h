@@ -136,6 +136,39 @@ double opensmoke_liqprop_dhev (void * p, int i) {
 }
 
 /**
+### *opensmoke_liqprop_diff_pg()*: diffusion coefficient of a species in liquid phase (Perkins Geankopolis)
+*/
+
+double opensmoke_liqprop_diff_pg (void * p, int i) {
+  ThermoState * ts = (ThermoState *)p;
+  OpenSMOKE_GasProp_SetTemperature (ts->T);
+  OpenSMOKE_GasProp_SetPressure (ts->P);
+  return OpenSMOKE_LiqProp_Dmix_PerkinsGeankopolis (ts->T, ts->P, ts->x, i);
+}
+
+/**
+### *opensmoke_liqprop_diff_c()*: diffusion coefficient of a species in liquid phase (Cullinan)
+*/
+
+double opensmoke_liqprop_diff_c (void * p, int i) {
+  ThermoState * ts = (ThermoState *)p;
+  OpenSMOKE_GasProp_SetTemperature (ts->T);
+  OpenSMOKE_GasProp_SetPressure (ts->P);
+  return OpenSMOKE_LiqProp_Dmix_Cullinan (ts->T, ts->P, ts->x, i);
+}
+
+/**
+### *opensmoke_liqprop_diff_lc()*: diffusion coefficient of a species in liquid phase (Leffler Cullinan)
+*/
+
+double opensmoke_liqprop_diff_lc (void * p, int i) {
+  ThermoState * ts = (ThermoState *)p;
+  OpenSMOKE_GasProp_SetTemperature (ts->T);
+  OpenSMOKE_GasProp_SetPressure (ts->P);
+  return OpenSMOKE_LiqProp_Dmix_LefflerCullinan (ts->T, ts->P, ts->x, i);
+}
+
+/**
 ## Thermodynamic Properties
 
 We create the instance of two structures with the
@@ -167,6 +200,7 @@ event defaults (i = 0) {
   tp1.cpv = opensmoke_liqprop_heatcapacity;
   tp1.pvap = opensmoke_liqprop_pvap;
   tp1.dhev = opensmoke_liqprop_dhev;
+  tp1.diff = opensmoke_liqprop_diff_lc;
 
   tp2.rhov = opensmoke_gasprop_density;
   tp2.muv = opensmoke_gasprop_viscosity;

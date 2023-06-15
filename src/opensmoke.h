@@ -45,6 +45,7 @@ event defaults (i = 0)
   sprintf (liqfolder_root, "%s/kinetics/%s",
       getenv ("OPENSMOKE_INTERFACE"), liqfolder);
 
+  OpenSMOKE_Init();
   OpenSMOKE_ReadKinetics (kinfolder_root);
   OpenSMOKE_ReadLiquidKinetics (kinfolder_root);
   OpenSMOKE_ReadLiquidProperties (liqfolder_root);
