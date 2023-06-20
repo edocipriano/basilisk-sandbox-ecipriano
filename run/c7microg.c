@@ -37,7 +37,6 @@ this test case. */
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE
-#define DIFFUSIVE
 
 /**
 ## Simulation Setup
@@ -70,9 +69,9 @@ char* gas_species[NGS] = {"NC7H16", "N2"};
 char* liq_species[NLS] = {"NC7H16"};
 char* inert_species[1] = {"N2"};
 double gas_start[NGS] = {0., 1.};
-double liq_start[NLS] = {1.};
+double liq_start[NLS] = {1.0};
 double inDmix1[NLS] = {0.};
-double inDmix2[NGS] = {6.77e-7, 6.77e-7};
+double inDmix2[NGS] = {6.77e-7,6.77e-7};
 double inKeq[NLS] = {0.};
 
 double lambda1 = 0.1121;
@@ -81,7 +80,7 @@ double dhev = 3.23e5;
 double cp1 = 2505.;
 double cp2 = 1053.;
 double TL0 = 300.;
-double TG0 = 563.;
+double TG0 = 741.;
 
 /**
 ### Boundary conditions
@@ -103,6 +102,9 @@ uext.n[right] = neumann (0.);
 uext.t[right] = neumann (0.);
 pext[right] = dirichlet (0.);
 
+TG[top] = dirichlet (TG0);
+TG[right] = dirichlet (TG0);
+
 /**
 ### Simulation Data
 
@@ -110,9 +112,8 @@ We declare the maximum and minimum levels of refinement,
 the initial radius and diameter, and the radius from the
 numerical simulation. */
 
-int maxlevel = 8, minlevel = 2;
-double D0 = 5.e-6, effective_radius0;
-//double D0 = 0.5e-3, effective_radius0;
+int maxlevel, minlevel = 2;
+double D0 = 0.7e-3, effective_radius0;
 
 int main (void) {
   kinfolder = "evaporation/n-heptane-in-nitrogen";
@@ -124,7 +125,7 @@ int main (void) {
 
   rho1 = 626.7; rho2 = 17.51;
   mu1 = 1.e-3; mu2 = 1.e-5;
-  Pref = 2860000.;
+  Pref = 1e+5;
 
   /**
   We change the dimension of the domain as a function
@@ -137,14 +138,15 @@ int main (void) {
   decrease the tolerance of the Poisson solver. */
 
   f.sigma = 0.03;
-  //TOLERANCE = 1.e-6;
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  init_grid (1 << maxlevel);
-  run();
+  for (maxlevel = 8; maxlevel <= 8; maxlevel++) {
+    init_grid (1 << maxlevel);
+    run();
+  }
 }
 
 #define circle(x,y,R)(sq(R) - sq(x) - sq(y))
@@ -157,41 +159,30 @@ diameter decay would not start from 1. */
 
 event init (i = 0) {
   fraction (f, circle (x, y, 0.5*D0));
-  effective_radius0 = pow(3.*statsf(f).sum, 1./3.);
+  effective_radius0 = pow (3.*statsf(f).sum, 1./3.);
 
   /**
   We set the molecular weights of the chemial species
   involved in the simulation (by default inMW=1). */
 
-  for (int jj=0; jj<NLS; jj++)
+  for (int jj=0; jj<NGS; jj++) {
     inMW[jj] = OpenSMOKE_MW (jj);
+  }
 
   /**
   The proper Antoine equation function must be set
   to the attribute *antoine* of the liquid phase mass
   fraction fields. */
 
-  scalar YL = YLList[0];
-  YL.antoine = antoine_heptane;
+  scalar YL_C7 = YLList[0];
+  YL_C7.antoine = antoine_heptane;
+
+#ifdef CENTRIPETAL
+  sfm.p = (coord){0.,0.};
+  sfm.eps = 1.e-4;
+  sfm.sigma = 0.005;
+#endif
 }
-
-/**
-We use the same boundary conditions used by
-[Pathak at al., 2018](#pathak2018steady). */
-
-//event bcs (i = 0) {
-//  scalar C7 = YGList[0];
-//  scalar N2 = YGList[1];
-//
-//  C7[top] = dirichlet (0.);
-//  C7[right] = dirichlet (0.);
-//
-//  N2[top] = dirichlet (1.);
-//  N2[right] = dirichlet (1.);
-//
-//  TG[top] = dirichlet (TG0);
-//  TG[right] = dirichlet (TG0);
-//}
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -202,7 +193,7 @@ velocity field. */
 event adapt (i++) {
   scalar C7 = YList[0];
   adapt_wavelet_leave_interface ({C7,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.,1.e-2,1.e-2}, maxlevel, minlevel, 1);
+      (double[]){1.e-2,1.e-2,1.e-2,1.e-2}, maxlevel, minlevel, 1);
 }
 #endif
 
@@ -224,7 +215,7 @@ event output_data (i++) {
 
   scalar YInt_c7 = YGIntList[0];
   scalar Y_c7 = YList[0];
-  double effective_radius = pow(3.*statsf(f).sum, 1./3.);
+  double effective_radius = pow (3.*statsf(f).sum, 1./3.);
   double d_over_d02 = sq (effective_radius / effective_radius0);
 
   double TIntavg = avg_interface (TInt, f);
@@ -233,64 +224,9 @@ event output_data (i++) {
   double Yavg = avg_interface (Y_c7, f);
 
   fprintf (fp, "%g %g %g %g %g %g %g\n",
-      t/sq (D0*1e3), effective_radius, d_over_d02, TIntavg, YIntavg, Tavg, Yavg);
+      t/sq(2.*effective_radius0*1e3), effective_radius, d_over_d02, TIntavg, YIntavg, Tavg, Yavg);
   fflush (fp);
 }
-
-///**
-//### Temperature and Mass Fraction Profiles
-//
-//We write on a file the temperature and mass fraction
-//profiles at different time instants. */
-//
-//event profiles (t = {3.29e-6, 3.e-5, 1.05e-4, 1.5e-4}) {
-//  char name[80];
-//  sprintf (name, "Profiles-%d", maxlevel);
-//
-//  /**
-//  We create an array with the temperature and mass
-//  fraction profiles for each processor. */
-//
-//  scalar C7 = YList[0];
-//
-//  Array * arrtemps = array_new();
-//  Array * arrmassf = array_new();
-//  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-//    double valt = interpolate (T, x, 0.);
-//    double valm = interpolate (C7, x, 0.);
-//    valt = (valt == nodata) ? 0. : valt;
-//    valm = (valm == nodata) ? 0. : valm;
-//    array_append (arrtemps, &valt, sizeof(double));
-//    array_append (arrmassf, &valm, sizeof(double));
-//  }
-//  double * temps = (double *)arrtemps->p;
-//  double * massf = (double *)arrmassf->p;
-//
-//  /**
-//  We sum each element of the arrays in every processor. */
-//
-//  @if _MPI
-//  int size = arrtemps->len/sizeof(double);
-//  MPI_Allreduce (MPI_IN_PLACE, temps, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-//  MPI_Allreduce (MPI_IN_PLACE, massf, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-//  @endif
-//
-//  /**
-//  The master node writes the profiles on a file. */
-//
-//  if (pid() == 0) {
-//    static FILE * fpp = fopen (name, "w");
-//    int count = 0;
-//    for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-//      fprintf (fpp, "%g %g %g\n", x, temps[count], massf[count]);
-//      count++;
-//    }
-//    fprintf (fpp, "\n\n");
-//    fflush (fpp);
-//  }
-//  array_free (arrtemps);
-//  array_free (arrmassf);
-//}
 
 /**
 ### Movie
@@ -299,25 +235,22 @@ We write the animation with the evolution of the
 n-heptane mass fraction, the interface position
 and the temperature field. */
 
-event movie (t += 2.e-6) {
-//event movie (t += 2.e-4) {
+event movie (t += 0.01) {
   clear();
   box();
-  view (ty = -0.5, width=1200.);
+  view (tx = -0.5, ty = -0.5);
   draw_vof ("f");
-  squares ("NC7H16", min = 0., max = 1., linear = true);
-  mirror ({1.,0.}) {
-    draw_vof ("f");
-    squares ("T", min = statsf(T).min, max = TG0, linear = true);
-  }
+  squares ("NC7H16", min = 0., max = 1.0, linear = true);
   save ("movie.mp4");
 }
 
+#if DUMP
 event snapshots (t += 1.e-5) {
   char name[80];
   sprintf (name, "snapshot-%g", t);
   dump (name);
 }
+#endif
 
 #if TRACE > 1
 event profiling (i += 20) {
@@ -326,7 +259,8 @@ event profiling (i += 20) {
 }
 #endif
 
-event stop (t = 1.6e-4) {
+//event stop (t = 1.6e-4) {
+event stop (t = 6) {
 }
 
 /**

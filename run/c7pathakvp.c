@@ -37,7 +37,6 @@ this test case. */
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE
-#define DIFFUSIVE
 
 /**
 ## Simulation Setup
@@ -80,7 +79,7 @@ double lambda2 = 0.04428;
 double dhev = 3.23e5;
 double cp1 = 2505.;
 double cp2 = 1053.;
-double TL0 = 300.;
+double TL0 = 363.;
 double TG0 = 563.;
 
 /**
@@ -110,13 +109,11 @@ We declare the maximum and minimum levels of refinement,
 the initial radius and diameter, and the radius from the
 numerical simulation. */
 
-int maxlevel = 8, minlevel = 2;
+int maxlevel, minlevel = 2;
 double D0 = 5.e-6, effective_radius0;
-//double D0 = 0.5e-3, effective_radius0;
 
 int main (void) {
   kinfolder = "evaporation/n-heptane-in-nitrogen";
-
   /**
   We set the material properties of the fluids. The
   properties correspond to the n-heptane/nitrogen system
@@ -130,21 +127,23 @@ int main (void) {
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
-  L0 = 10.*D0;
+  L0 = 2.*D0;
 
   /**
   We change the surface tension coefficient. and we
   decrease the tolerance of the Poisson solver. */
 
-  f.sigma = 0.03;
-  //TOLERANCE = 1.e-6;
+  f.sigma = 0.01;
+  TOLERANCE = 1.e-6;
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  init_grid (1 << maxlevel);
-  run();
+  for (maxlevel = 6; maxlevel <= 6; maxlevel++) {
+    init_grid (1 << maxlevel);
+    run();
+  }
 }
 
 #define circle(x,y,R)(sq(R) - sq(x) - sq(y))
@@ -163,8 +162,7 @@ event init (i = 0) {
   We set the molecular weights of the chemial species
   involved in the simulation (by default inMW=1). */
 
-  for (int jj=0; jj<NLS; jj++)
-    inMW[jj] = OpenSMOKE_MW (jj);
+  inMW[0] = 100.2; inMW[1] = 29.;
 
   /**
   The proper Antoine equation function must be set
@@ -179,32 +177,30 @@ event init (i = 0) {
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-//event bcs (i = 0) {
-//  scalar C7 = YGList[0];
-//  scalar N2 = YGList[1];
-//
-//  C7[top] = dirichlet (0.);
-//  C7[right] = dirichlet (0.);
-//
-//  N2[top] = dirichlet (1.);
-//  N2[right] = dirichlet (1.);
-//
-//  TG[top] = dirichlet (TG0);
-//  TG[right] = dirichlet (TG0);
-//}
+event bcs (i = 0) {
+  scalar C7 = YGList[0];
+  scalar N2 = YGList[1];
+
+  C7[top] = dirichlet (0.);
+  C7[right] = dirichlet (0.);
+
+  N2[top] = dirichlet (1.);
+  N2[right] = dirichlet (1.);
+
+  TG[top] = dirichlet (TG0);
+  TG[right] = dirichlet (TG0);
+}
 
 /**
 We adapt the grid according to the mass fractions of the
 mass fraction of n-heptane, the temperature, and the
 velocity field. */
 
-#if TREE
 event adapt (i++) {
   scalar C7 = YList[0];
   adapt_wavelet_leave_interface ({C7,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.,1.e-2,1.e-2}, maxlevel, minlevel, 1);
+      (double[]){1.e-3,1.e-2,1.e-3,1.e-3,1.e-3}, maxlevel, minlevel, 1);
 }
-#endif
 
 /**
 ## Post-Processing
@@ -233,64 +229,64 @@ event output_data (i++) {
   double Yavg = avg_interface (Y_c7, f);
 
   fprintf (fp, "%g %g %g %g %g %g %g\n",
-      t/sq (D0*1e3), effective_radius, d_over_d02, TIntavg, YIntavg, Tavg, Yavg);
+      t, effective_radius, d_over_d02, TIntavg, YIntavg, Tavg, Yavg);
   fflush (fp);
 }
 
-///**
-//### Temperature and Mass Fraction Profiles
-//
-//We write on a file the temperature and mass fraction
-//profiles at different time instants. */
-//
-//event profiles (t = {3.29e-6, 3.e-5, 1.05e-4, 1.5e-4}) {
-//  char name[80];
-//  sprintf (name, "Profiles-%d", maxlevel);
-//
-//  /**
-//  We create an array with the temperature and mass
-//  fraction profiles for each processor. */
-//
-//  scalar C7 = YList[0];
-//
-//  Array * arrtemps = array_new();
-//  Array * arrmassf = array_new();
-//  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-//    double valt = interpolate (T, x, 0.);
-//    double valm = interpolate (C7, x, 0.);
-//    valt = (valt == nodata) ? 0. : valt;
-//    valm = (valm == nodata) ? 0. : valm;
-//    array_append (arrtemps, &valt, sizeof(double));
-//    array_append (arrmassf, &valm, sizeof(double));
-//  }
-//  double * temps = (double *)arrtemps->p;
-//  double * massf = (double *)arrmassf->p;
-//
-//  /**
-//  We sum each element of the arrays in every processor. */
-//
-//  @if _MPI
-//  int size = arrtemps->len/sizeof(double);
-//  MPI_Allreduce (MPI_IN_PLACE, temps, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-//  MPI_Allreduce (MPI_IN_PLACE, massf, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-//  @endif
-//
-//  /**
-//  The master node writes the profiles on a file. */
-//
-//  if (pid() == 0) {
-//    static FILE * fpp = fopen (name, "w");
-//    int count = 0;
-//    for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-//      fprintf (fpp, "%g %g %g\n", x, temps[count], massf[count]);
-//      count++;
-//    }
-//    fprintf (fpp, "\n\n");
-//    fflush (fpp);
-//  }
-//  array_free (arrtemps);
-//  array_free (arrmassf);
-//}
+/**
+### Temperature and Mass Fraction Profiles
+
+We write on a file the temperature and mass fraction
+profiles at different time instants. */
+
+event profiles (t = {3.29e-6, 3.e-5, 1.05e-4, 1.5e-4}) {
+  char name[80];
+  sprintf (name, "Profiles-%d", maxlevel);
+
+  /**
+  We create an array with the temperature and mass
+  fraction profiles for each processor. */
+
+  scalar C7 = YList[0];
+
+  Array * arrtemps = array_new();
+  Array * arrmassf = array_new();
+  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
+    double valt = interpolate (T, x, 0.);
+    double valm = interpolate (C7, x, 0.);
+    valt = (valt == nodata) ? 0. : valt;
+    valm = (valm == nodata) ? 0. : valm;
+    array_append (arrtemps, &valt, sizeof(double));
+    array_append (arrmassf, &valm, sizeof(double));
+  }
+  double * temps = (double *)arrtemps->p;
+  double * massf = (double *)arrmassf->p;
+
+  /**
+  We sum each element of the arrays in every processor. */
+
+  @if _MPI
+  int size = arrtemps->len/sizeof(double);
+  MPI_Allreduce (MPI_IN_PLACE, temps, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce (MPI_IN_PLACE, massf, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  @endif
+
+  /**
+  The master node writes the profiles on a file. */
+
+  if (pid() == 0) {
+    static FILE * fpp = fopen (name, "w");
+    int count = 0;
+    for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
+      fprintf (fpp, "%g %g %g\n", x, temps[count], massf[count]);
+      count++;
+    }
+    fprintf (fpp, "\n\n");
+    fflush (fpp);
+  }
+  array_free (arrtemps);
+  array_free (arrmassf);
+}
 
 /**
 ### Movie
@@ -299,8 +295,7 @@ We write the animation with the evolution of the
 n-heptane mass fraction, the interface position
 and the temperature field. */
 
-event movie (t += 2.e-6) {
-//event movie (t += 2.e-4) {
+event movie (t += 2.e-6; t <= 1.6e-4) {
   clear();
   box();
   view (ty = -0.5, width=1200.);
@@ -311,22 +306,6 @@ event movie (t += 2.e-6) {
     squares ("T", min = statsf(T).min, max = TG0, linear = true);
   }
   save ("movie.mp4");
-}
-
-event snapshots (t += 1.e-5) {
-  char name[80];
-  sprintf (name, "snapshot-%g", t);
-  dump (name);
-}
-
-#if TRACE > 1
-event profiling (i += 20) {
-  static FILE * fp = fopen ("profiling", "w");
-  trace_print (fp, 1);
-}
-#endif
-
-event stop (t = 1.6e-4) {
 }
 
 /**
@@ -360,7 +339,7 @@ plot "../data/pathak-heptane-T563-temp.csv" w p ps 2 t "Pathank et al., 2018", \
 
 ~~~gnuplot Evolution of the temperature profiles
 reset
-set xlabel "radius \mu m"
+set xlabel "radius [m] x10^{6}"
 set ylabel "Temperature [K]"
 set key bottom right
 set grid
@@ -377,7 +356,7 @@ plot "../data/pathak-heptane-T563-Tprofile-329e-6.csv" w p pt 8 lc 1 t "time = 3
 
 ~~~gnuplot Evolution of the n-heptane mass fraction profiles
 reset
-set xlabel "radius \mu m"
+set xlabel "radius [m] x10^{6}"
 set ylabel "Mass Fraction [-]"
 set key top right
 set grid

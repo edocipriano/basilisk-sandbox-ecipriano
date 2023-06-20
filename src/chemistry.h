@@ -76,7 +76,7 @@ event chemistry (i++) {
       Set additional data to be passed to the ODE system. */
 
       UserDataODE data;
-      data.P = 101325.;
+      data.P = Pref;
       data.T = 1200.;
 #ifdef SOLVE_TEMPERATURE
       data.rho = rho2;

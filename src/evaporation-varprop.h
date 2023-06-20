@@ -84,6 +84,7 @@ scalar stefanflow[];
 face vector vpc[];
 scalar fu[], fuext[];
 face vector uf_save[];
+scalar mDilation[];
 
 /**
 ## Extern fields

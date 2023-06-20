@@ -169,6 +169,16 @@ double opensmoke_liqprop_diff_lc (void * p, int i) {
 }
 
 /**
+### *opensmoke_antoine()*: implementation of the antoine function using opensmoke
+*/
+
+double opensmoke_antoine (double T, double P, int i) {
+  ThermoState ts;
+  ts.T = T, ts.P = P;
+  return opensmoke_liqprop_pvap (&ts, i)/P;
+}
+
+/**
 ## Thermodynamic Properties
 
 We create the instance of two structures with the
@@ -194,18 +204,18 @@ event defaults (i = 0) {
   correct opensmoke functions that compute material
   properties. */
 
-  tp1.rhov = opensmoke_liqprop_density_addvol;
-  tp1.muv = opensmoke_liqprop_viscosity;
+  tp1.rhov    = opensmoke_liqprop_density_addvol;
+  tp1.muv     = opensmoke_liqprop_viscosity;
   tp1.lambdav = opensmoke_liqprop_thermalconductivity;
-  tp1.cpv = opensmoke_liqprop_heatcapacity;
-  tp1.pvap = opensmoke_liqprop_pvap;
-  tp1.dhev = opensmoke_liqprop_dhev;
-  tp1.diff = opensmoke_liqprop_diff_lc;
+  tp1.cpv     = opensmoke_liqprop_heatcapacity;
+  tp1.pvap    = opensmoke_liqprop_pvap;
+  tp1.dhev    = opensmoke_liqprop_dhev;
+  tp1.diff    = opensmoke_liqprop_diff_lc;
 
-  tp2.rhov = opensmoke_gasprop_density;
-  tp2.muv = opensmoke_gasprop_viscosity;
+  tp2.rhov    = opensmoke_gasprop_density;
+  tp2.muv     = opensmoke_gasprop_viscosity;
   tp2.lambdav = opensmoke_gasprop_thermalconductivity;
-  tp2.cpv = opensmoke_gasprop_heatcapacity;
-  tp2.diff = opensmoke_gasprop_diff;
+  tp2.cpv     = opensmoke_gasprop_heatcapacity;
+  tp2.diff    = opensmoke_gasprop_diff;
 }
 

@@ -58,7 +58,6 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
 
   UserDataODE data = *(UserDataODE *)args;
   double rho = data.rho;
-  double cp = data.cp;
   double Pressure = data.P;
   double Temperature = data.T;
 
@@ -78,8 +77,8 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
     massfracs[jj] = y[jj];
   }
 
-  mass2molefrac (molefracs, massfracs, inMW, NGS);
-  double MWMix = mass2mw (massfracs, inMW, NGS);
+  double MWMix = 0.;
+  OpenSMOKE_MoleFractions_From_MassFractions (molefracs, &MWMix, massfracs);
 
   double ctot = Pressure/(R_GAS*1000.)/Temperature;
   double ci[NGS], ri[NGS];
@@ -140,17 +139,30 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   for (int jj=0; jj<NGS; jj++) {
     massfracs[jj] = y[jj];
   }
+  correctfrac (massfracs, NGS);
 
-  mass2molefrac (molefracs, massfracs, inMW, NGS);
-  double MWMix = mass2mw (massfracs, inMW, NGS);
+  double MWMix = 0.;
+  OpenSMOKE_MoleFractions_From_MassFractions (molefracs, &MWMix, massfracs);
 
-  double ctot = Pressure/(R_GAS*1000.)/Temperature;
+#ifdef VARPROP
+
+  /**
+  We compute the density and the heat capacity as
+  a function of the thermodynamic state. */
+
+  double ctot = Pressure/(R_GAS*1000.)/Temperature;  // [kmol/m3]
+  rho = ctot*MWMix;  // [kg/m3]
+
+  cp = OpenSMOKE_GasProp_HeatCapacity (molefracs);
+
+#endif
+
   double ci[NGS], ri[NGS];
   for (int jj=0; jj<NGS; jj++) {
-    ci[jj] = ctot*molefracs[jj];
+    ci[jj] = massfracs[jj]*rho/OpenSMOKE_MW(jj);
+    ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
     ri[jj] = 0.;
   }
-  rho = ctot*MWMix;
 
   OpticallyThinProperties otp;
   otp.T = Temperature;
@@ -163,15 +175,14 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   and formation rates. */
 
   OpenSMOKE_GasProp_KineticConstants ();
-  OpenSMOKE_GasProp_ReactionRates (ci);
-  OpenSMOKE_GasProp_FormationRates (ri);
+  OpenSMOKE_GasProp_ReactionRates (ci);     // [kmol/m3]
+  OpenSMOKE_GasProp_FormationRates (ri);    // [kmol/m3/s]
 
   /**
   Equation for the chemical species. */
 
-  for (int jj=0; jj<OpenSMOKE_NumberOfSpecies(); jj++) {
+  for (int jj=0; jj<OpenSMOKE_NumberOfSpecies(); jj++)
     dy[jj] = OpenSMOKE_MW(jj)*ri[jj]/rho;
-  }
 
   /**
   Get the heat of reaction and compute the equation for the

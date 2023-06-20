@@ -404,7 +404,8 @@ void ijc_CoupledTemperature ()
 #endif
       {
         double * unk = (double *)arrUnk->p;
-        TInt[] = unk[0];
+        if (unk[0] > 0. && unk[0] < 5000.) // The solution is reasonable
+          TInt[] = unk[0];
       }
       array_free (arrUnk);
     }

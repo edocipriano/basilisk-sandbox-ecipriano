@@ -81,6 +81,6 @@ double liqprop_thermal_expansion (ThermoProps * tp, ThermoState * ts) {
   tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
   double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
   double rhoval = tp->rhov (ts);
-  return (rhotop - rhobot)/(2.*epsT)/rhoval;
+  return -1./rhoval*(rhotop - rhobot)/(2.*epsT);
 }
 

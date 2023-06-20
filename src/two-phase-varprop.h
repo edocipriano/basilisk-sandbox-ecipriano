@@ -45,14 +45,8 @@ The density and viscosity are defined using arithmetic averages by
 default. The user can overload these definitions to use other types of
 averages (i.e. harmonic). */
 
-#ifndef rho
-# define rho(f,rho1,rho2) (clamp(f,0.,1.)*(rho1 - rho2) + rho2)
-#endif
-#ifndef mu
-# define mu(f,mu1,mu2)  (clamp(f,0.,1.)*(mu1 - mu2) + mu2)
-#endif
-
 #define aavg(f,v1,v2)(clamp(f,0.,1.)*(v1 - v2) + v2)
+#define havg(f,v1,v2)(1./(clamp(f,0,1)*(1./(v1) - 1./(v2)) + 1./(v2)))
 
 /**
 We have the option of using some "smearing" of the density/viscosity

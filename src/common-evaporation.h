@@ -28,6 +28,12 @@ loops over the chemical species. */
 for (int index=0; index<list_len (list); index++)
 
 /**
+We define a macro describing a radial
+profile. It can be useful for field initialization. */
+
+#define radialprofile(r,r1,r2,T1,T2)(-r1*r2/(r*(r1-r2))*(T1 - T2) + (r1*T1 - r2*T2)/(r1-r2))
+
+/**
 ## Compute the normal in an interfacial cell
 */
 
@@ -115,6 +121,22 @@ double mole2mw (const double * X, const double * MW, const int NS)
     MWmix += X[i]*MW[i];
   }
   return MWmix;
+}
+
+/**
+## *correctfrac()*: Close to 1 a vector of mass or mole fractions
+
+* *X*: vector with mass or mole fractions
+* *NS* total number of species (vector length)
+*/
+
+void correctfrac (double * X, const int NS)
+{
+  double sum = 0.;
+  for (int i=0; i<NS; i++)
+    sum += (X[i] >= 0.) ? X[i] : 0.;
+  for (int i=0; i<NS; i++)
+    X[i] = (X[i] >= 0.) ? X[i]/(sum + 1.e-10) : 0.;
 }
 
 /**
