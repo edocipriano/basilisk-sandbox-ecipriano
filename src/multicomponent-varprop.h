@@ -1003,13 +1003,13 @@ event properties (i++)
       TG[] = (1. - f[] > F_ERR) ? TG[]/(1. - f[]) : 0.;
     }
 
-    face_fraction (f, fsL);
-
     face vector lambdagT[];
     foreach_face() {
       double lambdavf = 0.5*(lambdavt[] + lambdavt[-1]);
       lambdagT.x[] = fm.x[]*lambdavf*face_gradient_x (T, 0); /// !<<
     }
+
+    //face_fraction (f, fsL);
     //face vector lambdagT[], lambdalT[];
     //foreach_face() {
     //  double lambda1vf = 0.5*(lambda1v[] + lambda1v[-1]);
@@ -1038,16 +1038,16 @@ event properties (i++)
         -betaexp1[]/(rho1v[]*cp1v[])*laplT : 0.;
 
       //double drho2dt = ((1. - f[]) > F_ERR) ?
-      double drho2dt = ((1. - f[]) > 1.-F_ERR) ?
-        -1./(rho2v[]*cp2v[]*T[])*laplT : 0.;
+      //  -1./(rho2v[]*cp2v[]*T[])*laplT : 0.;
 
       //double drho1dt = (f[] > F_ERR) ?
-      //  betaexp1[]/(rho1v[]*cp1v[])*laplT1 : 0.;
+      //  -betaexp1[]/(rho1v[]*cp1v[])*laplT1 : 0.;
 
       //double drho2dt = ((1. - f[]) > F_ERR) ?
       //  -betaexp2[]/(rho2v[]*cp2v[])*laplT2 : 0.;
 
       drhodt[] = aavg (f[], drho1dt, 0.);
+      //drhodt[] = havg (f[], drho1dt, drho2dt);
 
       TL[] *= f[];
       TG[] *= (1. - f[]);
@@ -1368,11 +1368,22 @@ event phasechange (i++)
       scalar mEvap = mEvapList[LSI[0]];
 
       if (f[] > F_ERR && f[] < 1.-F_ERR) {
-        TInt[] = 373.;
+        double Keq = inKeq[0];
+#ifdef USE_CLAPEYRON
+        double dhevvh = dhev;
+# ifdef VARPROP
+        scalar dhevjj = dhevList[jj];
+        dhevvh = dhevjj[];
+# endif
+        Keq = clapeyron (TInt[], Tboil[jj], dhevvh, inMW[jj]);
+#endif
+#ifdef USE_ANTOINE
+        Keq = YL.antoine (TInt[], Pref);
+#endif
+        double sigmoid = max ( 2.*(1./(1. + exp (-20.*(Keq-0.95)))-0.5), 0.);
+        TInt[] = TInt[]*(1.-sigmoid) + TInt[]*sigmoid;
         double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, TInt[], false);
         mBoil[] = lambda2v[]*gtrgrad/dhev0[];
-        double Keq = YL.antoine (TInt[], Pref);
-        double sigmoid = max ( 2.*(1./(1. + exp (-20.*(Keq-0.9)))-0.5), 0.);
         mEvap[] = mEvap[]*(1.-sigmoid) + mBoil[]*sigmoid;
         YLInt[] = 1.;
         YGInt[] = YGInt[]*(1.-sigmoid) + YLInt[]*sigmoid;
@@ -1500,6 +1511,7 @@ event phasechange (i++)
       //sgT[] = gheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
       //slTimp[] = -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
       //sgTimp[] = mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+
 #else
       slT[] = lheatflux/rho1vh/cp1vh*area/Delta*cm[];
       sgT[] = gheatflux/rho2vh/cp2vh*area/Delta*cm[];
@@ -1576,12 +1588,22 @@ event tracer_diffusion (i++)
     f[] = clamp (f[], 0., 1.);
     f[] = (f[] > F_ERR) ? f[] : 0.;
 
+    fuext[] = clamp (fuext[], 0., 1.);
+    fuext[] = (fuext[] > F_ERR) ? fuext[] : 0.;
+    fu[] = clamp (fu[], 0., 1.);
+    fu[] = (fu[] > F_ERR) ? fu[] : 0.;
+
+    //for (scalar YL in YLList)
+    //  //YL[] = (fuext[] > F_ERR) ? YL[]/fuext[] : 0.;
+    //  YL[] = (fuext[] > F_ERR) ? YL[]/frho1[] : 0.;
+    //for (scalar YG in YGList)
+    //  //YG[] = ((1. - fu[]) > F_ERR) ? YG[]/(1. - fu[]) : 0.;
+    //  YG[] = ((1. - fu[]) > F_ERR) ? YG[]/frho2[] : 0.;
+
     for (scalar YL in YLList)
-      //YL[] = (fuext[] > F_ERR) ? YL[]/fuext[] : 0.;
-      YL[] = (fuext[] > F_ERR) ? YL[]/frho1[] : 0.;
+      YL[] = (frho1[] > F_ERR) ? YL[]/frho1[] : 0.;
     for (scalar YG in YGList)
-      //YG[] = ((1. - fu[]) > F_ERR) ? YG[]/(1. - fu[]) : 0.;
-      YG[] = ((1. - fu[]) > F_ERR) ? YG[]/frho2[] : 0.;
+      YG[] = (frho2[] > F_ERR) ? YG[]/frho2[] : 0.;
 
     //fL[] = f[]; fG[] = 1. - f[];
 
@@ -1650,6 +1672,10 @@ event tracer_diffusion (i++)
 
   for (int jj=0; jj<NGS; jj++) {
 
+#ifdef CLOSE_INTERT
+    if (jj == inertIndex) continue;
+#endif
+
     face vector Dmix2f[];
     foreach_face() {
       double Dmix2vh = inDmix2[jj];
@@ -1672,6 +1698,22 @@ event tracer_diffusion (i++)
 
     diffusion (YG, dt, D=Dmix2f, r=sgexp, beta=sgimp, theta=theta2);
   }
+
+#ifdef CLOSE_INERT
+  scalar Ysum[];
+  foreach() {
+    foreach_elem (YGList, jj) {
+      if (jj != inertIndex) {
+        scalar YG = YGList[jj];
+        Ysum[] += YG[];
+      }
+    }
+  }
+  foreach() {
+    scalar I = YGList[inertIndex];
+    I[] = 1. - Ysum[];
+  }
+#endif
 
 #ifdef SOLVE_TEMPERATURE
 
@@ -1773,6 +1815,7 @@ event tracer_diffusion (i++)
     T[] = TL[] + TG[];
 #endif
   update_properties = true;
+
 }
 
 event end_timestep (i++) {

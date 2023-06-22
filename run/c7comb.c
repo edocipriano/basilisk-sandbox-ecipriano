@@ -33,10 +33,10 @@ in [Pathak et al., 2018](#pathak2018steady), which proposed
 this test case. */
 
 #define VARPROP
-//#define FILTERED
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE
+#define POSSIBLE_BOILING
 
 /**
 ## Simulation Setup
@@ -75,14 +75,14 @@ double gas_start[NGS] = {0., 0.21, 0., 0., 0., 0.79};
 double liq_start[NLS] = {1.};
 double inDmix1[NLS] = {0.};
 double inDmix2[NGS] = {6.77e-7,6.77e-7,6.77e-7,6.77e-7,6.77e-7,6.77e-7};
-double inKeq[NLS] = {0};
+double inKeq[NLS] = {0.1};
 double lambda1 = 0.1121;
 double lambda2 = 0.04428;
 double dhev = 3.23e5;
 double cp1 = 2505.;
 double cp2 = 1053.;
 double TL0 = 300.;
-double TG0 = 2000.;
+double TG0 = 3000.;
 
 /**
 ### Boundary conditions
@@ -178,8 +178,10 @@ event init (i = 0) {
   to the attribute *antoine* of the liquid phase mass
   fraction fields. */
 
+#ifdef USE_ANTOINE
   scalar YL_C7 = YLList[0];
   YL_C7.antoine = antoine_heptane;
+#endif
 
 #ifdef RADIATION
   divq_rad = optically_thin;
@@ -192,7 +194,7 @@ event init (i = 0) {
   //spark.time = 0.05*sq(D0*1e3);
   spark.time = 0.;
   spark.duration = 0.02;
-  spark.temperature = 5000.;
+  spark.temperature = 4000.;
 #endif
 }
 
@@ -204,8 +206,8 @@ event end_init (i = 0) {
     double T1 = TL0, T2 = TG0;
     double r1 = 0.5*D0, r2 = 0.25*L0;
     double r = sqrt (sq(x) + sq(y));
-    TG[] = radial (r, r1, r2, T1, T2);
-    C7[] = radial (r, r1, r2, 1., 0.);
+    TG[] = (r <= r2) ? radial (r, r1, r2, T1, T2) : T2;
+    C7[] = (r <= r2) ? radial (r, r1, r2, 1., 0.) : 0.;
     TG[] *= (1. - f[]);
     C7[] *= (1. - f[]);
   }

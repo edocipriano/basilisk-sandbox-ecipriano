@@ -14,7 +14,7 @@ for evaporation models. */
 #ifndef T_ERR
 # define T_ERR 0.
 #endif
-#include "mass_refine_prolongation.h"
+//#include "mass_refine_prolongation.h"
 
 #ifndef I_TOL
 # define I_TOL 1.e-8
@@ -214,11 +214,11 @@ double avg_interface (scalar Y, scalar f) {
 void shift_field (scalar fts, scalar f, int dir) {
 
   scalar avg[];
-#if TREE
-  avg.refine = avg.prolongation = refinement_avg;
-  avg.restriction = no_restriction;
-  avg.dirty = true;
-#endif
+//#if TREE
+//  avg.refine = avg.prolongation = refinement_avg;
+//  avg.restriction = no_restriction;
+//  avg.dirty = true;
+//#endif
 
   // Compute avg
   foreach() {

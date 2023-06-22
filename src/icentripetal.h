@@ -183,10 +183,18 @@ void position_centripetal (struct PositionCentripetal p)
           hp += sq (o.x + Delta*c.x - sfm.p.x);
         hp = sqrt (hp);
       }
+
+      double rho1vh = rho1;
+      double rho2vh = rho2;
+#ifdef VARPROP
+      rho1vh = rho1v[];
+      rho2vh = rho2v[];
+#endif
+
       if (p.add)
-        pos[] += 1./hp*sfm.eps*(rho2 - rho1);
+        pos[] += 1./hp*sfm.eps*(rho2vh - rho1vh);
       else
-        pos[] = 1./hp*sfm.eps*(rho2 - rho1);
+        pos[] = 1./hp*sfm.eps*(rho2vh - rho1vh);
     }
     else
       pos[] = nodata;

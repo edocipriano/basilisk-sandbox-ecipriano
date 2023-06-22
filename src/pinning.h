@@ -5,9 +5,7 @@ This module defines the boundary conditions required to
 pin the droplet a specific point of the domain.
 */
 
-#include "contact.h"
-
-vector h[];
+#include "contact-evaporation.h"
 
 /**
 Known the position of the interface $a$ we compute the corresponding
@@ -31,4 +29,40 @@ double contact_line_ (Point point, Point neighbor, scalar h, double a)
   return 0.;
 }
 
-double ap = 0.;
+/**
+We create the local height-function vector and set the
+boundary conditions. The values of ap and ac must be
+tuned by the user:
+
+* *ap*: x coordinate of the pinning point
+* *ac*: x coordinate of the droplet centroid
+*/
+
+struct Pinning {
+  double ap, ac;
+};
+
+struct Pinning pinning = {
+  .ap = 0.,
+  .ac = 0.,
+};
+
+vector h[];
+h.t[bottom] = x > pinning.ac ? contact_line (pinning.ap) : neumann (0.);
+
+/**
+We must associate the height function field with the VOF tracer, so
+that it is used by the relevant functions (curvature calculation in
+particular). */
+
+event defaults (i = 0) {
+  f.height = h;
+#ifdef AXI
+  if (Y0 == 0.) {
+    fprintf (ferr,
+        "WARNING: Setting the contact line on the axis of symmetry, shift the origin along y\n");
+    fflush (ferr);
+  }
+#endif
+}
+
