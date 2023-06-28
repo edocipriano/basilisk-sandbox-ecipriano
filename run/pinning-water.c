@@ -28,37 +28,10 @@ aggressively deformed.
 #include "grid/multigrid.h"
 #include "navier-stokes/centered.h"
 #include "two-phase.h"
-#include "contact.h"
+#include "pinning.h"
 #include "tension.h"
 #include "reduced.h"
 #include "view.h"
-
-vector h[];
-
-/**
-Known the position of the interface $a$ we compute the corresponding
-heigth function at the neighbouring cell.*/
-
-foreach_dimension()
-static double line_x (Point point, scalar h, double a)
-{
-  return (h[] == nodata ? nodata : -h[] + 2.*(a-x)/Delta);
-}
-
-#define contact_line(theta) contact_line_ (point, neighbor, _s, theta)
-
-double contact_line_ (Point point, Point neighbor, scalar h, double a)
-{
-  if (neighbor.i != point.i)
-    return line_x (point, h, a);
-  if (neighbor.j != point.j)
-    return line_y (point, h, a);
-  assert (false); // not reached
-  return 0.;
-}
-
-double ap;
-h.t[bottom] = x > 0 ? contact_line (ap) : neumann (0);
 
 double scale = 1.e-3;
 
@@ -74,22 +47,16 @@ int main()
   mu1 = 1.e-3, mu2 = 1.e-5;
 
   /**
-  We must associate the height function field with the VOF tracer, so
-  that it is used by the relevant functions (curvature calculation in
-  particular). */
-
-  f.height = h;
-
-  /**
   We set the surface tension of water and the normal gravity value. */
 
   f.sigma = 0.073;
   G.x = -9.81;
+  DT = 1.e-6;
 
   /**
   We set the coordinate of the pinning point. */
 
-  ap = 0.75*scale;
+  pinning.ap = 0.75*scale;
 
   run();
 }
