@@ -90,6 +90,8 @@ and the one obtained from the numerical simulation.
 ~~~gnuplot
 reset
 set xrange[0:2]
+set xlabel "Gravity"
+set ylabel "Contact Angle [deg]"
 
 f(x) = acos(4.*0.5**3*1.*x/(3.*1*0.3))*180/pi
 
