@@ -2,7 +2,8 @@
 # Pin a Liquid Droplet at a Specific Point
 
 This module defines the boundary conditions required to
-pin the droplet a specific point of the domain.
+pin the droplet a specific point of the domain. The method
+implemented here was extended from [sandbox/lopez/contact.c](/sandbox/lopez/contact.c).
 */
 
 #include "contact-evaporation.h"
