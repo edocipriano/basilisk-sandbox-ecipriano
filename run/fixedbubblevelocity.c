@@ -5,8 +5,8 @@ Expansion of a bubble with a fixed vaporization rate.
 This test case was proposed by [Tanguy et al., 2014](#tanguy2014benchmarks)
 and it is interesting because it can be used to test
 the velocity profile with the Stefan flow, and how the
-velocity changes when shifting or distributing the
-volume expansion term in the continuity equation.
+velocity changes when the volume expansion term in the
+continuity equation is shifted and/or distributed.
 
 We perform this test case using the *Velocity Potential*
 approach, and we compare the results both with the
@@ -243,6 +243,10 @@ event movie (t += 0.0001; t <= 0.01) {
 
 /**
 ## Results
+
+We compare the velocity profile with the theretical
+solution and with the results obtained by [Tanguy et al., 2014](#tanguy2014benchmarks)
+(Fig. 5 (b), (c)).
 
 ~~~gnuplot Radial velocity profile
 reset
