@@ -86,12 +86,8 @@ mgstats project_sf (struct Project q)
   /**
   We add the volume expansion contribution. */
 
-  foreach() {
+  foreach()
     div[] += stefanflow[]/dt;
-#ifdef VARPROP
-    div[] += drhodt[]/dt;
-#endif
-  }
 
   /**
   We solve the Poisson problem. The tolerance (set with *TOLERANCE*) is
