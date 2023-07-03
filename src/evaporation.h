@@ -120,6 +120,26 @@ event init (i = 0)
     fuext[] = f[];
   }
   boundary({fu,fuext});
+
+  scalar * interfaces2 = {fu,fuext};
+#if TREE
+  for (scalar c in interfaces2) {
+    c.refine = c.prolongation = fraction_refine;
+    c.dirty = true;
+    scalar * tracers = c.tracers;
+    for (scalar t in tracers) {
+      t.restriction = restriction_volume_average;
+      t.refine = t.prolongation = vof_concentration_refine;
+      t.dirty = true;
+      t.c = c;
+    }
+  }
+#endif
+  for (scalar c in interfaces2) {
+    scalar * tracers = c.tracers;
+    for (scalar t in tracers)
+      t.depends = list_add (t.depends, c);
+  }
 }
 
 /**

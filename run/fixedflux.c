@@ -244,10 +244,10 @@ set ylabel "Droplet Volume [m^3]"
 set size square
 set grid
 
-plot "OutputData-6" every 50 u 1:3 w p t "Analytic", \
-     "OutputData-4" u 1:2 w l t "LEVEL 4", \
-     "OutputData-5" u 1:2 w l t "LEVEL 5", \
-     "OutputData-6" u 1:2 w l t "LEVEL 6"
+plot "OutputData-6" every 100 u 1:3 w p ps 2 t "Analytic", \
+     "OutputData-4" u 1:2 w l lw 2 t "LEVEL 4", \
+     "OutputData-5" u 1:2 w l lw 2 t "LEVEL 5", \
+     "OutputData-6" u 1:2 w l lw 2 t "LEVEL 6"
 ~~~
 
 ~~~gnuplot Relative Errors
@@ -276,9 +276,9 @@ set xr[8:128]
 set size square
 set grid
 
-plot "Errors.csv" w p pt 8 title "Results", \
-  10*x**(-1) title "1^{st} order", \
-  30*x**(-2) title "2^{nd} order"
+plot "Errors.csv" w p pt 8 ps 2 title "Results", \
+  10*x**(-1) lw 2 title "1^{st} order", \
+  30*x**(-2) lw 2 title "2^{nd} order"
 ~~~
 
 ~~~gnuplot Droplet Sphericity
@@ -286,6 +286,8 @@ reset
 set size square
 set xrange[0.5:0.75]
 set yrange[0.5:0.75]
+set xlabel "radius [m]"
+set ylabel "radius [m]"
 set grid
 
 array r[3]
@@ -293,13 +295,11 @@ r[1] = 0.18
 r[2] = 0.13
 r[3] = 0.08
 
-set print "Circles.dat"
-do for [i=1:3] {
-  print sprintf ("%g %g %g", 0.5, 0.5, r[i])
-}
-unset print
-
 set style fill transparent solid 0.2 noborder
+
+set object 1 circle front at 0.5,0.5 size r[1] fillcolor rgb "black" lw 1
+set object 2 circle front at 0.5,0.5 size r[2] fillcolor rgb "black" lw 1
+set object 3 circle front at 0.5,0.5 size r[3] fillcolor rgb "black" lw 1
 
 p \
   "facets/facets-4-1.0" w l lw 2 lc 1 t "LEVEL 4", \
@@ -310,8 +310,7 @@ p \
   "facets/facets-5-3.0" w l lw 2 lc 2 notitle, \
   "facets/facets-6-1.0" w l lw 2 lc 3 t "LEVEL 6", \
   "facets/facets-6-2.0" w l lw 2 lc 3 notitle, \
-  "facets/facets-6-3.0" w l lw 2 lc 3 notitle, \
-  "Circles.dat" u 1:2:3:1 w circles t "Analytic"
+  "facets/facets-6-3.0" w l lw 2 lc 3 notitle
 ~~~
 
 ## References

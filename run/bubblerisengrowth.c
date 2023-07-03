@@ -26,8 +26,8 @@ situations are considered:
 2. Low surface tension coefficient $\sigma=0.001 \text{ Nm}^{-1}$,
    which leads to the bubble deformation.
 
-![Evolution of the interface and temperature field $\sigma=0.001$](risinggrowingbubble/movie1.mp4)(width="500" height="500")
-![Evolution of the interface and temperature field $\sigma=0.07$](risinggrowingbubble/movie2.mp4)(width="500" height="500")
+![Evolution of the interface and temperature field $\sigma=0.001$](bubblerisengrowth/movie1.mp4)(width="500" height="500")
+![Evolution of the interface and temperature field $\sigma=0.07$](bubblerisengrowth/movie2.mp4)(width="500" height="500")
 */
 
 /**
@@ -115,7 +115,7 @@ int maxlevel = 8, minlevel = 5, sim;
 double R0 = 0.1e-3;
 double XC, YC;
 double betaGrowth = 3.32615013;
-double effective_radius, tend;
+double effective_radius;
 
 /**
 ### Initial Temperature
@@ -186,18 +186,15 @@ int main (void) {
 
   /**
   We define a list with the surface tension coefficients
-  used in the two different simulations, and the total
-  simulation times. */
+  used in the two different simulations. */
 
   double sigmas[2] = {0.001, 0.07};
-  double tends[2] = {0.025, 0.02};
 
   /**
   We set the surface tension and run the simulation. */
 
   for (sim=0; sim<=1; sim++) {
     f.sigma = sigmas[sim];
-    tend = tends[sim];
     init_grid (1 << maxlevel);
     run();
   }
@@ -231,8 +228,8 @@ temperature field. */
 #if TREE
 event adapt (i++) {
   double uemax = 1e-4;
-  adapt_wavelet_leave_interface ({T,u.x, u.y}, {f},
-      (double[]){1e-3,uemax,uemax}, maxlevel, minlevel, 1);
+  adapt_wavelet_leave_interface ({T,u.x,u.y}, {f},
+      (double[]){1e-4,uemax,uemax}, maxlevel, minlevel, 1);
 }
 #endif
 
@@ -269,7 +266,7 @@ event output (i++) {
 We write the animation with the evolution of the
 temperature field and the gas-liquid interface. */
 
-event movie (t += 0.0002; t <= tend) {
+event movie (t += 0.0002; t <= 0.02) {
   clear();
   view (theta=0., phi=0., psi=-pi/2.,
         tx = 0., ty = -0.5);
