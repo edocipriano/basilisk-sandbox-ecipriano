@@ -2,13 +2,14 @@
 # Incompressible Navier--Stokes solver (MAC formulation)
 
 We wish to approximate numerically the incompressible Navier--Stokes
-equations
+equations with phase change
 $$
 \partial_t\mathbf{u}+\nabla\cdot(\mathbf{u}\otimes\mathbf{u}) = 
 -\nabla p + \nabla\cdot(\nu\nabla\mathbf{u})
 $$
 $$
-\nabla\cdot\mathbf{u} = 0
+\nabla\cdot\mathbf{u} = \dot{m} \left(\dfrac{1}{\rho_g}
+- \dfrac{1}{\rho_l}\right)\delta_\Gamma
 $$
 
 We will use the generic time loop, a CFL-limited timestep and we will
@@ -28,6 +29,7 @@ discrete gradient, divergence and Laplacian operators and leads to a
 stable (mode-free) integration. */
 
 scalar p[];
+vector u[];
 face vector uf[];
 
 /**
@@ -39,17 +41,9 @@ fields are set to one i.e. the density is unity.
 Viscosity is set by defining the face dynamic viscosity $\mu$; default
 is zero.
 
-The face field $\mathbf{a}$ defines the acceleration term; default is
-zero.
-
 The statistics for the (multigrid) solution of the pressure Poisson
 problems and implicit viscosity are stored in *mgp*, *mgpf*, *mgu*
-respectively. 
-
-If *stokes* is set to *true*, the velocity advection term
-$\nabla\cdot(\mathbf{u}\otimes\mathbf{u})$ is omitted. This is a
-reference to [Stokes flows](http://en.wikipedia.org/wiki/Stokes_flow)
-for which inertia is negligible compared to viscosity. */
+respectively. */
 
 (const) face vector mu = zerof, a = zerof, alpha = unityf;
 (const) scalar rho = unity;
@@ -59,9 +53,6 @@ The volume expansion term is declared in
 [evaporation.h](/sandbox/ecipriano/src/evaporation.h). */
 
 extern scalar stefanflow;
-#ifdef VARPROP
-extern scalar drhodt;
-#endif
 
 /**
 ## Helper functions
@@ -133,30 +124,14 @@ face vector nu[];
 mgstats mgp;
 
 #if EMBED
-# define neumann_pressure(i) (alpha.n[i] ? a.n[i]*fm.n[i]/alpha.n[i] :	\
-			      a.n[i]*rho[]/(cm[] + SEPS))
+# define neumann_pressure(i) (alpha.n[i] ? a.n[i]*fm.n[i]/alpha.n[i] : \
+                             a.n[i]*rho[]/(cm[] + SEPS))
 #else
 # define neumann_pressure(i) (a.n[i]*fm.n[i]/alpha.n[i])
 #endif
 
 p[right] = neumann (neumann_pressure(ghost));
 p[left]  = neumann (- neumann_pressure(0));
-
-#if AXI
-uf.n[bottom] = 0.;
-uf.t[bottom] = dirichlet(0); // since uf is multiplied by the metric which
-                             // is zero on the axis of symmetry
-p[top]    = neumann (neumann_pressure(ghost));
-#else // !AXI
-#  if dimension > 1
-p[top]    = neumann (neumann_pressure(ghost));
-p[bottom] = neumann (- neumann_pressure(0));
-#  endif
-#  if dimension > 2
-p[front]  = neumann (neumann_pressure(ghost));
-p[back]   = neumann (- neumann_pressure(0));
-#  endif
-#endif // !AXI
 
 /**
 ## Time integration
@@ -213,16 +188,6 @@ event advance (i++,last)
     nu.x[] = mu.x[]*alpha.x[];
 
   /**
-  We reset the acceleration field (if it is not a constant). */
-
-  if (!is_constant(a.x)) {
-    face vector af = a;
-    trash ({af});
-    foreach_face()
-      af.x[] = 0.;
-  }
-
-  /**
   We allocate a local symmetric tensor field. To be able to compute the
   divergence of the tensor at the face locations, we need to
   compute the diagonal components at the center of cells and the
@@ -258,52 +223,6 @@ event advance (i++,last)
   foreach_face()
     uf.x[] += dt*(S.x.x[] - S.x.x[-1,0] + S.x.y[0,1] - S.x.y[])/Delta;
 
-
-  //vertex scalar uv[];
-  //foreach_vertex()
-  //  uv[] = 0.25*(uf.x[] + uf.x[0,-1])*(uf.y[] + uf.y[-1,0]);
-
-  //vector uc[];
-  //foreach()
-  //  foreach_dimension()
-  //    uc.x[] = 0.25*sq(uf.x[1] + uf.x[]);
-
-  //foreach_face(x) {
-  //  double ue = uc.x[];
-  //  double uw = uc.x[-1];
-  //  double un = uv[1];
-  //  double us = uv[];
-
-  //  double Aij = (ue - uw + un - us)/Delta;
-
-  //  double de = 0.5*(nu.x[1,0] + nu.x[])/Delta*((uf.x[1,0] - uf.x[])/Delta);
-  //  double dw = 0.5*(nu.x[] + nu.x[-1,0])/Delta*((uf.x[] - uf.x[-1,0])/Delta);
-  //  double dn = 0.5*(nu.x[0,1] + nu.x[])/Delta*((uf.x[0,1] - uf.x[])/Delta);
-  //  double ds = 0.5*(nu.x[] + nu.x[0,-1])/Delta*((uf.x[] - uf.x[0,-1])/Delta);
-
-  //  double Dij = (de - dw + dn - ds);
-
-  //  uf.x[] += dt*(-Aij+Dij);
-  //}
-
-  //foreach_face(y) {
-
-  //  double un = uc.y[];
-  //  double us = uc.y[-1];
-  //  double ue = uv[1];
-  //  double uw = uv[];
-
-  //  double Aij = (ue - uw + un - us)/Delta;
-
-  //  double de = 0.5*(nu.y[1,0] + nu.y[])/Delta*((uf.y[1,0] - uf.y[])/Delta);
-  //  double dw = 0.5*(nu.y[] + nu.y[-1,0])/Delta*((uf.y[] - uf.y[-1,0])/Delta);
-  //  double dn = 0.5*(nu.y[0,1] + nu.y[])/Delta*((uf.y[0,1] - uf.y[])/Delta);
-  //  double ds = 0.5*(nu.y[] + nu.y[0,-1])/Delta*((uf.y[] - uf.y[0,-1])/Delta);
-
-  //  double Dij = (de - dw + dn - ds);
-
-  //  uf.y[] += dt*(-Aij+Dij);
-  //}
 }
 
 /**
@@ -328,19 +247,16 @@ event projection (i++,last)
 }
 
 /**
-### Acceleration term
-
-We add the acceleration terms. */
-
-event acceleration (i++,last)
-{
-  foreach_face()
-    uf.x[] += dt*alpha.x[]*a.x[];
-}
-
-/**
 Some derived solvers need to hook themselves at the end of the
 timestep. */
 
-event end_timestep (i++, last);
+event end_timestep (i++, last) {
+  /**
+  We reconstruct a colocated velocity using a linear
+  interpolation just for visualization. */
+
+  foreach()
+    foreach_dimension()
+      u.x[] = 0.5*(uf.x[1] + uf.x[]);
+}
 
