@@ -234,7 +234,8 @@ $$
 $$
 with the condition
 $$
-\nabla\cdot\mathbf{u}_{n+1} = 0
+\nabla\cdot\mathbf{u}_{n+1} = \dot{m} \left(\dfrac{1}{\rho_g}
+- \dfrac{1}{\rho_l}\right)\delta_\Gamma
 $$
 This gives the Poisson equation for the pressure
 $$
