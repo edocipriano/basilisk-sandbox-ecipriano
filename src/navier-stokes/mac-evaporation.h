@@ -129,6 +129,25 @@ mgstats mgp;
 p[right] = neumann (neumann_pressure(ghost));
 p[left]  = neumann (- neumann_pressure(0));
 
+double dtmax;
+
+event init (i = 0)
+{
+  trash ({uf});
+
+  /**
+  We update fluid properties. */
+
+  event ("properties");
+
+  /**
+  We set the initial timestep (this is useful only when restoring from
+  a previous run). */
+
+  dtmax = DT;
+  event ("stability");
+}
+
 /**
 ## Time integration
 
@@ -149,8 +168,6 @@ $$
 
 The timestep for this iteration is controlled by the CFL condition
 (and the timing of upcoming events). */
-
-double dtmax;
 
 event set_dtmax (i++,last) dtmax = DT;
 
@@ -219,6 +236,21 @@ event advance (i++,last)
   foreach_face()
     uf.x[] += dt*(S.x.x[] - S.x.x[-1,0] + S.x.y[0,1] - S.x.y[])/Delta;
 
+  /**
+  We reset the acceleration field (if it is not a constant). */
+
+  if (!is_constant(a.x)) {
+    face vector af = a;
+    trash ({af});
+    foreach_face()
+      af.x[] = 0.;
+  }
+}
+
+event acceleration (i++,last)
+{
+  foreach_face()
+    uf.x[] += dt*a.x[]*fm.x[];
 }
 
 /**
@@ -242,6 +274,23 @@ event projection (i++,last)
 {
   mgp = project_sf (uf, p, alpha, dt, mgp.nrelax);
 }
+
+/**
+### Acceleration term
+
+The acceleration term $\mathbf{a}$ needs careful treatment as many
+equilibrium solutions depend on exact balance between the acceleration
+term and the pressure gradient: for example Laplace's balance for
+surface tension or hydrostatic pressure in the presence of gravity.
+
+To ensure a consistent discretisation, the acceleration term is
+defined on faces as are pressure gradients and the centered combined
+acceleration and pressure gradient term $\mathbf{g}$ is obtained by
+averaging. 
+
+The (provisionary) face velocity field at time $t+\Delta t$ is
+obtained by interpolation from the centered velocity field. The
+acceleration term is added. */
 
 /**
 Some derived solvers need to hook themselves at the end of the
