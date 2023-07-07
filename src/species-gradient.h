@@ -174,7 +174,6 @@ event phasechange (i++)
     YL[] = f[] > F_ERR ? YL[]/f[] : 0.;
     YG[] = ((1. - f[]) > F_ERR) ? YG[]/(1. - f[]) : 0.;
   }
-  boundary({fL,fG,YL,YG,f0});
 
   /**
   We compute the value of volume fraction *f* on the
@@ -203,7 +202,6 @@ event phasechange (i++)
 #endif
     }
   }
-  boundary({mEvap});
 
   /**
   The source term for the diffusion equation of the
@@ -242,7 +240,6 @@ event phasechange (i++)
     YG[] *= (1. - f[])*((1. - f[]) > F_ERR);
     Y[]  = YL[] + YG[];
   }
-  boundary({YL,YG,Y});
 }
 
 /**
@@ -277,7 +274,6 @@ event tracer_diffusion (i++)
     YG[] = ((1. - fu[]) > F_ERR) ? YG[]/(1. - fu[]) : 0.;
     fL[] = f[]; fG[] = 1. - f[];
   }
-  boundary({fL,fG,YL,YG});
 
   /**
   We compute the value of volume fraction *f* on the
@@ -295,13 +291,11 @@ event tracer_diffusion (i++)
     Dmix1f.x[] = Dmix1*fsL.x[]*fm.x[];
     Dmix2f.x[] = Dmix2*fsG.x[]*fm.x[];
   }
-  boundary((scalar *){Dmix1f,Dmix2f});
 
   foreach() {
     thetacorr1[] = cm[]*max(fL[], F_ERR);
     thetacorr2[] = cm[]*max(fG[], F_ERR);
   }
-  boundary({thetacorr1,thetacorr2});
 
 #ifndef SOLVE_LIQONLY
   diffusion (YG, dt, D=Dmix2f, r=sgS, beta=sgimp, theta=thetacorr2);
@@ -325,7 +319,6 @@ event tracer_diffusion (i++)
     YL[] *= fL[];
     YG[] *= (1. - fL[]);
   }
-  boundary({YL,YG});
 
   /**
   We reconstruct the one-field mass fraction field summing
@@ -338,6 +331,5 @@ event tracer_diffusion (i++)
     YG[] = (YG[] > F_ERR) ? YG[] : 0.;
     Y[] = YL[] + YG[];
   }
-  boundary({YL,YG,Y});
 }
 
