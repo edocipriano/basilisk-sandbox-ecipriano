@@ -248,7 +248,6 @@ void shift_field (scalar fts, scalar f, int dir) {
     sf0[] = fts[];
     fts[] = 0.;
   }
-  boundary({sf0,fts});
 
   // Compute m
   foreach() {

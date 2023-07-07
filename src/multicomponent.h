@@ -508,16 +508,6 @@ event init (i = 0)
       mEvap[] = 0.;
     }
   }
-  boundary(YList);
-  boundary(YLList);
-  boundary(YGList);
-  boundary(YGIntList);
-  boundary(YLIntList);
-  boundary(mEvapList);
-  boundary(slexpList);
-  boundary(slimpList);
-  boundary(sgexpList);
-  boundary(sgimpList);
 
 #ifdef SOLVE_TEMPERATURE
   foreach() {
@@ -525,9 +515,7 @@ event init (i = 0)
     TG[] = TG0*(1. - f[]);
     T[]  = TL[] + TG[];
   }
-  boundary({T,TL,TG});
 #endif
-  
 }
 
 /**
@@ -594,9 +582,6 @@ event phasechange (i++)
         YG[] = ((1. - f[]) > F_ERR) ? YG[]/(1. - f[]) : 0.;
     }
   }
-  boundary({f,fL,fG});
-  boundary(YGList);
-  boundary(YLList);
 
   /**
   We compute the value of volume fraction *f* on the
@@ -615,7 +600,6 @@ event phasechange (i++)
     if (f[] > F_ERR && f[] < 1.-F_ERR)
       TInt[] = avg_neighbor (point, TL, f);
   }
-  boundary({TInt});
 #endif
 
   /**
@@ -642,7 +626,6 @@ event phasechange (i++)
       MWGmix[] = 1. / (MWGmix[] + 1.e-10);
     }
   }
-  boundary({MWGmix});
 
   /**
   We compute total vaporization flowrate. */
@@ -873,10 +856,6 @@ event phasechange (i++)
       }
     }
   }
-  boundary(slexpList);
-  boundary(sgexpList);
-  boundary(slimpList);
-  boundary(sgimpList);
 
   /**
   We restore the tracer form of the liquid and gas-phase
@@ -892,11 +871,6 @@ event phasechange (i++)
     TG[] *= (1. - f[])*((1. - f[]) > F_ERR);
 #endif
   }
-  boundary(YLList);
-  boundary(YGList);
-#ifdef SOLVE_TEMPERATURE
-  boundary({TL,TG});
-#endif
 }
 
 /**
@@ -940,12 +914,6 @@ event tracer_diffusion (i++)
     TG[] = ((1. - fu[]) > F_ERR) ? TG[]/(1. - fu[]) : 0.;
 #endif
   }
-  boundary({fL,fG});
-  boundary(YLList);
-  boundary(YGList);
-#ifdef SOLVE_TEMPERATURE
-  boundary({TL,TG});
-#endif
 
   /**
   We compute the value of volume fraction *f* on the
@@ -1027,7 +995,6 @@ event tracer_diffusion (i++)
     //corrdist1.x[] = Delta*(pcs1.x[] - pcs1.x[-1])/magdist1;
     //corrdist2.x[] = Delta*(pcs2.x[] - pcs2.x[-1])/magdist2;
   }
-  boundary({corrdist2});
 #endif
 
   for (int jj=0; jj<NLS; jj++) {
@@ -1038,12 +1005,10 @@ event tracer_diffusion (i++)
       Dmix1f.x[] *= corrdist1.x[];
 #endif
     }
-    boundary((scalar *){Dmix1f});
 
     foreach()
       theta1[] = cm[]*max(fL[], 1.e-3);
       //theta1[] = cm[]*max(fL[], T_ERR);
-    boundary({theta1});
 
     scalar YL = YLList[jj];
     scalar slexp = slexpList[jj];
@@ -1057,7 +1022,6 @@ event tracer_diffusion (i++)
       slimp[] *= y;
 #endif
     }
-    boundary({slimp});
 #endif
 
     diffusion (YL, dt, D=Dmix1f, r=slexp, beta=slimp, theta=theta1);
@@ -1072,11 +1036,9 @@ event tracer_diffusion (i++)
       Dmix2f.x[] *= corrdist2.x[];
 #endif
     }
-    boundary((scalar *){Dmix2f});
 
     foreach()
       theta2[] = cm[]*max(fG[], F_ERR);
-    boundary({theta2});
 
     scalar YG = YGList[jj];
     scalar sgexp = sgexpList[jj];
@@ -1090,7 +1052,6 @@ event tracer_diffusion (i++)
       sgimp[] *= y;
 #endif
     }
-    boundary({sgimp});
 #endif
 
     diffusion (YG, dt, D=Dmix2f, r=sgexp, beta=sgimp, theta=theta2);
@@ -1106,7 +1067,6 @@ event tracer_diffusion (i++)
     lambda2f.x[] *= corrdist2.x[];
 #endif
   }
-  boundary((scalar*){lambda1f, lambda2f});
 
   /**
   Compute source terms for temperature equations. */
@@ -1142,14 +1102,11 @@ event tracer_diffusion (i++)
 #endif
     }
   }
-  boundary({slT,sgT});
-  boundary({slTimp, sgTimp});
 
   foreach() {
     theta1[] = cm[]*max(fL[], F_ERR);
     theta2[] = cm[]*max(fG[], F_ERR);
   }
-  boundary({theta1,theta2});
 
   /**
   Solve diffusion equations for temperature. */
@@ -1185,11 +1142,6 @@ event tracer_diffusion (i++)
     TG[] *= (1. - f[]);
 #endif
   }
-  boundary(YLList);
-  boundary(YGList);
-#ifdef SOLVE_TEMPERATURE
-  boundary({TL,TG});
-#endif
 
   /**
   We reconstruct the volume-averaged mass fractions and
@@ -1218,13 +1170,10 @@ event tracer_diffusion (i++)
       Y[] = YL[] + YG[];
     }
   }
-  boundary(YList);
-  boundary(YGList);
 
 #ifdef SOLVE_TEMPERATURE
   foreach()
     T[] = TL[] + TG[];
-  boundary({T,TL,TG});
 #endif
 }
 
