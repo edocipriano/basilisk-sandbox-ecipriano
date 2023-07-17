@@ -20,6 +20,7 @@ struct _Aslam {
   scalar s;     // source term, optional: zero
   double dt;    // time step (not physical)
   int n;        // number of maximum time steps
+  scalar c;     // vof field (optional)
 };
 
 /**
@@ -55,6 +56,7 @@ void constant_extrapolation (struct _Aslam p) {
   vector n[], gf[];
   scalar f = p.f, ls = p.ls;
   (const) scalar s = p.s.i ? p.s : zeroc;
+  (const) scalar c = p.c.i ? p.c : zeroc;
   int ts = 0;
 
   /**
@@ -65,11 +67,41 @@ void constant_extrapolation (struct _Aslam p) {
   gradients ({ls}, {n});
 
   /**
-  We compute the normals and the heaviside function H.
+  We compute the normals and the heaviside function H,
+  which is non-null in the region where the field must
+  be extrapolated.
   */
 
+  /**
+  TODO: Improve following lines, that
+  add the possibility to shift from a layer of cells
+  which is not adjacent to the interfacial cells (second layer).
+  This will limit the influence of oscillations of the
+  velocity field close to the interfacial cells. */
+
+  if (p.c.i) {
+    foreach()
+        H[] = (c[] > 1.-1.e-10) ? 1. : 0.;
+    foreach() {
+      if (H[]) {
+        bool washout = false;
+        foreach_neighbor(1) {
+          if (c[] < 1.-1.e-10) {
+            washout = true;
+            break;
+          }
+        }
+        H[] = washout ? 0. : H[];
+      }
+    }
+  }
+
   foreach() {
-    H[] = (ls[] <= 0.) ? 0. : 1.;
+    if (p.c.i)
+      //H[] = (c[] == 1.) ? 0. : 1.; // if shift is from first layer
+      H[] = 1.-H[]; // if shift is from second layer
+    else
+      H[] = (ls[] <= 0.) ? 0. : 1.;
     double maggf = 0.;
     foreach_dimension()
       maggf += sq (n.x[]);
@@ -148,6 +180,7 @@ void linear_extrapolation (struct _Aslam p) {
   vector n[], gf[];
   scalar f = p.f, ls = p.ls;
   (const) scalar s = p.s.i ? p.s : zeroc;
+  (const) scalar c = p.c.i ? p.c : zeroc;
   int ts = 0;
 
   /**
@@ -163,8 +196,28 @@ void linear_extrapolation (struct _Aslam p) {
   We compute the normals and the heaviside function H.
   */
 
+  if (p.c.i) {
+    foreach()
+        H[] = (c[] > 1.-1.e-10) ? 1. : 0.;
+    foreach() {
+      if (H[]) {
+        bool washout = false;
+        foreach_neighbor(1) {
+          if (c[] < 1.-1.e-10) {
+            washout = true;
+            break;
+          }
+        }
+        H[] = washout ? 0. : H[];
+      }
+    }
+  }
+
   foreach() {
-    H[] = (ls[]+Delta <= 0.) ? 0. : 1.;
+    if (p.c.i)
+      H[] = 1. - H[];
+    else
+      H[] = (ls[]+Delta <= 0.) ? 0. : 1.;
     double maggf = 0.;
     foreach_dimension()
       maggf += sq (n.x[]);
@@ -210,7 +263,10 @@ void linear_extrapolation (struct _Aslam p) {
   We solve a constant extrapolation with source equal to
   the directional derivative. */
 
-  constant_extrapolation (f, ls, fn, p.dt, p.n);
+  if (p.c.i)
+    constant_extrapolation (f, ls, fn, p.dt, p.n, p.c);
+  else
+    constant_extrapolation (f, ls, fn, p.dt, p.n);
 }
 
 /**
