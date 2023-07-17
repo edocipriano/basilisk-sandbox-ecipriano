@@ -13,6 +13,7 @@ in response to the evaporation of the light species. The
 gas phase is initially full of an inert compound, important
 in combustion simulations, which always remains in gas
 phase.
+
 ![Evolution of the mass fraction fields of the light, heavy, and inert components, and the grid refinement](staticbi/movie.mp4)(height=600 width=600)
 */
 
@@ -42,6 +43,7 @@ from the doubled pressure-velocity coupling. We use the
 evaporation model together with the multiomponent phase
 change mechanism. */
 
+#include "grid/multigrid.h"
 #include "navier-stokes/centered-evaporation.h"
 #include "navier-stokes/centered-doubled.h"
 #include "two-phase.h"
@@ -121,7 +123,7 @@ int main (void) {
   We run the simulation at three different levels
   of refinement. */
 
-  for (maxlevel = 8; maxlevel <= 8; maxlevel++) {
+  for (maxlevel = 7; maxlevel <= 7; maxlevel++) {
     init_grid (1 << maxlevel);
     run ();
   }
@@ -158,11 +160,13 @@ event bcs (i = 0) {
 We adapt the grid according to the mass fractions of the
 species A and B, the velocity and the interface position. */
 
+#if TREE
 event adapt (i++) {
-  scalar YA = YLList[0], YB = YLList[1];
+  scalar YA = YList[0], YB = YList[1];
   adapt_wavelet_leave_interface ({YA,YB,u.x,u.y}, {f},
-      (double[]){1.e-3,1.e-3,1.e-3,1.e-3,1.e-3}, maxlevel, minlevel, 1);
+      (double[]){1.e-4,1.e-4,1.e-3,1.e-3}, maxlevel, minlevel, 1);
 }
+#endif
 
 /**
 ## Post-Processing

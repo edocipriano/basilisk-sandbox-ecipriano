@@ -295,6 +295,10 @@ event tracer_diffusion (i++)
   foreach() {
     thetacorr1[] = cm[]*max(fL[], F_ERR);
     thetacorr2[] = cm[]*max(fG[], F_ERR);
+    slS[] = (f[] > F_ERR) ? slS[] : 0.;
+    sgS[] = (f[] > F_ERR) ? sgS[] : 0.;
+    slimp[] = (f[] > F_ERR) ? slimp[] : 0.;
+    sgimp[] = (f[] > F_ERR) ? sgimp[] : 0.;
   }
 
 #ifndef SOLVE_LIQONLY

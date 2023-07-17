@@ -327,6 +327,8 @@ event tracer_diffusion (i++)
   foreach() {
     thetacorr1[] = cm[]*max(fL[], F_ERR);
     thetacorr2[] = cm[]*max(fG[], F_ERR);
+    slT[] = (f[] > F_ERR) ? slT[] : 0.;
+    sgT[] = (f[] > F_ERR) ? sgT[] : 0.;
   }
 
   diffusion (TG, dt, D=lambda2f, r=sgT, theta=thetacorr2);
