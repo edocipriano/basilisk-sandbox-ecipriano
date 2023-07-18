@@ -932,97 +932,26 @@ event tracer_diffusion (i++)
 #if TREE
   theta1.refine = theta1.prolongation = fraction_refine;
   theta2.refine = theta2.prolongation = fraction_refine;
-  //theta1.dirty = true;
-  //theta2.dirty = true;
-#endif
-
-#ifdef MODIFIED_DIFFUSION
-  vector pcs1[], pcs2[];
-
-  foreach() {
-    if (fL[] > F_ERR && fL[] < 1.-F_ERR) {
-      coord m = mycs (point, fL); 
-      double alpha = plane_alpha (fL[], m); 
-      coord prel;
-      plane_area_center (m, alpha, &prel);
-      coord pc; 
-      plane_center (m, alpha, fL[], &pc);
-
-      pcs1.x[] = x + pc.x*Delta;
-      pcs1.y[] = y + pc.y*Delta;
-      pcs1.z[] = z + pc.z*Delta;
-    }
-    else {
-      pcs1.x[] = x;
-      pcs1.y[] = y;
-      pcs1.z[] = z;
-    }
-
-    if (fG[] > F_ERR && fG[] < 1.-F_ERR) {
-      coord m = mycs (point, fG); 
-      double alpha = plane_alpha (fG[], m); 
-      coord prel;
-      plane_area_center (m, alpha, &prel);
-      coord pc; 
-      plane_center (m, alpha, fG[], &pc);
-
-      pcs2.x[] = x + pc.x*Delta;
-      pcs2.y[] = y + pc.y*Delta;
-      pcs2.z[] = z + pc.z*Delta;
-    }
-    else {
-      pcs2.x[] = x;
-      pcs2.y[] = y;
-      pcs2.z[] = z;
-    }
-  }
-
-  face vector corrdist1[], corrdist2[];
-  foreach_face() {
-    corrdist1.x[] = Delta/fabs (pcs1.x[] - pcs1.x[-1]);
-    corrdist2.x[] = Delta/fabs (pcs2.x[] - pcs2.x[-1]);
-
-    // check: Palmore version, I don't think it's correct
-
-    //double magdist1 = 0., magdist2 = 0.;
-    //foreach_dimension() {
-    //  magdist1 += sq (pcs1.x[] - pcs1.x[-1]);
-    //  magdist2 += sq (pcs2.x[] - pcs2.x[-1]);
-    //}
-    //magdist1 = sqrt (magdist1);
-    //magdist2 = sqrt (magdist2);
-
-    //corrdist1.x[] = Delta*(pcs1.x[] - pcs1.x[-1])/magdist1;
-    //corrdist2.x[] = Delta*(pcs2.x[] - pcs2.x[-1])/magdist2;
-  }
+  theta1.dirty = true;
+  theta2.dirty = true;
 #endif
 
   for (int jj=0; jj<NLS; jj++) {
     face vector Dmix1f[];
-    foreach_face() {
+    foreach_face()
       Dmix1f.x[] = inDmix1[jj]*fsL.x[]*fm.x[];
-#ifdef MODIFIED_DIFFUSION
-      Dmix1f.x[] *= corrdist1.x[];
-#endif
-    }
 
     foreach()
-      theta1[] = cm[]*max(fL[], 1.e-3);
-      //theta1[] = cm[]*max(fL[], T_ERR);
+      theta1[] = cm[]*max(fL[], F_ERR);
 
     scalar YL = YLList[jj];
     scalar slexp = slexpList[jj];
-#ifndef USE_DALPHADT
     scalar slimp = slimpList[jj];
-#else
-    scalar slimp[];
+
     foreach() {
-      slimp[] = -(f[] - f0[])/dt;
-#ifdef AXI
-      slimp[] *= y;
-#endif
+      slexp[] = (f[] > F_ERR) ? slexp[] : 0.;
+      slimp[] = (f[] > F_ERR) ? slimp[] : 0.;
     }
-#endif
 
     diffusion (YL, dt, D=Dmix1f, r=slexp, beta=slimp, theta=theta1);
   }
@@ -1030,29 +959,20 @@ event tracer_diffusion (i++)
   for (int jj=0; jj<NGS; jj++) {
 
     face vector Dmix2f[];
-    foreach_face() {
+    foreach_face()
       Dmix2f.x[] = inDmix2[jj]*fsG.x[]*fm.x[];
-#ifdef MODIFIED_DIFFUSION
-      Dmix2f.x[] *= corrdist2.x[];
-#endif
-    }
 
     foreach()
       theta2[] = cm[]*max(fG[], F_ERR);
 
     scalar YG = YGList[jj];
     scalar sgexp = sgexpList[jj];
-#ifndef USE_DALPHADT
     scalar sgimp = sgimpList[jj];
-#else
-    scalar sgimp[];
+
     foreach() {
-      sgimp[] = -(f0[] - f[])/dt;
-#ifdef AXI
-      sgimp[] *= y;
-#endif
+      sgexp[] = (f[] > F_ERR) ? sgexp[] : 0.;
+      sgimp[] = (f[] > F_ERR) ? sgimp[] : 0.;
     }
-#endif
 
     diffusion (YG, dt, D=Dmix2f, r=sgexp, beta=sgimp, theta=theta2);
   }
@@ -1062,10 +982,6 @@ event tracer_diffusion (i++)
   foreach_face() {
     lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
     lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
-#ifdef MODIFIED_DIFFUSION
-    lambda1f.x[] *= corrdist1.x[];  
-    lambda2f.x[] *= corrdist2.x[];
-#endif
   }
 
   /**
@@ -1123,15 +1039,15 @@ event tracer_diffusion (i++)
 
     double totmassliq = 0.;
     for (scalar YL in YLList)
-      totmassliq += rho1*YL[]*fL[]*dv();
+      totmassliq += YL[];
     for (scalar YL in YLList)
-      YL[] = (totmassliq > 0.) ? rho1*YL[]*fL[]*dv() / totmassliq : 0.;
+      YL[] = (totmassliq > 0.) ? YL[]/totmassliq : 0.;
 
     double totmassgas = 0.;
     for (scalar YG in YGList)
-      totmassgas += rho2*YG[]*fG[]*dv();
+      totmassgas += YG[];
     for (scalar YG in YGList)
-      YG[] = (totmassgas > 0.) ? rho2*YG[]*fG[]*dv() / totmassgas : 0.;
+      YG[] = (totmassgas > 0.) ? YG[]/totmassgas : 0.;
 
     for (scalar YL in YLList)
       YL[] *= f[];

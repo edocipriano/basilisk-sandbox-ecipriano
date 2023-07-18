@@ -208,24 +208,22 @@ event advance (i++,last)
   
   ![Staggering of $\mathbf{u}$ and $\mathbf{S}$](/src/figures/Sxx.svg) */
   
-  scalar Sxx[], Syy[];
-  vertex scalar Sxy[];
+  symmetric tensor S[]; // fixme: this does not work on trees
 
   /**
   We average the velocity components at the center to compute the
   diagonal components. */
 
-  foreach() {
-    Sxx[] = - sq(uf.x[] + uf.x[1,0])/4. + 2.*(nu.x[1,0]*uf.x[1,0] - nu.x[]*uf.x[])/Delta;
-    Syy[] = - sq(uf.y[] + uf.y[0,1])/4. + 2.*(nu.y[0,1]*uf.y[0,1] - nu.y[]*uf.y[])/Delta;
-  }
+  foreach()
+    foreach_dimension()
+      S.x.x[] = - sq(uf.x[] + uf.x[1,0])/4. + 2.*(nu.x[1,0]*uf.x[1,0] - nu.x[]*uf.x[])/Delta;
 
   /**
   We average horizontally and vertically to compute the off-diagonal
   component at the vertices. */
 
   foreach_vertex()
-    Sxy[] = 
+    S.x.y[] = 
       - (uf.x[] + uf.x[0,-1])*(uf.y[] + uf.y[-1,0])/4. +
       (nu.x[]*uf.x[] - nu.x[0,-1]*uf.x[0,-1] + nu.y[]*uf.y[] - nu.y[-1,0]*uf.y[-1,0])/Delta;
 
@@ -235,11 +233,8 @@ event advance (i++,last)
   \mathbf{u}_* = \mathbf{u}_n + dt\nabla\cdot\mathbf{S}
   $$ */
 
-  foreach_face(x)
-    uf.x[] += dt*(Sxx[] - Sxx[-1,0] + Sxy[0,1] - Sxy[])/Delta;
-
-  foreach_face(y)
-    uf.y[] += dt*(Syy[] - Syy[0,-1] + Sxy[1,0] - Sxy[])/Delta;
+  foreach_face()
+    uf.x[] += dt*(S.x.x[] - S.x.x[-1,0] + S.x.y[0,1] - S.x.y[])/Delta;
 
   /**
   We reset the acceleration field (if it is not a constant). */

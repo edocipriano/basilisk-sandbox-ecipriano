@@ -1,0 +1,212 @@
+/**
+# Velocity Extrapolation
+
+We want to extrapolate the one-field velocity $\mathbf{u}$, in order
+to obtain a liquid velocity $\mathbf{u}_l$ and a gas phase velocity
+$\mathbf{u}_g$, which are both continuous and divergence-free at the
+interface. The extrapolations are perfomed using Aslam's
+PDE based approach. After the extrapolation step, the
+[velocity-potential.h](velocity-potential.h) approach can
+be used to force the divergence of the velocity to be zero.
+This method was proposed by [Palmore et al., 2019](#palmore2019volume).
+*/
+
+#include "aslam.h"
+#include "BOYD/src/LS_funcs/LS_reinit.h"
+
+/**
+## Field Allocation
+
+We create the fields corresponding to the liquid and gas
+phase face velocities. */
+
+face vector ufext1[], ufext2[];
+scalar ps1[], ps2[];
+mgstats mgpdiv;
+extern scalar f;
+
+#define ufext ufext1
+
+/**
+## Helper Functions
+
+We define a function that converts the vof fraction
+to the level set field. */
+
+void vof2ls (scalar f, scalar ls) {
+  double deltamin = L0/(1 << grid->maxdepth);
+  foreach()
+    ls[] = -(2.*f[] - 1.)*deltamin*0.75;
+#if TREE
+  restriction({ls});
+#endif
+  LS_reinit (ls, dt = 0.5*L0/(1 << grid->maxdepth),
+      it_max = 0.5*(1 << grid->maxdepth));
+}
+
+/**
+We define a function that performs a projection step to
+correct the divergence of the velocity field. */
+
+trace
+mgstats project_div1 (struct Project q)
+{
+  face vector ufs = q.uf;
+  scalar ps = q.p;
+  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
+  double dt = q.dt ? q.dt : 1.;
+  int nrelax = q.nrelax ? q.nrelax : 4;
+
+  scalar div[];
+  foreach() {
+    ps[] = 0.;
+    div[] = 0.;
+    foreach_dimension()
+      div[] += ufext1.x[1] - ufext1.x[];
+    div[] /= dt*Delta;
+  }
+
+  mgstats mgp = poisson (ps, div, alpha,
+      tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
+
+  foreach_face()
+    ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
+  boundary((scalar*){ufs});
+
+  return mgp;
+}
+
+trace
+mgstats project_div2 (struct Project q)
+{
+  face vector ufs = q.uf;
+  scalar ps = q.p;
+  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
+  double dt = q.dt ? q.dt : 1.;
+  int nrelax = q.nrelax ? q.nrelax : 4;
+
+  scalar div[];
+  foreach() {
+    ps[] = 0.;
+    div[] = 0.;
+    foreach_dimension()
+      div[] += ufext2.x[1] - ufext2.x[];
+    div[] /= dt*Delta;
+  }
+
+  mgstats mgp = poisson (ps, div, alpha,
+      tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
+
+  foreach_face()
+    ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
+  boundary((scalar*){ufs});
+
+  return mgp;
+}
+
+/**
+## Extrapolations
+
+At the end of the solution of the Navier-Stokes equations,
+we apply the extrapolation procedure. */
+
+vector uext1[], uext2[];
+
+event end_timestep (i++)
+{
+  /**
+  We need to start from the face one-field velocity $\mathbf{u}_f$
+  and to return the two extended velocities on the faces,
+  in order to be used for the advection steps. However,
+  the extrapolation procedure must be applied on
+  cell-centered fields. Therefore, we interpolate from face
+  to cell. */
+
+  //vector uext1[], uext2[];
+  foreach() {
+    foreach_dimension() {
+      uext1.x[] = 0.5*(uf.x[1] + uf.x[])*f[];
+      uext2.x[] = 0.5*(uf.x[1] + uf.x[])*(1. - f[]);
+    }
+  }
+
+  /**
+  We reconstruct a signed distance field from the volume
+  fraction, since the extrapolations need interface normals
+  defined over the whole domain of extrapolation. */
+
+  scalar f1[], f2[], ls1[], ls2[];
+  foreach() {
+    f1[] = (f[] > 1.e-10) ? f[] : 0.;
+    f2[] = (1. - f[] > 1.e-10) ? (1. - f[]) : 0.;
+  }
+  vof2ls (f1, ls1);
+
+  foreach()
+    ls2[] = -ls1[];
+
+  /**
+  We apply the constant extrapolations on the two velocities.
+  */
+
+  double dtext = 0.5*L0/(1 << grid->maxdepth);
+  constant_extrapolation (uext1.x, ls1, dt=dtext, n=10, c=f1);
+  constant_extrapolation (uext1.y, ls1, dt=dtext, n=10, c=f1);
+  constant_extrapolation (uext2.x, ls2, dt=dtext, n=10, c=f2);
+  constant_extrapolation (uext2.y, ls2, dt=dtext, n=10, c=f2);
+
+  /**
+  Finally, we reconstruct the face velocities from the
+  extrapolated colocated velocities by linear interpolation.
+  */
+
+  foreach_face() {
+    ufext1.x[] = 0.5*(uext1.x[] + uext1.x[-1]);
+    ufext2.x[] = 0.5*(uext2.x[] + uext2.x[-1]);
+  }
+
+  /**
+  The extrpolation procedure does not guarantee the final
+  velocity to be divergence-free. Therefore, we cancel
+  errors on the velocity divergence by solving an additional
+  Poisson equation:
+  $$
+  \nabla \cdot \left( \alpha \nabla \phi \right)
+  =
+  \nabla \cdot u_f^E \\
+  $$
+  which is used to correct the extrapolated velocity
+  according to:
+  $$
+  \mathbf{u}_f^E += \nabla \phi
+  $$
+  */
+
+  face vector ufs1[], ufs2[];
+
+  mgpdiv = project_div1 (ufs1, ps1, alpha, dt, mgpdiv.nrelax);
+  mgpdiv = project_div2 (ufs2, ps2, alpha, dt, mgpdiv.nrelax);
+
+  foreach_face() {
+    ufext1.x[] += ufs1.x[];
+    ufext2.x[] += ufs2.x[];
+  }
+
+}
+
+/**
+## References
+
+~~~bib
+@article{palmore2019volume,
+  title={A volume of fluid framework for interface-resolved simulations of vaporizing liquid-gas flows},
+  author={Palmore Jr, John and Desjardins, Olivier},
+  journal={Journal of Computational Physics},
+  volume={399},
+  pages={108954},
+  year={2019},
+  publisher={Elsevier}
+}
+~~~
+*/
+
