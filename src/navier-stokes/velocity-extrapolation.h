@@ -22,7 +22,7 @@ phase face velocities. */
 
 face vector ufext1[], ufext2[];
 scalar ps1[], ps2[];
-mgstats mgpdiv;
+mgstats mgpdiv1, mgpdiv2;
 extern scalar f;
 
 #define ufext ufext1
@@ -66,8 +66,18 @@ mgstats project_div1 (struct Project q)
     div[] /= dt*Delta;
   }
 
+#ifdef PS_IMPLICIT_SOURCE
+  scalar marker[];
+  mapregion (marker, f, inverse=true, interface=true, nl=2);
+  foreach()
+    marker[] *= 1./sq(dt);
+
+  mgstats mgp = poisson (ps, div, alpha, lambda=marker,
+      tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
+#else
   mgstats mgp = poisson (ps, div, alpha,
       tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
+#endif
 
   foreach_face()
     ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
@@ -94,8 +104,18 @@ mgstats project_div2 (struct Project q)
     div[] /= dt*Delta;
   }
 
+#ifdef PS_IMPLICIT_SOURCE
+  scalar marker[];
+  mapregion (marker, f, inverse=false, interface=true, nl=2);
+  foreach()
+    marker[] *= 1./sq(dt);
+
+  mgstats mgp = poisson (ps, div, alpha, lambda=marker,
+      tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
+#else
   mgstats mgp = poisson (ps, div, alpha,
       tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
+#endif
 
   foreach_face()
     ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
@@ -184,8 +204,8 @@ event end_timestep (i++)
 
   face vector ufs1[], ufs2[];
 
-  mgpdiv = project_div1 (ufs1, ps1, alpha, dt, mgpdiv.nrelax);
-  mgpdiv = project_div2 (ufs2, ps2, alpha, dt, mgpdiv.nrelax);
+  mgpdiv1 = project_div1 (ufs1, ps1, alpha, dt, mgpdiv1.nrelax);
+  mgpdiv2 = project_div2 (ufs2, ps2, alpha, dt, mgpdiv2.nrelax);
 
   foreach_face() {
     ufext1.x[] += ufs1.x[];

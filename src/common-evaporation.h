@@ -174,34 +174,34 @@ double avg_interface (scalar Y, scalar f) {
 }
 
 /**
-## *smooth_field()*: Smooth a discontinuous field, from sf calculation in two-phase.h
+## *vof_source()*: Apply and explicit source to the vof advection equation
 
-* *sf*: smoothed scalar field
-* *f*: initial scalar field
-* *ncycles*: number of smoothing cycles
+This function is implements the plane-shifting approach to
+apply a source term to the vof advection equation. This
+implementation is based on.
+* *f*: vof field
+* *s*: source term [kg/m2/s]
 */
 
-//void smooth_field (scalar sf, scalar f, int ncycles) {
-//  for (int i=0; i<ncycles; i++) {
-//#if dimension <= 2
-//    foreach()
-//      sf[] = (4.*f[] + 
-//        2.*(f[0,1] + f[0,-1] + f[1,0] + f[-1,0]) +
-//        f[-1,-1] + f[1,-1] + f[1,1] + f[-1,1])/16.;
-//#else // dimension == 3
-//    foreach()
-//      sf[] = (8.*f[] +
-//        4.*(f[-1] + f[1] + f[0,1] + f[0,-1] + f[0,0,1] + f[0,0,-1]) +
-//        2.*(f[-1,1] + f[-1,0,1] + f[-1,0,-1] + f[-1,-1] + 
-//      f[0,1,1] + f[0,1,-1] + f[0,-1,1] + f[0,-1,-1] +
-//      f[1,1] + f[1,0,1] + f[1,-1] + f[1,0,-1]) +
-//        f[1,-1,1] + f[-1,1,1] + f[-1,1,-1] + f[1,1,1] +
-//        f[1,1,-1] + f[-1,-1,-1] + f[1,-1,-1] + f[-1,-1,1])/64.;
-//#endif
-//    foreach()
-//      f[] = sf[];
-//  }
-//}
+void vof_source (scalar f, scalar s) {
+  foreach() {
+    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+      coord n = interface_normal(point, f);
+      double alpha = plane_alpha (f[], n);
+      double val = -s[];
+
+#ifdef BYRHOGAS
+      double delta_alpha = -val*dt*sqrt(sq(n.x) + sq(n.y) + sq(n.z))/rho2/Delta;
+#else
+      double delta_alpha = -val*dt*sqrt(sq(n.x) + sq(n.y) + sq(n.z))/rho1/Delta;
+#endif
+      double ff = plane_volume (n, alpha + delta_alpha);
+      if (ff > F_ERR && ff < 1. - F_ERR)
+        f[] = ff;
+      f[] = clamp (f[], 0., 1.);
+    }
+  }
+}
 
 /**
 ## *shift_field()*: Shift a field localized at the interface toward the closest pure gas or liquid cells

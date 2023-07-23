@@ -109,17 +109,14 @@ event end_timestep (i++, last)
 
   foreach_face()
     ufs.x[] = 0.;
-  boundary ((scalar *){ufs});
 
   foreach()
     ps[] = 0.;
-  boundary({ps});
 
   /**
   We solve the Poisson equation using the multigrid solver. */
 
   mgpsf = project_sv (ufs, ps, alpha, dt, mgpsf.nrelax);
-  boundary ((scalar *){ufs});
 
   /**
   We compute a divergence-free extended velocity by subtracting
@@ -127,7 +124,6 @@ event end_timestep (i++, last)
 
   foreach_face()
     ufext.x[] = uf.x[] - ufs.x[];
-  boundary ((scalar *){ufext});
 }
 
 /**

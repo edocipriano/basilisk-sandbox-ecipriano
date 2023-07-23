@@ -14,6 +14,8 @@ a few cells across the interface, without covering the whole
 domain.
 */
 
+#include "mapregion.h"
+
 struct _Aslam {
   scalar f;     // field to extrapolate
   scalar ls;    // level set field
@@ -21,6 +23,7 @@ struct _Aslam {
   double dt;    // time step (not physical)
   int n;        // number of maximum time steps
   scalar c;     // vof field (optional)
+  int nl;       // from which layer of cells (optional, min=0, max=2)
 };
 
 /**
@@ -57,6 +60,7 @@ void constant_extrapolation (struct _Aslam p) {
   scalar f = p.f, ls = p.ls;
   (const) scalar s = p.s.i ? p.s : zeroc;
   (const) scalar c = p.c.i ? p.c : zeroc;
+  int nl = p.nl ? p.nl : 0.;
   int ts = 0;
 
   /**
@@ -69,38 +73,18 @@ void constant_extrapolation (struct _Aslam p) {
   /**
   We compute the normals and the heaviside function H,
   which is non-null in the region where the field must
-  be extrapolated.
+  be extrapolated. In case of vof field, the user can
+  decide to extrapolate the field from a layer of cells
+  which in not adjacent to the interface. This can be
+  specified setting the variables *nl*, 0 by default,
+  it can be set to 1 or 2.
   */
 
-  /**
-  TODO: Improve following lines, that
-  add the possibility to shift from a layer of cells
-  which is not adjacent to the interfacial cells (second layer).
-  This will limit the influence of oscillations of the
-  velocity field close to the interfacial cells. */
-
-  if (p.c.i) {
-    foreach()
-        H[] = (c[] > 1.-1.e-10) ? 1. : 0.;
-    foreach() {
-      if (H[]) {
-        bool washout = false;
-        foreach_neighbor(1) {
-          if (c[] < 1.-1.e-10) {
-            washout = true;
-            break;
-          }
-        }
-        H[] = washout ? 0. : H[];
-      }
-    }
-  }
+  if (p.c.i)
+    mapregion (H, c, nl=nl);
 
   foreach() {
-    if (p.c.i)
-      //H[] = (c[] == 1.) ? 0. : 1.; // if shift is from first layer
-      H[] = 1.-H[]; // if shift is from second layer
-    else
+    if (!p.c.i)
       H[] = (ls[] <= 0.) ? 0. : 1.;
     double maggf = 0.;
     foreach_dimension()
@@ -181,6 +165,7 @@ void linear_extrapolation (struct _Aslam p) {
   scalar f = p.f, ls = p.ls;
   (const) scalar s = p.s.i ? p.s : zeroc;
   (const) scalar c = p.c.i ? p.c : zeroc;
+  int nl = p.nl ? p.nl : 0.;
   int ts = 0;
 
   /**
@@ -193,30 +178,20 @@ void linear_extrapolation (struct _Aslam p) {
   gradients ({ls, f}, {n, gf});
 
   /**
-  We compute the normals and the heaviside function H.
+  We compute the normals and the heaviside function H,
+  which is non-null in the region where the field must
+  be extrapolated. In case of vof field, the user can
+  decide to extrapolate the field from a layer of cells
+  which in not adjacent to the interface. This can be
+  specified setting the variables *nl*, 0 by default,
+  it can be set to 1 or 2.
   */
 
-  if (p.c.i) {
-    foreach()
-        H[] = (c[] > 1.-1.e-10) ? 1. : 0.;
-    foreach() {
-      if (H[]) {
-        bool washout = false;
-        foreach_neighbor(1) {
-          if (c[] < 1.-1.e-10) {
-            washout = true;
-            break;
-          }
-        }
-        H[] = washout ? 0. : H[];
-      }
-    }
-  }
+  if (p.c.i)
+    mapregion (H, c, nl = (nl == 0.) ? 1. : min (nl+1, 2));
 
   foreach() {
-    if (p.c.i)
-      H[] = 1. - H[];
-    else
+    if (!p.c.i)
       H[] = (ls[]+Delta <= 0.) ? 0. : 1.;
     double maggf = 0.;
     foreach_dimension()
