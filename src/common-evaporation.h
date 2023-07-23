@@ -152,6 +152,37 @@ double avg_interface (scalar Y, scalar f) {
 }
 
 /**
+## *vof_source()*: Apply and explicit source to the vof advection equation
+
+This function is implements the plane-shifting approach to
+apply a source term to the vof advection equation. This
+implementation is based on.
+* *f*: vof field
+* *s*: source term [kg/m2/s]
+*/
+
+void vof_source (scalar f, scalar s) {
+  foreach() {
+    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+      coord n = interface_normal(point, f);
+      double alpha = plane_alpha (f[], n);
+      double val = -s[];
+
+#ifdef BYRHOGAS
+      double delta_alpha = -val*dt*sqrt(sq(n.x) + sq(n.y) + sq(n.z))/rho2/Delta;
+#else
+      double delta_alpha = -val*dt*sqrt(sq(n.x) + sq(n.y) + sq(n.z))/rho1/Delta;
+#endif
+      double ff = plane_volume (n, alpha + delta_alpha);
+      if (ff > F_ERR && ff < 1. - F_ERR)
+        f[] = ff;
+      f[] = clamp (f[], 0., 1.);
+    }
+  }
+}
+
+
+/**
 ## *smooth_field()*: Smooth a discontinuous field, from sf calculation in two-phase.h
 
 * *sf*: smoothed scalar field
