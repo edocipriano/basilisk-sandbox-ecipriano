@@ -1,20 +1,10 @@
 /**
 # Aslam Extrapolations
 
-We try to use the constant and linear Aslam extrapolations
-([Aslam 2003](#aslam2004partial)), defined in [aslam.h](../src/aslam.h).
-The problem is characterized by a squared domain, with
-dimensions $(-\pi,\pi)\times(-\pi,\pi)$, and by a level
-set function $\phi = \sqrt{x^2 + y^2} - 2$. The field *u*
-exist just in a region of the domain, and must be extrapolated:
-
-$$
-u =
-\begin{cases}
-  0 & \text{if } \phi > 0,\\
-  \cos(x)\sin(x) & \text{if } \phi \leq 0.
-\end{cases}
-$$
+This test case is similar to [aslam.c](aslam.c). However,
+instead of starting from the level set field, we start from
+a vof field, which is converted into level set, and then
+Aslam extrapolations are performed.
 */
 
 #include "utils.h"
@@ -105,8 +95,9 @@ int main (void) {
 
   double dtmin = 0.5*L0/(1 << grid->maxdepth);
 
-  constant_extrapolation (u, levelset, dt=dtmin, n=30, c=f);
+  constant_extrapolation (u, levelset, dt=dtmin, n=300, c=f);
   write_picture ("constant.png");
+  fprintf (stderr, "constant = %g\n", statsf(u).sum);
 
   /**
   We re-initialize the function *u* and we apply the
@@ -114,8 +105,9 @@ int main (void) {
 
   foreach()
     u[] = ufunc(x,y)*f[];
-  linear_extrapolation (u, levelset, dt=dtmin, n=30, c=f);
+  linear_extrapolation (u, levelset, dt=dtmin, n=300, c=f);
   write_picture ("linear.png");
+  fprintf (stderr, "linear = %g\n", statsf(u).sum);
 }
 
 /**

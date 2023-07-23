@@ -181,37 +181,6 @@ void vof_source (scalar f, scalar s) {
   }
 }
 
-
-/**
-## *smooth_field()*: Smooth a discontinuous field, from sf calculation in two-phase.h
-
-* *sf*: smoothed scalar field
-* *f*: initial scalar field
-* *ncycles*: number of smoothing cycles
-*/
-
-//void smooth_field (scalar sf, scalar f, int ncycles) {
-//  for (int i=0; i<ncycles; i++) {
-//#if dimension <= 2
-//    foreach()
-//      sf[] = (4.*f[] + 
-//        2.*(f[0,1] + f[0,-1] + f[1,0] + f[-1,0]) +
-//        f[-1,-1] + f[1,-1] + f[1,1] + f[-1,1])/16.;
-//#else // dimension == 3
-//    foreach()
-//      sf[] = (8.*f[] +
-//        4.*(f[-1] + f[1] + f[0,1] + f[0,-1] + f[0,0,1] + f[0,0,-1]) +
-//        2.*(f[-1,1] + f[-1,0,1] + f[-1,0,-1] + f[-1,-1] + 
-//      f[0,1,1] + f[0,1,-1] + f[0,-1,1] + f[0,-1,-1] +
-//      f[1,1] + f[1,0,1] + f[1,-1] + f[1,0,-1]) +
-//        f[1,-1,1] + f[-1,1,1] + f[-1,1,-1] + f[1,1,1] +
-//        f[1,1,-1] + f[-1,-1,-1] + f[1,-1,-1] + f[-1,-1,1])/64.;
-//#endif
-//    foreach()
-//      f[] = sf[];
-//  }
-//}
-
 /**
 ## *shift_field()*: Shift a field localized at the interface toward the closest pure gas or liquid cells
 

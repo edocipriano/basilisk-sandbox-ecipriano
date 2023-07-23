@@ -29,7 +29,7 @@ map and isolines of the extended scalar fields.
 void write_picture (char* name) {
   clear();
   isoline ("levelset", val = 0., lw = 2.);
-  isoline("u", n = 30);
+  isoline ("u", n = 20, min = -1.5, max = 1.5);
   squares ("u", spread = -1);
   box();
   save (name);
@@ -73,6 +73,7 @@ int main (void) {
 
   constant_extrapolation (u, levelset, dt=0.01, n=300);
   write_picture ("constant.png");
+  fprintf (stderr, "constant = %g\n", statsf(u).sum);
 
   /**
   We re-initialize the function *u* and we apply the
@@ -82,14 +83,17 @@ int main (void) {
     u[] = (levelset[] <= 0.) ? cos(x)*sin(y) : 0.;
   linear_extrapolation (u, levelset, dt=0.01, n=300);
   write_picture ("linear.png");
+  fprintf (stderr, "linear = %g\n", statsf(u).sum);
 }
 
 /**
 ## Results
 
-![Initial field](aslam/initial.png)(width="800" height="600")
-![Constant extrapolation](aslam/constant.png)(width="800" height="600")
-![Linear extrapolation](aslam/linear.png)(width="800" height="600")
+![Initial field](aslam/initial.png)
+
+![Constant extrapolation](aslam/constant.png)
+
+![Linear extrapolation](aslam/linear.png)
 
 ## References
 
