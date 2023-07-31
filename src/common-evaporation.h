@@ -182,6 +182,36 @@ void vof_source (scalar f, scalar s) {
 }
 
 /**
+## *vof_reconstruction()*: VOF reconstruction step
+
+The VOF reconstruction step must be frequently performed to compute
+the Dirac delta which allows surface integrals to be transformed
+into volume intergrals. Used for the evaporation source terms.
+
+* *point*: current cell in a *foreach()* loop
+* *f*: vof field
+*/
+
+typedef struct {
+  coord m, prel;
+  double alpha, area, dirac;
+} vofrecon;
+
+vofrecon vof_reconstruction (Point point, scalar f) {
+  coord m = mycs (point, f);
+  double alpha = plane_alpha (f[], m);
+  coord prel;
+  double area = plane_area_center (m, alpha, &prel);
+#if AXI
+  double dirac = area*(y + prel.y*Delta)/(Delta*y)*cm[];
+#else
+  double dirac = area/Delta*cm[];
+#endif
+
+  return (vofrecon){m, prel, alpha, area, dirac};
+}
+
+/**
 ## *shift_field()*: Shift a field localized at the interface toward the closest pure gas or liquid cells
 
 * *fts*: field to shift
