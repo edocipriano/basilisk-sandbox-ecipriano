@@ -3,8 +3,8 @@
 
 We want to test the function *mapregion()*, which calculates
 an Heaviside function that maps regions of the domain close
-to the interface.
-*/
+to the interface. This test case will not change the world,
+but it will remind me how the *mapregion()* function behaves. */
 
 #include "utils.h"
 #include "mapregion.h"

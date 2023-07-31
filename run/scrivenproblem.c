@@ -385,17 +385,27 @@ plot "OutputData-6" every 8 u 1:3 w p ps 2 t "Analytic", \
 ~~~gnuplot Relative Errors
 reset
 
-stats "OutputData-6" using 4 nooutput name "LEVEL6"
-stats "OutputData-7" using 4 nooutput name "LEVEL7"
-stats "OutputData-8" using 4 nooutput name "LEVEL8"
-stats "OutputData-9" using 4 nooutput name "LEVEL9"
+stats "OutputData-6" using (last6=$4) nooutput
+stats "OutputData-7" using (last7=$4) nooutput
+stats "OutputData-8" using (last8=$4) nooutput
+stats "OutputData-9" using (last9=$4) nooutput
+
+#stats "OutputData-6" using 4 nooutput name "LEVEL6"
+#stats "OutputData-7" using 4 nooutput name "LEVEL7"
+#stats "OutputData-8" using 4 nooutput name "LEVEL8"
+#stats "OutputData-9" using 4 nooutput name "LEVEL9"
 
 set print "Errors.csv"
 
-print sprintf ("%d %.12f", 2**6, LEVEL6_mean)
-print sprintf ("%d %.12f", 2**7, LEVEL7_mean)
-print sprintf ("%d %.12f", 2**8, LEVEL8_mean)
-print sprintf ("%d %.12f", 2**9, LEVEL9_mean)
+#print sprintf ("%d %.12f", 2**6, LEVEL6_mean)
+#print sprintf ("%d %.12f", 2**7, LEVEL7_mean)
+#print sprintf ("%d %.12f", 2**8, LEVEL8_mean)
+#print sprintf ("%d %.12f", 2**9, LEVEL9_mean)
+
+print sprintf ("%d %.12f", 2**6, last6)
+print sprintf ("%d %.12f", 2**7, last7)
+print sprintf ("%d %.12f", 2**8, last8)
+print sprintf ("%d %.12f", 2**9, last9)
 
 unset print
 
@@ -413,8 +423,8 @@ set size square
 set grid
 
 plot "Errors.csv" w p pt 8 ps 2 title "Results", \
-  50*x**(-1) title "1^{st} order", \
-  1000*x**(-2) title "2^{nd} order"
+  50*x**(-1) lw 2 title "1^{st} order", \
+  1000*x**(-2) lw 2 title "2^{nd} order"
 ~~~
 
 ~~~gnuplot Temperature Profile

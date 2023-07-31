@@ -239,7 +239,7 @@ void linear_extrapolation (struct _Aslam p) {
   the directional derivative. */
 
   if (p.c.i)
-    constant_extrapolation (f, ls, fn, p.dt, p.n, p.c);
+    constant_extrapolation (f, ls, fn, p.dt, p.n, p.c, p.nl);
   else
     constant_extrapolation (f, ls, fn, p.dt, p.n);
 }
