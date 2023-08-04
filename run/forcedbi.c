@@ -14,7 +14,7 @@ number selected for this simulation leads to the formation of
 Von-Karman streets that can be visualized from the transport of the
 chemical species mass fraction in gas phase.
 
-![Evolution of the mass fraction fields of the lightcomponent](forcedbi/movie.mp4)
+![Evolution of the mass fraction fields of the light component](forcedbi/movie.mp4)
 */
 
 /**
@@ -28,13 +28,11 @@ number of gas and liquid species to be set as compiler
 variables. We don't need to solve the temperature field
 because the vapor pressure is set to a constant value,
 different for each chemical species. Using GSL at level
-1 we activate the coupled solution of the interfae jump
+1 we can activate the coupled solution of the interfae jump
 condition. */
 
 #define NGS 3
 #define NLS 2
-
-#define FILTERED
 
 /**
 ## Simulation Setup
@@ -51,7 +49,7 @@ change mechanism. */
 #include "tension.h"
 #include "evaporation.h"
 #include "multicomponent.h"
-//#include "balances.h"
+#include "balances.h"
 #include "view.h"
 
 /**
@@ -127,8 +125,7 @@ int main (void) {
 
   f.sigma = 0.073;
 
-  for (maxlevel = 9; maxlevel <= 12; maxlevel++) {
-    //CFL = 0.1, DT = 0.001;
+  for (maxlevel = 9; maxlevel <= 9; maxlevel++) {
     init_grid (1 << (maxlevel-3));
     run();
   }
@@ -146,7 +143,28 @@ event init (i = 0) {
   refine (circle (x, y, 2.*R0) > 0. && level < maxlevel);
   fraction (f, circle (x, y, R0));
   effective_radius0 = sqrt (1./pi*statsf(f).sum);
+
+#ifdef BALANCES
+  mb.liq_species = liq_species;
+  mb.gas_species = gas_species;
+  mb.YLList = YLList;
+  mb.YGList = YGList;
+  mb.mEvapList = mEvapList;
+  mb.liq_start = liq_start;
+  mb.gas_start = gas_start;
+  mb.rho1 = rho1;
+  mb.rho2 = rho2;
+  mb.inDmix1 = inDmix1;
+  mb.inDmix2 = inDmix2;
+  mb.maxlevel = maxlevel;
+  mb.boundaries = true;
+#endif
 }
+
+/**
+We use the following trick to change the multigrid solver
+tolerance when solving the diffusion of the scalar fields
+rather than the projection step. */
 
 event tracer_diffusion (i++) {
   TOLERANCE = 1.e-6;
@@ -154,6 +172,14 @@ event tracer_diffusion (i++) {
 
 event properties (i++) {
   TOLERANCE = 1.e-3;
+}
+
+event bcs (i = 0) {
+  scalar YGA = YGList[0], YGB = YGList[1], YGC = YGList[2];
+
+  YGA[left] = dirichlet (0.);
+  YGB[left] = dirichlet (0.);
+  YGC[left] = dirichlet (1.);
 }
 
 /**
@@ -199,13 +225,11 @@ We write the animation with the evolution of the light chemical
 species mass fraction, and the interface position. */
 
 event movie (t += 0.000125; t <= 0.032) {
-  if (maxlevel == 9) {
-    clear ();
-    view (tx = -0.5, ty = -0.5);
-    draw_vof ("f");
-    squares ("A", min = 0., max = 0.5, linear = true);
-    save ("movie.mp4");
-  }
+  clear();
+  view (tx = -0.5, ty = -0.5);
+  draw_vof ("f");
+  squares ("A", min = 0., max = 0.5, linear = true);
+  save ("movie.mp4");
 }
 
 /**
@@ -223,6 +247,41 @@ set grid
 plot "OutputData-9" u 2:4 w l lw 2 t "LEVEL 9"
 ~~~
 
-~~~gnuplot Evolution of the Vaporization Rates
+The conservation tests compare the mass of the chemical species in
+liquid phase with the total amount of the same species that
+evaporates. If the global conservation is considered, the volume
+fraction is used instead of the mass fraction field. See
+[balances.h](../src/balances.h) for details.
+
+~~~gnuplot Liquid Phase Mass Conservation
+reset
+set xlabel "t [s]"
+set ylabel "(m_L - m_L^0) [kg]"
+set key top right
+set size square
+set grid
+
+plot "balances-9" every 500 u 1:10 w p ps 1.2 lc 1 title "Evaporated Mass Species A", \
+     "balances-9" every 500 u 1:11 w p ps 1.2 lc 2 title "Evaporated Mass Species B", \
+     "balances-9" every 500 u 1:4  w p ps 1.2 lc 3 title "Evaporated Mass Total", \
+     "balances-9" u 1:(-$5) w l lw 2 lc 1 title "Variation Mass Species A", \
+     "balances-9" u 1:(-$6) w l lw 2 lc 2 title "Variation Mass Species B", \
+     "balances-9" u 1:(-$2) w l lw 2 lc 3 title "Variation Mass Total"
+~~~
+
+~~~gnuplot Gas Phase Mass Conservation
+reset
+set xlabel "t [s]"
+set ylabel "(m_G - m_G^0) [kg]"
+set key top left
+set size square
+set grid
+
+plot "balances-9" every 500 u 1:(-$10) w p ps 1.2 lc 1 title "Evaporated Mass Species A", \
+     "balances-9" every 500 u 1:(-$11) w p ps 1.2 lc 2 title "Evaporated Mass Species B", \
+     "balances-9" every 500 u 1:(-$4)  w p ps 1.2 lc 3 title "Evaporated Mass Total", \
+     "balances-9" u 1:7 w l lw 2 lc 1 title "Variation Mass Species A", \
+     "balances-9" u 1:8 w l lw 2 lc 2 title "Variation Mass Species B", \
+     "balances-9" u 1:3 w l lw 2 lc 3 title "Variation Mass Total"
 ~~~
 */
