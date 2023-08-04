@@ -224,7 +224,6 @@ chemical species, the interface position and the
 grid refinement. */
 
 event movie (t += 2.e-5; t <= 0.005) {
-//event movie (t += 2.e-5) {
   clear();
   draw_vof ("f", lw = 1.5);
   squares ("B", linear = true, min = 0., max = 0.56);

@@ -107,7 +107,7 @@ boundaries, adjusting the stencil index according to the boundary ID.
 */
 
 @if _MPI
-@ define allreduce(vector,size) { \
+# define allreduce(vector,size) { \
     MPI_Allreduce (MPI_IN_PLACE, vector, size, MPI_DOUBLE, MPI_SUM, \
         MPI_COMM_WORLD); \
 }
