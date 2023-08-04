@@ -97,7 +97,7 @@ struct MassBalance {
   double * gas_relerr;
 };
 
-struct MassBalance mb = {};
+struct MassBalance mb = {0};
 
 /**
 ## Helper Functions
