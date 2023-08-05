@@ -124,7 +124,7 @@ int main (void) {
   of refinement. */
 
   for (maxlevel = 7; maxlevel <= 7; maxlevel++) {
-    CFL = 0.1;
+    //CFL = 0.1;
     init_grid (1 << maxlevel);
     run ();
   }

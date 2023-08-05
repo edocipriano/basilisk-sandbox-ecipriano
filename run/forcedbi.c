@@ -33,6 +33,7 @@ condition. */
 
 #define NGS 3
 #define NLS 2
+#define FILTERED
 
 /**
 ## Simulation Setup
@@ -104,8 +105,6 @@ numerical simulation. */
 
 int maxlevel, minlevel = 5;
 double D0 = 0.4e-3, R0, effective_radius0;
-double tEnd = 0.032;
-double STEPWRITE = 0.005;
 
 int main (void) {
   /**
@@ -125,7 +124,12 @@ int main (void) {
 
   f.sigma = 0.073;
 
+  /**
+  We run the simulation at different levels of
+  refinement. */
+
   for (maxlevel = 9; maxlevel <= 9; maxlevel++) {
+    CFL = 0.1;
     init_grid (1 << (maxlevel-3));
     run();
   }
@@ -162,27 +166,6 @@ event init (i = 0) {
 }
 
 /**
-We use the following trick to change the multigrid solver
-tolerance when solving the diffusion of the scalar fields
-rather than the projection step. */
-
-event tracer_diffusion (i++) {
-  TOLERANCE = 1.e-6;
-}
-
-event properties (i++) {
-  TOLERANCE = 1.e-3;
-}
-
-event bcs (i = 0) {
-  scalar YGA = YGList[0], YGB = YGList[1], YGC = YGList[2];
-
-  YGA[left] = dirichlet (0.);
-  YGB[left] = dirichlet (0.);
-  YGC[left] = dirichlet (1.);
-}
-
-/**
 We adapt the grid according to the mass fractions of the
 species A and B, the velocity and the interface position. */
 
@@ -205,7 +188,7 @@ The following lines of code are for post-processing purposes. */
 We write on a file the squared diameter decay and the dimensionless
 time. */
 
-event output_data (i += 20) {
+event output_data (t += 5e-5) {
   char name[80];
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
