@@ -51,7 +51,7 @@ regression velocity is computed from a linear interpolation
 between the two consecutive vaporization rates, weighted by
 the interface normal.
 
-![Interface Regression Velocity Distribution](../doc/interfaceregression.png)
+![Interface Regression Velocity Distribution](interfaceregression.png){ width="80%"}
 */
 
 /**

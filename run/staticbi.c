@@ -124,7 +124,7 @@ int main (void) {
   of refinement. */
 
   for (maxlevel = 7; maxlevel <= 7; maxlevel++) {
-    CFL = 0.1;
+    //CFL = 0.1;
     init_grid (1 << maxlevel);
     run ();
   }
@@ -224,7 +224,6 @@ chemical species, the interface position and the
 grid refinement. */
 
 event movie (t += 2.e-5; t <= 0.005) {
-//event movie (t += 2.e-5) {
   clear();
   draw_vof ("f", lw = 1.5);
   squares ("B", linear = true, min = 0., max = 0.56);

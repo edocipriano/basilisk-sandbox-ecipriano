@@ -194,15 +194,6 @@ event adapt (i++) {
 }
 #endif
 
-//#include "diffusion.h"
-//
-//event shifting (i++) {
-//  face vector Dmix[];
-//  foreach_face()
-//    Dmix.x[] = 0.1;
-//  diffusion (stefanflow, dt, D=Dmix);
-//}
-
 /**
 ### Facets
 

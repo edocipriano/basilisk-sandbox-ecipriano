@@ -2,14 +2,14 @@
 # Isothermal Evaporation of a Binary Droplet in Forced Convection
 
 A binary liquid droplet, made of two components with the same
-properties but with different volatilies evaporates in a forced
+properties but with different volatilies evaporates in forced
 convective conditions. The droplet is initially placed on the left
 side of the domain. An inlet gas flowrate is imposed on the left
 boundary, such that Re=160 with the initial diameter of the droplet.
 
 The animation shows the evaporation of the liquid droplet, plotting
 the mass fraction of the light component. The inlet velocity
-transports the mass fractions toward the right boundary. The Reynolds
+transports the mass fraction toward the right boundary. The Reynolds
 number selected for this simulation leads to the formation of
 Von-Karman streets that can be visualized from the transport of the
 chemical species mass fraction in gas phase.
@@ -27,12 +27,11 @@ extended velocity. The multicomponent model requires the
 number of gas and liquid species to be set as compiler
 variables. We don't need to solve the temperature field
 because the vapor pressure is set to a constant value,
-different for each chemical species. Using GSL at level
-1 we can activate the coupled solution of the interfae jump
-condition. */
+different for each chemical species. */
 
 #define NGS 3
 #define NLS 2
+#define FILTERED
 
 /**
 ## Simulation Setup
@@ -104,8 +103,6 @@ numerical simulation. */
 
 int maxlevel, minlevel = 5;
 double D0 = 0.4e-3, R0, effective_radius0;
-double tEnd = 0.032;
-double STEPWRITE = 0.005;
 
 int main (void) {
   /**
@@ -125,7 +122,12 @@ int main (void) {
 
   f.sigma = 0.073;
 
+  /**
+  We run the simulation at different levels of
+  refinement. */
+
   for (maxlevel = 9; maxlevel <= 9; maxlevel++) {
+    CFL = 0.1;
     init_grid (1 << (maxlevel-3));
     run();
   }
@@ -162,27 +164,6 @@ event init (i = 0) {
 }
 
 /**
-We use the following trick to change the multigrid solver
-tolerance when solving the diffusion of the scalar fields
-rather than the projection step. */
-
-event tracer_diffusion (i++) {
-  TOLERANCE = 1.e-6;
-}
-
-event properties (i++) {
-  TOLERANCE = 1.e-3;
-}
-
-event bcs (i = 0) {
-  scalar YGA = YGList[0], YGB = YGList[1], YGC = YGList[2];
-
-  YGA[left] = dirichlet (0.);
-  YGB[left] = dirichlet (0.);
-  YGC[left] = dirichlet (1.);
-}
-
-/**
 We adapt the grid according to the mass fractions of the
 species A and B, the velocity and the interface position. */
 
@@ -205,7 +186,7 @@ The following lines of code are for post-processing purposes. */
 We write on a file the squared diameter decay and the dimensionless
 time. */
 
-event output_data (i += 20) {
+event output_data (t += 5e-5) {
   char name[80];
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
@@ -224,7 +205,7 @@ event output_data (i += 20) {
 We write the animation with the evolution of the light chemical
 species mass fraction, and the interface position. */
 
-event movie (t += 0.000125; t <= 0.032) {
+event movie (t += 0.000125; t <= 0.03) {
   clear();
   view (tx = -0.5, ty = -0.5);
   draw_vof ("f");
@@ -247,12 +228,6 @@ set grid
 plot "OutputData-9" u 2:4 w l lw 2 t "LEVEL 9"
 ~~~
 
-The conservation tests compare the mass of the chemical species in
-liquid phase with the total amount of the same species that
-evaporates. If the global conservation is considered, the volume
-fraction is used instead of the mass fraction field. See
-[balances.h](../src/balances.h) for details.
-
 ~~~gnuplot Liquid Phase Mass Conservation
 reset
 set xlabel "t [s]"
@@ -269,19 +244,4 @@ plot "balances-9" every 500 u 1:10 w p ps 1.2 lc 1 title "Evaporated Mass Specie
      "balances-9" u 1:(-$2) w l lw 2 lc 3 title "Variation Mass Total"
 ~~~
 
-~~~gnuplot Gas Phase Mass Conservation
-reset
-set xlabel "t [s]"
-set ylabel "(m_G - m_G^0) [kg]"
-set key top left
-set size square
-set grid
-
-plot "balances-9" every 500 u 1:(-$10) w p ps 1.2 lc 1 title "Evaporated Mass Species A", \
-     "balances-9" every 500 u 1:(-$11) w p ps 1.2 lc 2 title "Evaporated Mass Species B", \
-     "balances-9" every 500 u 1:(-$4)  w p ps 1.2 lc 3 title "Evaporated Mass Total", \
-     "balances-9" u 1:7 w l lw 2 lc 1 title "Variation Mass Species A", \
-     "balances-9" u 1:8 w l lw 2 lc 2 title "Variation Mass Species B", \
-     "balances-9" u 1:3 w l lw 2 lc 3 title "Variation Mass Total"
-~~~
 */

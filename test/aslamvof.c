@@ -7,6 +7,7 @@ a vof field, which is converted into level set, and then
 Aslam extrapolations are performed.
 */
 
+#include "grid/multigrid.h"
 #include "utils.h"
 #include "aslam.h"
 #include "view.h"
@@ -113,13 +114,13 @@ int main (void) {
 /**
 ## Results
 
-![Level Set](aslam/levelset.png)
+![Level Set](aslamvof/levelset.png)
 
-![Initial field](aslam/initial.png)
+![Initial field](aslamvof/initial.png)
 
-![Constant extrapolation](aslam/constant.png)
+![Constant extrapolation](aslamvof/constant.png)
 
-![Linear extrapolation](aslam/linear.png)
+![Linear extrapolation](aslamvof/linear.png)
 
 ## References
 

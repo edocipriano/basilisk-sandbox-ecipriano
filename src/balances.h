@@ -97,7 +97,7 @@ struct MassBalance {
   double * gas_relerr;
 };
 
-struct MassBalance mb = {};
+struct MassBalance mb = {0};
 
 /**
 ## Helper Functions
@@ -107,9 +107,9 @@ boundaries, adjusting the stencil index according to the boundary ID.
 */
 
 @if _MPI
-@ define allreduce(vector,size) { \
+# define allreduce(vector,size) {                                   \
     MPI_Allreduce (MPI_IN_PLACE, vector, size, MPI_DOUBLE, MPI_SUM, \
-        MPI_COMM_WORLD); \
+        MPI_COMM_WORLD);                                            \
 }
 @endif
 
@@ -254,7 +254,7 @@ static void compute_balances (void) {
   chemical species of the domain. The total evaporated mass is also
   computed for each species. */
 
-  foreach(nowarning) {
+  foreach(serial) {
     vofrecon vr = vof_reconstruction (point, f);
     foreach_elem (mb.mEvapList, jj) {
       scalar mEvap = mEvapList[jj];
@@ -438,7 +438,7 @@ event init (i = 0) {
   /**
   We compute the initial mass in gas and liquid phase. */
 
-  foreach(nowarning) {
+  foreach(serial) {
     mb.totmass1init += mb.rho1*f[]*dv();
     mb.totmass2init += mb.rho2*(1. - f[])*dv();
   }
@@ -494,7 +494,7 @@ event balances (i++,last) {
 1. Add compatibility with metrics
 2. Check the bid numbering system, what happens if new bid are
 defined? And in 3D?
-3. For some other reasons *foreach_boundary()* does not work correctly when
+3. For some reasons *foreach_boundary()* does not work correctly when
 a grid/multigrid.h is used.
 */
 
