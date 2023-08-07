@@ -2,14 +2,14 @@
 # Isothermal Evaporation of a Binary Droplet in Forced Convection
 
 A binary liquid droplet, made of two components with the same
-properties but with different volatilies evaporates in a forced
+properties but with different volatilies evaporates in forced
 convective conditions. The droplet is initially placed on the left
 side of the domain. An inlet gas flowrate is imposed on the left
 boundary, such that Re=160 with the initial diameter of the droplet.
 
 The animation shows the evaporation of the liquid droplet, plotting
 the mass fraction of the light component. The inlet velocity
-transports the mass fractions toward the right boundary. The Reynolds
+transports the mass fraction toward the right boundary. The Reynolds
 number selected for this simulation leads to the formation of
 Von-Karman streets that can be visualized from the transport of the
 chemical species mass fraction in gas phase.
@@ -27,9 +27,7 @@ extended velocity. The multicomponent model requires the
 number of gas and liquid species to be set as compiler
 variables. We don't need to solve the temperature field
 because the vapor pressure is set to a constant value,
-different for each chemical species. Using GSL at level
-1 we can activate the coupled solution of the interfae jump
-condition. */
+different for each chemical species. */
 
 #define NGS 3
 #define NLS 2
@@ -207,7 +205,7 @@ event output_data (t += 5e-5) {
 We write the animation with the evolution of the light chemical
 species mass fraction, and the interface position. */
 
-event movie (t += 0.000125; t <= 0.032) {
+event movie (t += 0.000125; t <= 0.03) {
   clear();
   view (tx = -0.5, ty = -0.5);
   draw_vof ("f");
@@ -230,12 +228,6 @@ set grid
 plot "OutputData-9" u 2:4 w l lw 2 t "LEVEL 9"
 ~~~
 
-The conservation tests compare the mass of the chemical species in
-liquid phase with the total amount of the same species that
-evaporates. If the global conservation is considered, the volume
-fraction is used instead of the mass fraction field. See
-[balances.h](../src/balances.h) for details.
-
 ~~~gnuplot Liquid Phase Mass Conservation
 reset
 set xlabel "t [s]"
@@ -252,19 +244,4 @@ plot "balances-9" every 500 u 1:10 w p ps 1.2 lc 1 title "Evaporated Mass Specie
      "balances-9" u 1:(-$2) w l lw 2 lc 3 title "Variation Mass Total"
 ~~~
 
-~~~gnuplot Gas Phase Mass Conservation
-reset
-set xlabel "t [s]"
-set ylabel "(m_G - m_G^0) [kg]"
-set key top left
-set size square
-set grid
-
-plot "balances-9" every 500 u 1:(-$10) w p ps 1.2 lc 1 title "Evaporated Mass Species A", \
-     "balances-9" every 500 u 1:(-$11) w p ps 1.2 lc 2 title "Evaporated Mass Species B", \
-     "balances-9" every 500 u 1:(-$4)  w p ps 1.2 lc 3 title "Evaporated Mass Total", \
-     "balances-9" u 1:7 w l lw 2 lc 1 title "Variation Mass Species A", \
-     "balances-9" u 1:8 w l lw 2 lc 2 title "Variation Mass Species B", \
-     "balances-9" u 1:3 w l lw 2 lc 3 title "Variation Mass Total"
-~~~
 */

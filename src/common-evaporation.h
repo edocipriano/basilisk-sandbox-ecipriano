@@ -156,7 +156,9 @@ double avg_interface (scalar Y, scalar f) {
 
 This function is implements the plane-shifting approach to
 apply a source term to the vof advection equation. This
-implementation is based on.
+implementation is based on
+[sandbox/ggennari](/sandbox/ggennari/phase_change/phase_change_pure_species.h).
+
 * *f*: vof field
 * *s*: source term [kg/m2/s]
 */

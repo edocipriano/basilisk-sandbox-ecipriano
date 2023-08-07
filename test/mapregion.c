@@ -75,13 +75,13 @@ int main (void) {
 /**
 ## Results
 
-![Case 1: Inverse is false, Interface is false, 0 Layers](mapregion/case1.png")
+![Case 1: Inverse is false, Interface is false, 0 Layers](mapregion/case1.png)
 
-![Case 2: Inverse is true, Interface is false, 0 Layers](mapregion/case2.png")
+![Case 2: Inverse is true, Interface is false, 0 Layers](mapregion/case2.png)
 
-![Case 3: Inverse is true, Interface is false, 1 Layers](mapregion/case3.png")
+![Case 3: Inverse is true, Interface is false, 1 Layers](mapregion/case3.png)
 
-![Case 4: Inverse is false, Interface is true, 2 Layers](mapregion/case4.png")
+![Case 4: Inverse is false, Interface is true, 2 Layers](mapregion/case4.png)
 
-![Case 5: Inverse is true, Interface is true, 2 Layers](mapregion/case5.png")
+![Case 5: Inverse is true, Interface is true, 2 Layers](mapregion/case5.png)
 */

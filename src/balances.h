@@ -494,7 +494,7 @@ event balances (i++,last) {
 1. Add compatibility with metrics
 2. Check the bid numbering system, what happens if new bid are
 defined? And in 3D?
-3. For some other reasons *foreach_boundary()* does not work correctly when
+3. For some reasons *foreach_boundary()* does not work correctly when
 a grid/multigrid.h is used.
 */
 
