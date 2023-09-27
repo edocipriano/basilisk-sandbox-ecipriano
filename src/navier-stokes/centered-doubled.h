@@ -62,13 +62,11 @@ change. */
 extern scalar stefanflowext;
 
 trace
-mgstats project_sfext (struct Project q)
+mgstats project_sfext (face vector uf, scalar p,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
 {
-  face vector uf = q.uf;
-  scalar p = q.p;
-  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
-  double dt = q.dt ? q.dt : 1.;
-  int nrelax = q.nrelax ? q.nrelax : 4;
   
   /**
   We allocate a local scalar field and compute the divergence of
@@ -147,8 +145,8 @@ balanced by the pressure gradient. Taking care of boundary orientation
 and staggering of $\mathbf{a}$, this can be written */
 
 #if EMBED
-# define neumann_pressure(i) (alpha.n[i] ? a.n[i]*fm.n[i]/alpha.n[i] :	\
-			      a.n[i]*rho[]/(cm[] + SEPS))
+# define neumann_pressure(i) (alpha.n[i] ? a.n[i]*fm.n[i]/alpha.n[i] :  \
+            a.n[i]*rho[]/(cm[] + SEPS))
 #else
 # define neumann_pressure(i) (a.n[i]*fm.n[i]/alpha.n[i])
 #endif
@@ -315,20 +313,20 @@ void prediction_ext()
       foreach_dimension() {
 #if EMBED
         if (!fs.x[] || !fs.x[1])
-	  du.x[] = 0.;
-	else
+    du.x[] = 0.;
+  else
 #endif
-	  du.x[] = uext.x.gradient (uext.x[-1], uext.x[], uext.x[1])/Delta;
+    du.x[] = uext.x.gradient (uext.x[-1], uext.x[], uext.x[1])/Delta;
       }
   else
     foreach()
       foreach_dimension() {
 #if EMBED
         if (!fs.x[] || !fs.x[1])
-	  du.x[] = 0.;
-	else
+    du.x[] = 0.;
+  else
 #endif
-	  du.x[] = (uext.x[1] - uext.x[-1])/(2.*Delta);
+    du.x[] = (uext.x[1] - uext.x[-1])/(2.*Delta);
     }
 
   trash ({ufext});

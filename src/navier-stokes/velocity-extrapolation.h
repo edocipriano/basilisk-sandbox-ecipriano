@@ -49,20 +49,17 @@ We define a function that performs a projection step to
 correct the divergence of the velocity field. */
 
 trace
-mgstats project_div1 (struct Project q)
+mgstats project_div1 (face vector ufs, scalar ps,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
 {
-  face vector ufs = q.uf;
-  scalar ps = q.p;
-  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
-  double dt = q.dt ? q.dt : 1.;
-  int nrelax = q.nrelax ? q.nrelax : 4;
-
   scalar div[];
   foreach() {
-    ps[] = 0.;
+    p[] = 0.;
     div[] = 0.;
     foreach_dimension()
-      div[] += ufext1.x[1] - ufext1.x[];
+      div[] += uf.x[1] - uf.x[];
     div[] /= dt*Delta;
   }
 
@@ -72,29 +69,25 @@ mgstats project_div1 (struct Project q)
   foreach()
     marker[] *= 1./sq(dt);
 
-  mgstats mgp = poisson (ps, div, alpha, lambda=marker,
+  mgstats mgp = poisson (p, div, alpha, lambda=marker,
       tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
 #else
-  mgstats mgp = poisson (ps, div, alpha,
+  mgstats mgp = poisson (p, div, alpha,
       tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
 #endif
 
   foreach_face()
-    ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
-  boundary((scalar*){ufs});
+    uf.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
 
   return mgp;
 }
 
 trace
-mgstats project_div2 (struct Project q)
+mgstats project_div2 (face vector ufs, scalar ps,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
 {
-  face vector ufs = q.uf;
-  scalar ps = q.p;
-  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
-  double dt = q.dt ? q.dt : 1.;
-  int nrelax = q.nrelax ? q.nrelax : 4;
-
   scalar div[];
   foreach() {
     ps[] = 0.;

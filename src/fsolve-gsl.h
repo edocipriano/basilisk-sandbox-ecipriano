@@ -21,15 +21,10 @@ equations. */
 
 typedef int (* nls_fun) (const gsl_vector * x, void * params, gsl_vector * f);
 
-struct _FsolveGsl {
-  nls_fun f;
-  Array * arrUnk;
-  void * params;
-};
-
-void fsolve_gsl (struct _FsolveGsl p) {
-  Array * arrUnk = p.arrUnk;
-
+void fsolve_gsl (nls_fun fun,
+    Array * arrUnk,
+    void * params)
+{
   const gsl_multiroot_fsolver_type * T;
   gsl_multiroot_fsolver * s;
 
@@ -38,7 +33,7 @@ void fsolve_gsl (struct _FsolveGsl p) {
   int size = arrUnk->len / sizeof(double);
   const size_t n = (size_t)(size);
 
-  gsl_multiroot_function f = {p.f, n, p.params};
+  gsl_multiroot_function f = {fun, n, params};
 
   double * x_init = (double *)arrUnk->p;
   gsl_vector * x = gsl_vector_alloc (n);
@@ -70,8 +65,11 @@ void fsolve_gsl (struct _FsolveGsl p) {
   gsl_vector_free (x);
 }
 
-void fsolve (struct _FsolveGsl p) {
-  fsolve_gsl (p);
+void fsolve (nls_fun fun,
+    Array * arrUnk,
+    void * params)
+{
+  fsolve_gsl (fun, arrUnk, params);
 }
 
 #endif // USE_GSL
@@ -100,15 +98,10 @@ for Sundials >= 6.0. */
 
 typedef int (* nls_fun)(N_Vector u, N_Vector fval, void *user_data);
 
-struct _FsolveSundials {
-  nls_fun f;
-  Array * arrUnk;
-  Point point;
-};
-
-void fsolve_sundials (struct _FsolveSundials p) {
-  Array * arrUnk = p.arrUnk;
-
+void fsolve_sundials (nls_fun fun,
+    Array * arrUnk,
+    Point point)
+{
   N_Vector u, s;
   SUNMatrix J;
   SUNLinearSolver LS;
@@ -132,10 +125,10 @@ void fsolve_sundials (struct _FsolveSundials p) {
 
   void * kmem;
   kmem = KINCreate();
-  KINSetUserData (kmem, p.params);
+  KINSetUserData (kmem, params);
   KINSetFuncNormTol (kmem, KIN_FTOL);
   KINSetScaledStepTol (kmem, KIN_STOL);
-  KINInit (kmem, func, u);
+  KINInit (kmem, fun, u);
   J = SUNDenseMatrix (size, size);
   LS = SUNLinSol_Dense (u, J);
   KINSetLinearSolver (kmem, LS, J);
@@ -178,8 +171,11 @@ void fsolve_sundials (struct _FsolveSundials p) {
   free (data);
 }
 
-void fsolve (struct _FsolveSundials p) {
-  fsolve_sundials (p);
+void fsolve (nls_fun fun,
+    Array * arrUnk,
+    Point point)
+{
+  fsolve_sundials (fun, arrUnk, point);
 }
 
 #endif // USE_SUNDIALS

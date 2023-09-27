@@ -48,14 +48,11 @@ of the stefan velocity onto a field with divergence
 equal to the volume expansion term. */
 
 trace
-mgstats project_sv (struct Project q)
+mgstats project_sv (face vector uf, scalar p,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
 {
-  face vector ufs = q.uf;
-  scalar ps = q.p;
-  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
-  double dt = q.dt ? q.dt : 1.;
-  int nrelax = q.nrelax ? q.nrelax : 4;
-
   scalar div[];
   foreach()
     div[] = stefanflow[]/dt;

@@ -62,13 +62,11 @@ step with the volume expansion term due to the phase
 change. */
 
 trace
-mgstats project_sf (struct Project q)
+mgstats project_sf (face vector uf, scalar p,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
 {
-  face vector uf = q.uf;
-  scalar p = q.p;
-  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
-  double dt = q.dt ? q.dt : 1.;
-  int nrelax = q.nrelax ? q.nrelax : 4;
   
   /**
   We allocate a local scalar field and compute the divergence of
