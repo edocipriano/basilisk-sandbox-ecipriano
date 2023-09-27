@@ -129,7 +129,7 @@ static void update_properties_constant (void) {
     frhocp2[] = (1. - f[])*rho2v[]*cp2v[];
 
     rhovold[] = rhov[];
-    rhov[] = rho (f[], rho1v[], rho2v[]);
+    rhov[] = aavg (f[], rho1v[], rho2v[]);
   }
   boundary({lambda1v, lambda2v});
 }
@@ -146,21 +146,21 @@ static void update_properties (void) {
     *There1 = T[];
     *There2 = T[];
 
+    //rho1v[] = rho1;
     rho1v[] = tp1.rhov (&ts1);
-    mu1v[] = tp1.muv (&ts1);
-    cp1v[] = tp1.cpv (&ts1);
-    lambda1v[] = tp1.lambdav (&ts1);
+    //mu1v[] = tp1.muv (&ts1);
+    //cp1v[] = tp1.cpv (&ts1);
+    //lambda1v[] = tp1.lambdav (&ts1);
 
     rho2v[] = tp2.rhov (&ts2);
-    mu2v[] = tp2.muv (&ts2);
-    cp2v[] = tp2.cpv (&ts2);
-    lambda2v[] = tp2.lambdav (&ts2);
+    //mu2v[] = tp2.muv (&ts2);
+    //cp2v[] = tp2.cpv (&ts2);
+    //lambda2v[] = tp2.lambdav (&ts2);
 
-    frhocp1[] = f[]*rho1v[]*cp1v[];
-    frhocp2[] = (1. - f[])*rho2v[]*cp2v[];
+    frhocp1[] = f[]*rho1v[]*cp1;
+    frhocp2[] = (1. - f[])*rho2v[]*cp2;
   }
 }
-
 
 /**
 ## Defaults
@@ -264,7 +264,7 @@ event init (i = 0)
     all = list_concat ({lambda1v}, l);
     free (l);
   }
-  update_properties();
+  update_properties_constant();
 }
 
 /**
@@ -283,7 +283,7 @@ and gas phase) is solved. */
 
 event phasechange (i++)
 {
-  update_properties();
+  //update_properties();
 
   /**
   We compute the lagrangian derivative which will
@@ -293,12 +293,13 @@ event phasechange (i++)
 
   scalar lambdav[];
   foreach()
-    lambdav[] = f[]*lambda1v[] + (1. - f[])*lambda2v[];
+    lambdav[] = f[]*lambda1 + (1. - f[])*lambda2;
+    //lambdav[] = f[]*lambda1v[] + (1. - f[])*lambda2v[];
 
   face vector lambdagT[];
   foreach_face() {
     double lambdavf = 0.5*(lambdav[] + lambdav[-1]);
-     lambdagT.x[] = lambdavf*face_gradient_x (T, 0); /// !<<
+    lambdagT.x[] = lambdavf*face_gradient_x (T, 0); /// !<<
   }
 
   // Compute lagrangian derivative
@@ -310,13 +311,15 @@ event phasechange (i++)
     //ts1.T = T[], ts2.T = T[];
     double * There1 = &ts1.T;
     double * There2 = &ts2.T;
-    *There1 = T[];
+    *There1 = TL[];
     *There2 = T[];
 
-    double beta2exp = liqprop_thermal_expansion (&tp1, &ts1);
+    //double beta2exp = liqprop_thermal_expansion (&tp1, &ts1);
+    double beta2exp = -1./T[];
     double drhodt1 = -beta2exp/(rho1v[]*cp1)*laplT;
     double drhodt2 = -1./(rho2v[]*cp2*T[])*laplT;
-    drhodt[] = f[]*drhodt1 + (1. - f[])*drhodt2;
+
+    drhodt[] = aavg (f[], drhodt1, drhodt2);
   }
 }
 
@@ -330,12 +333,16 @@ the tracer_advection event of [evaporation.h](evaporation.h)
 
 event tracer_advection (i++) {
   foreach() {
-    TL[] = (f[] > F_ERR) ? TL[]/f[] : 0.;
-    TG[] = (1. - f[] > F_ERR) ? TG[]/(1. - f[]) : 0.;
-    TL[] *= frhocp1[];
-    TG[] *= frhocp2[];
-    frhocp1old[] = frhocp1[];
-    frhocp2old[] = frhocp2[];
+    //TL[] = (f[] > F_ERR) ? TL[]/f[] : 0.;
+    //TG[] = (1. - f[] > F_ERR) ? TG[]/(1. - f[]) : 0.;
+    //TL[] *= frhocp1[];
+    //TG[] *= frhocp2[];
+    //frhocp1old[] = frhocp1[];
+    //frhocp2old[] = frhocp2[];
+    TL[] *= rho1*cp1;
+    TG[] *= rho2*cp2;
+    frhocp1[] = f[]*rho1*cp1;
+    frhocp2[] = (1. - f[])*rho2*cp2;
   }
 }
 
@@ -403,10 +410,12 @@ event tracer_diffusion (i++)
   the face fraction fields *fsL* and *fsG*. */
 
   foreach_face() {
-    double lambda1vf = 0.5*(lambda1v[] + lambda1v[-1]);
-    double lambda2vf = 0.5*(lambda2v[] + lambda2v[-1]);
-    lambda1f.x[] = lambda1vf*fsL.x[]*fm.x[];
-    lambda2f.x[] = lambda2vf*fsG.x[]*fm.x[];
+    //double lambda1vf = 0.5*(lambda1v[] + lambda1v[-1]);
+    //double lambda2vf = 0.5*(lambda2v[] + lambda2v[-1]);
+    //lambda1f.x[] = lambda1vf*fsL.x[]*fm.x[];
+    //lambda2f.x[] = lambda2vf*fsG.x[]*fm.x[];
+    lambda1f.x[] = lambda1*fsL.x[]*fm.x[];
+    lambda2f.x[] = lambda2*fsG.x[]*fm.x[];
   }
 
   foreach() {

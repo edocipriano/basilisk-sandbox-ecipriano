@@ -11,8 +11,6 @@
 #include "thermal.h"
 #include "view.h"
 
-scalar drhodt[];
-
 int maxlevel = 6;
 double R0 = 0.5e-3;
 double DELTAT = 5.;
@@ -26,14 +24,18 @@ int main (void) {
   mu1 = 1.e-4, mu2 = 1.e-5;
   lambda1 = 0.1, lambda2 = 0.01;
   cp1 = 2000., cp2 = 1000.; dhev = 0.;
-  TG0 = 300., TL0 = TG0 + DELTAT, TIntVal = TL0;
-  TL0 = 300., TIntVal = TL0, TG0 = TL0 + DELTAT;
-
-  frhocp1.inverse = false;
-  frhocp2.inverse = true;
+  TG0 = 300., TL0 = 301., TIntVal = 300.;
 
   f.sigma = 0.03;
   f.tracers = {TL,TG,frhocp1,frhocp2};
+
+  frhocp1.inverse = false;
+  frhocp2.inverse = true;
+  TL.inverse = false;
+  TG.inverse = true;
+
+  for (scalar s in f.tracers)
+    s.conservative = true;
 
   size (3.*R0);
   init_grid (1 << maxlevel);
@@ -44,7 +46,7 @@ int main (void) {
 #define circle(x,y,R)(sq(R) - sq(x) - sq(y));
 
 event init (i = 0) {
-  fraction (f, circle(x,y,R0));
+  fraction (f, -circle(x,y,R0));
   volume0 = 0.;
   foreach(reduction(+:volume0))
     volume0 += (1. - f[])*dv();

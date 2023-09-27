@@ -10,11 +10,13 @@ method. The volume fraction in fluid 1 is $f=1$ and $f=0$ in fluid
 2. The densities and dynamic viscosities for fluid 1 and 2 are *rho1*,
 *mu1*, *rho2*, *mu2*, respectively. */
 
-#include "vof.h"
+#include "vof-varprop.h"
 
 scalar f[], * interfaces = {f};
-extern scalar rho1v, rho2v, mu1v, mu2v;
 double rho1 = 1., mu1 = 0., rho2 = 1., mu2 = 0.;
+#ifdef VARPROP
+extern scalar rho1v, rho2v, mu1v, mu2v;
+#endif
 
 /**
 Auxilliary fields are necessary to define the (variable) specific
@@ -93,21 +95,36 @@ event properties (i++)
 {
   foreach_face() {
     double ff = (sf[] + sf[-1])/2.;
-    double rho1vf = 0.5*(rho1v[] + rho1v[-1]);
-    double rho2vf = 0.5*(rho2v[] + rho2v[-1]);
-    alphav.x[] = fm.x[]/aavg(ff, rho1vf, rho2vf);
+#ifdef VARPROP
+    double rho1vh = 0.5*(rho1v[] + rho1v[-1]);
+    double rho2vh = 0.5*(rho2v[] + rho2v[-1]);
+#else
+    double rho1vh = rho1;
+    double rho2vh = rho2;
+#endif
+    alphav.x[] = fm.x[]/aavg (ff, rho1vh, rho2vh);
     if (mu1 || mu2) {
       face vector muv = mu;
-      double mu1vf = 0.5*(mu1v[] + mu1v[-1]);
-      double mu2vf = 0.5*(mu2v[] + mu2v[-1]);
-      muv.x[] = fm.x[]*aavg(ff, mu1vf, mu2vf);
+#ifdef VARPROP
+      double mu1vh = 0.5*(mu1v[] + mu1v[-1]);
+      double mu2vh = 0.5*(mu2v[] + mu2v[-1]);
+#else
+      double mu1vh = mu1;
+      double mu2vh = mu2;
+#endif
+      muv.x[] = fm.x[]*aavg (ff, mu1vh, mu2vh);
     }
   }
   
   foreach() {
-    double rho1here = rho1v[];
-    double rho2here = rho2v[];
-    rhov[] = cm[]*aavg(sf[],rho1here,rho2here);
+#ifdef VARPROP
+    double rho1vh = rho1v[];
+    double rho2vh = rho2v[];
+#else
+    double rho1vh = rho1;
+    double rho2vh = rho2;
+#endif
+    rhov[] = cm[]*aavg (sf[], rho1vh, rho2vh);
   }
 
 #if TREE  

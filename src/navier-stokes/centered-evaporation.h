@@ -117,7 +117,7 @@ mgstats project_sf (struct Project q)
   foreach() {
     div[] += stefanflow[]/dt;
 #ifdef VARPROP
-    div[] += drhodt[]/dt;
+    div[] -= drhodt[]/dt;
 #endif
   }
 
