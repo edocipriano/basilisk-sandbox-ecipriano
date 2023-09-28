@@ -11,7 +11,7 @@ Aslam extrapolations are performed.
 #include "utils.h"
 #include "aslam.h"
 #include "view.h"
-#include "BOYD/src/LS_funcs/LS_reinit.h"
+#include "LS_reinit.h"
 
 /**
 We define a function that writes a picture with the

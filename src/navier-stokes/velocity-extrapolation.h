@@ -12,7 +12,7 @@ This method was proposed by [Palmore et al., 2019](#palmore2019volume).
 */
 
 #include "aslam.h"
-#include "BOYD/src/LS_funcs/LS_reinit.h"
+#include "LS_reinit.h"
 
 /**
 ## Field Allocation
