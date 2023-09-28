@@ -232,7 +232,7 @@ plot "OutputData-9" u 2:4 w l lw 2 t "LEVEL 9"
 reset
 set xlabel "t [s]"
 set ylabel "(m_L - m_L^0) [kg]"
-set key top right
+set key bottom left
 set size square
 set grid
 

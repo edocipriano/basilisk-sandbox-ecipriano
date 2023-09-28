@@ -59,7 +59,7 @@ mgstats project_div1 (face vector ufs, scalar ps,
     p[] = 0.;
     div[] = 0.;
     foreach_dimension()
-      div[] += uf.x[1] - uf.x[];
+      div[] += ufext1.x[1] - ufext1.x[];
     div[] /= dt*Delta;
   }
 
@@ -77,7 +77,7 @@ mgstats project_div1 (face vector ufs, scalar ps,
 #endif
 
   foreach_face()
-    uf.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
+    ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
 
   return mgp;
 }

@@ -51,7 +51,7 @@ void vof2ls (scalar f, scalar levelset) {
 }
 
 #define ufunc(x,y)(x*y)
-# define circle(x,y,R)(sq(R) - sq(x) - sq(y))
+#define circle(x,y,R)(sq(R) - sq(x) - sq(y))
 
 /**
 We declare the level set field *levelset*, and
