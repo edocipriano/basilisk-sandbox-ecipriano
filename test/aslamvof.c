@@ -10,8 +10,8 @@ Aslam extrapolations are performed.
 #include "grid/multigrid.h"
 #include "utils.h"
 #include "aslam.h"
+#include "redistance.h"
 #include "view.h"
-#include "LS_reinit.h"
 
 /**
 We define a function that writes a picture with the
@@ -46,7 +46,7 @@ void vof2ls (scalar f, scalar levelset) {
 #if TREE
   restriction({levelset});
 #endif
-  LS_reinit (levelset, dt = 0.5*L0/(1 << grid->maxdepth),
+  redistance (levelset, dt = 0.5*L0/(1 << grid->maxdepth),
       it_max = 0.5*(1 << grid->maxdepth));
 }
 

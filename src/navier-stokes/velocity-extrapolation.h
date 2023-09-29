@@ -12,7 +12,7 @@ This method was proposed by [Palmore et al., 2019](#palmore2019volume).
 */
 
 #include "aslam.h"
-#include "LS_reinit.h"
+#include "redistance.h"
 
 /**
 ## Field Allocation
@@ -40,7 +40,7 @@ void vof2ls (scalar f, scalar ls) {
 #if TREE
   restriction({ls});
 #endif
-  LS_reinit (ls, dt = 0.5*L0/(1 << grid->maxdepth),
+  redistance (ls, dt = 0.5*L0/(1 << grid->maxdepth),
       it_max = 0.5*(1 << grid->maxdepth));
 }
 
