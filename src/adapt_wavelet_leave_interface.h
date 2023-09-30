@@ -4,26 +4,21 @@
 This is a copy of Oystein Lande's function ([adapt_wavelet_leave_interface.h](/sandbox/oystelan/adapt_wavelet_leave_interface.h)). All credit to him!
 */
 
-struct Adapt_leave_interface {
-  scalar * slist; // list of scalars
-  scalar * vol_frac; // the volume fraction scalar
-  double * max;   // tolerance for each scalar
-  int maxlevel;   // maximum level of refinement
-  int minlevel;   // minimum level of refinement (default 1)
-  int padding;    // number of neighbor cells to padd on each side of the interface being preserved
-  scalar * list;  // list of fields to update (default all)
-};
-
-
-astats adapt_wavelet_leave_interface (struct Adapt_leave_interface p)
+astats adapt_wavelet_leave_interface (scalar * slist,     // list of scalars
+                                      scalar * vol_frac,  // the volume fraction scalar
+                                      double * max,       // tolerance for each scalar
+                                      int maxlevel,       // maximum level of refinement
+                                      int minlevel = 1,   // minimum level of refinement (default 1)
+                                      int padding = 0,    // number of neighbor cells to padd on each side of the interface being preserved
+                                      scalar * list = all)  // list of fields to update
 {
-  scalar * list = p.list;
+  scalar * ilist = list;
 
   if (is_constant(cm)) {
     if (list == NULL || list == all)
       list = list_copy (all);
     boundary (list);
-    restriction (p.slist);
+    restriction (slist);
   }
   else {
     if (list == NULL || list == all) {
@@ -32,7 +27,7 @@ astats adapt_wavelet_leave_interface (struct Adapt_leave_interface p)
   list = list_add (list, s);
     }
     boundary (list);
-    scalar * listr = list_concat (p.slist, {cm});
+    scalar * listr = list_concat (slist, {cm});
     restriction (listr);
     free (listr);
   }
@@ -44,8 +39,8 @@ astats adapt_wavelet_leave_interface (struct Adapt_leave_interface p)
       listc = list_add (listc, s);
 
   // refinement
-  if (p.minlevel < 1)
-    p.minlevel = 1;
+  if (minlevel < 1)
+    minlevel = 1;
   tree->refined.n = 0;
   static const int refined = 1 << user, too_fine = 1 << (user + 1);
   foreach_cell() {
@@ -75,8 +70,8 @@ astats adapt_wavelet_leave_interface (struct Adapt_leave_interface p)
   if (local) {
     int i = 0;
     static const int just_fine = 1 << (user + 3);
-    for (scalar s in p.slist) {
-      double max = p.max[i++], sc[1 << dimension];
+    for (scalar s in slist) {
+      double emax = max[i++], sc[1 << dimension];
       int c = 0;
       foreach_child()
         sc[c++] = s[];
@@ -84,13 +79,13 @@ astats adapt_wavelet_leave_interface (struct Adapt_leave_interface p)
       c = 0;
       foreach_child() {
         double e = fabs(sc[c] - s[]);
-        if (e > max && level < p.maxlevel) {
+        if (e > emax && level < maxlevel) {
     cell.flags &= ~too_fine;
     cell.flags |= too_coarse;
         }
-        else if ((e <= max/1.5 || level > p.maxlevel) &&
+        else if ((e <= emax/1.5 || level > maxlevel) &&
            !(cell.flags & (too_coarse|just_fine))) {
-    if (level >= p.minlevel)
+    if (level >= minlevel)
       cell.flags |= too_fine;
         }
         else if (!(cell.flags & too_coarse)) {
@@ -98,13 +93,13 @@ astats adapt_wavelet_leave_interface (struct Adapt_leave_interface p)
     cell.flags |= just_fine;
         }
         // arnbo: always set interface cells to the finest level
-        for (scalar vf in p.vol_frac) {
-                if (vf[] > 0.0001 && vf[] < 0.9999 && level < p.maxlevel) {
+        for (scalar vf in vol_frac) {
+                if (vf[] > 0.0001 && vf[] < 0.9999 && level < maxlevel) {
                   cell.flags |= too_coarse;
                   cell.flags &= ~too_fine;
                 cell.flags &= ~just_fine;
-                    if (p.padding > 0){
-                       foreach_neighbor(p.padding){
+                    if (padding > 0){
+                       foreach_neighbor(padding){
                           cell.flags |= too_coarse;
                           cell.flags &= ~too_fine;
                           cell.flags &= ~just_fine;
@@ -119,7 +114,7 @@ astats adapt_wavelet_leave_interface (struct Adapt_leave_interface p)
       cell.flags &= ~just_fine;
       if (!is_leaf(cell)) {
         cell.flags &= ~too_coarse;
-        if (level >= p.maxlevel)
+        if (level >= maxlevel)
     cell.flags |= too_fine;
       }
       else if (!is_active(cell))
@@ -167,7 +162,7 @@ astats adapt_wavelet_leave_interface (struct Adapt_leave_interface p)
   if (st.nc || st.nf)
     mpi_boundary_update (list);
 
-  if (list != p.list)
+  if (list != ilist)
     free (list);
 
   return st;
