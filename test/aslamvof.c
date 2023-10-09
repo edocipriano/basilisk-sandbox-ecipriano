@@ -18,11 +18,14 @@ We define a function that writes a picture with the
 map and isolines of the extended scalar fields.
 */
 
-void write_picture (char* name) {
+void write_picture (char* name, scalar u) {
+  vertex scalar phi[];
+  foreach_vertex()
+    phi[] = (u[] + u[-1] + u[0,-1] + u[-1,-1])/4.;
   clear();
   isoline ("levelset", val = 0., lw = 2.);
-  isoline("u", n = 30);
-  squares ("u", spread = -1);
+  isoline ("phi", n = 30);
+  squares ("phi", spread = -1);
   box();
   save (name);
 }
@@ -47,7 +50,7 @@ void vof2ls (scalar f, scalar levelset) {
   restriction({levelset});
 #endif
   redistance (levelset, dt = 0.5*L0/(1 << grid->maxdepth),
-      it_max = 0.5*(1 << grid->maxdepth));
+      imax = 0.5*(1 << grid->maxdepth));
 }
 
 #define ufunc(x,y)(x*y)
@@ -92,12 +95,12 @@ int main (void) {
 
   foreach()
     u[] = ufunc(x,y)*f[];
-  write_picture ("initial.png");
+  write_picture ("initial.png", u);
 
   double dtmin = 0.5*L0/(1 << grid->maxdepth);
 
   constant_extrapolation (u, levelset, dt=dtmin, n=300, c=f);
-  write_picture ("constant.png");
+  write_picture ("constant.png", u);
   fprintf (stderr, "constant = %g\n", statsf(u).sum);
 
   /**
@@ -107,7 +110,7 @@ int main (void) {
   foreach()
     u[] = ufunc(x,y)*f[];
   linear_extrapolation (u, levelset, dt=dtmin, n=300, c=f);
-  write_picture ("linear.png");
+  write_picture ("linear.png", u);
   fprintf (stderr, "linear = %g\n", statsf(u).sum);
 }
 

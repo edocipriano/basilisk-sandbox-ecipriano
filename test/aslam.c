@@ -26,11 +26,14 @@ We define a function that writes a picture with the
 map and isolines of the extended scalar fields.
 */
 
-void write_picture (char* name) {
+void write_picture (char* name, scalar u) {
+  vertex scalar phi[];
+  foreach_vertex()
+    phi[] = (u[] + u[-1] + u[0,-1] + u[-1,-1])/4.;
   clear();
   isoline ("levelset", val = 0., lw = 2.);
-  isoline ("u", n = 20, min = -1.5, max = 1.5);
-  squares ("u", spread = -1);
+  isoline ("phi", n = 20, min = -1.5, max = 1.5);
+  squares ("phi", spread = -1);
   box();
   save (name);
 }
@@ -69,10 +72,10 @@ int main (void) {
 
   foreach()
     u[] = (levelset[] <= 0.) ? cos(x)*sin(y) : 0.;
-  write_picture ("initial.png");
+  write_picture ("initial.png", u);
 
   constant_extrapolation (u, levelset, dt=0.01, n=300);
-  write_picture ("constant.png");
+  write_picture ("constant.png", u);
   fprintf (stderr, "constant = %g\n", statsf(u).sum);
 
   /**
@@ -82,7 +85,7 @@ int main (void) {
   foreach()
     u[] = (levelset[] <= 0.) ? cos(x)*sin(y) : 0.;
   linear_extrapolation (u, levelset, dt=0.01, n=300);
-  write_picture ("linear.png");
+  write_picture ("linear.png", u);
   fprintf (stderr, "linear = %g\n", statsf(u).sum);
 }
 
