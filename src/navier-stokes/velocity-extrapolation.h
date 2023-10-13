@@ -163,10 +163,10 @@ event end_timestep (i++)
   */
 
   double dtext = 0.5*L0/(1 << grid->maxdepth);
-  constant_extrapolation (uext1.x, ls1, dt=dtext, n=10, c=f1, nl=1);
-  constant_extrapolation (uext1.y, ls1, dt=dtext, n=10, c=f1, nl=1);
-  constant_extrapolation (uext2.x, ls2, dt=dtext, n=10, c=f2, nl=1);
-  constant_extrapolation (uext2.y, ls2, dt=dtext, n=10, c=f2, nl=1);
+  constant_extrapolation (uext1.x, ls1, dtext, 10, c=f1, nl=1);
+  constant_extrapolation (uext1.y, ls1, dtext, 10, c=f1, nl=1);
+  constant_extrapolation (uext2.x, ls2, dtext, 10, c=f2, nl=1);
+  constant_extrapolation (uext2.y, ls2, dtext, 10, c=f2, nl=1);
 
   /**
   Finally, we reconstruct the face velocities from the
