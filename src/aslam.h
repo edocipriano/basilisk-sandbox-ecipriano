@@ -16,16 +16,6 @@ domain.
 
 #include "mapregion.h"
 
-struct _Aslam {
-  scalar f;     // field to extrapolate
-  scalar ls;    // level set field
-  scalar s;     // source term, optional: zero
-  double dt;    // time step (not physical)
-  int n;        // number of maximum time steps
-  scalar c;     // vof field (optional)
-  int nl;       // from which layer of cells (optional, min=0, max=2)
-};
-
 /**
 ## Constant Extrapolation
 
@@ -54,14 +44,21 @@ while $\hat{\mathbf{n}}$ is the unit normal.
 */
 
 trace
-void constant_extrapolation (struct _Aslam p) {
+void constant_extrapolation (
+  scalar f,                   // field to extrapolate
+  scalar ls,                  // level set field
+  double dt,                  // time step (not physical)
+  int nmax,                   // number of maximum time steps
+  (const) scalar s = {-1},    // source term, default zero
+  (const) scalar c = {-1},    // vof field, optional
+  int nl = 0                  // from which layer of cells (optional, min=0, max=2)
+)
+{
   scalar H[];
   vector n[], gf[];
-  scalar f = p.f, ls = p.ls;
-  (const) scalar s = p.s.i ? p.s : zeroc;
-  (const) scalar c = p.c.i ? p.c : zeroc;
-  int nl = p.nl ? p.nl : 0.;
-  int ts = 0;
+
+  if (s.i < 0)
+    s = zeroc;
 
   /**
   We compute the gradients of the level set for
@@ -77,15 +74,15 @@ void constant_extrapolation (struct _Aslam p) {
   decide to extrapolate the field from a layer of cells
   which in not adjacent to the interface. This can be
   specified setting the variables *nl*, 0 by default,
-  it can be set to 1 or 2.
-  */
+  it can be set to 1 or 2. */
 
-  if (p.c.i)
+  if (c.i > 0)
     mapregion (H, c, nl=nl);
+  else
+    foreach()
+      H[] = (ls[] <= 0.) ? 0. : 1.;
 
   foreach() {
-    if (!p.c.i)
-      H[] = (ls[] <= 0.) ? 0. : 1.;
     double maggf = 0.;
     foreach_dimension()
       maggf += sq (n.x[]);
@@ -98,10 +95,11 @@ void constant_extrapolation (struct _Aslam p) {
   We solve the PDE inside a loop over the maximum number
   of time steps that, in principle, should ensure to arrive
   at steady-state. In practice, less time-steps will be
-  sufficients to extrapolate the fields over the interface.
-  */
+  sufficients to extrapolate the fields over the interface. */
 
-  while (ts < p.n) {
+  int ts = 0;
+
+  while (ts < nmax) {
 
     /**
     The gradients of the extrapolated functions are updated
@@ -118,7 +116,7 @@ void constant_extrapolation (struct _Aslam p) {
       double nscalargf = 0.;
       foreach_dimension()
         nscalargf += n.x[]*gf.x[];
-      f[] -= p.dt*H[]*(nscalargf - s[]);
+      f[] -= dt*H[]*(nscalargf - s[]);
     }
     ts++;
   }
@@ -159,21 +157,27 @@ two different extrapolation PDEs, and the same logic applies
 if higher order extrapolations have to be solved.
 */
 
-void linear_extrapolation (struct _Aslam p) {
+void linear_extrapolation (
+  scalar f,     // field to extrapolate
+  scalar ls,    // level set field
+  double dt,    // time step (not physical)
+  int nmax,     // number of maximum time steps
+  (const) scalar s = {-1},     // source term, optional: zero
+  (const) scalar c = {-1},     // vof field (optional)
+  int nl = 0       // from which layer of cells (optional, min=0, max=2)
+)
+{
   scalar H[], fn[];
   vector n[], gf[];
-  scalar f = p.f, ls = p.ls;
-  (const) scalar s = p.s.i ? p.s : zeroc;
-  (const) scalar c = p.c.i ? p.c : zeroc;
-  int nl = p.nl ? p.nl : 0.;
-  int ts = 0;
+
+  if (s.i < 0)
+    s = zeroc;
 
   /**
   We compute the gradients of the level set for
   the calcation of the interface normals, and the
   gradient of *f* for the calculation of the directional
-  derivative.
-  */
+  derivative. */
 
   gradients ({ls, f}, {n, gf});
 
@@ -184,15 +188,15 @@ void linear_extrapolation (struct _Aslam p) {
   decide to extrapolate the field from a layer of cells
   which in not adjacent to the interface. This can be
   specified setting the variables *nl*, 0 by default,
-  it can be set to 1 or 2.
-  */
+  it can be set to 1 or 2. */
 
-  if (p.c.i)
+  if (c.i > 0)
     mapregion (H, c, nl = (nl == 0.) ? 1. : min (nl+1, 2));
+  else
+    foreach()
+      H[] = (ls[]+Delta <= 0.) ? 0. : 1.;
 
   foreach() {
-    if (!p.c.i)
-      H[] = (ls[]+Delta <= 0.) ? 0. : 1.;
     double maggf = 0.;
     foreach_dimension()
       maggf += sq (n.x[]);
@@ -212,7 +216,9 @@ void linear_extrapolation (struct _Aslam p) {
   We solve the constant extrapolation for extending
   the directional derivative. */
 
-  while (ts < p.n) {
+  int ts = 0;
+
+  while (ts < nmax) {
 
     /**
     The gradients of the extrapolated functions are updated
@@ -229,7 +235,7 @@ void linear_extrapolation (struct _Aslam p) {
       double nscalargf = 0.;
       foreach_dimension()
         nscalargf += n.x[]*gf.x[];
-      fn[] -= p.dt*H[]*(nscalargf - s[]);
+      fn[] -= dt*H[]*(nscalargf - s[]);
     }
     ts++;
   }
@@ -238,10 +244,10 @@ void linear_extrapolation (struct _Aslam p) {
   We solve a constant extrapolation with source equal to
   the directional derivative. */
 
-  if (p.c.i)
-    constant_extrapolation (f, ls, fn, p.dt, p.n, p.c, p.nl);
+  if (c.i > 0)
+    constant_extrapolation (f, ls, dt, nmax, fn, c, nl);
   else
-    constant_extrapolation (f, ls, fn, p.dt, p.n);
+    constant_extrapolation (f, ls, dt, nmax, fn);
 }
 
 /**

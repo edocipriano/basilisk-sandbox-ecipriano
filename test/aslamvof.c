@@ -99,7 +99,7 @@ int main (void) {
 
   double dtmin = 0.5*L0/(1 << grid->maxdepth);
 
-  constant_extrapolation (u, levelset, dt=dtmin, n=300, c=f);
+  constant_extrapolation (u, levelset, dtmin, 300, c=f);
   write_picture ("constant.png", u);
   fprintf (stderr, "constant = %g\n", statsf(u).sum);
 
@@ -109,7 +109,7 @@ int main (void) {
 
   foreach()
     u[] = ufunc(x,y)*f[];
-  linear_extrapolation (u, levelset, dt=dtmin, n=300, c=f);
+  linear_extrapolation (u, levelset, dtmin, 300, c=f);
   write_picture ("linear.png", u);
   fprintf (stderr, "linear = %g\n", statsf(u).sum);
 }

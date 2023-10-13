@@ -149,14 +149,8 @@ static double height_position_centripetal (Point point, scalar f, vector h)
   return pos;
 }
 
-struct PositionCentripetal {
-  scalar f, pos;
-  bool add;
-};
-
-void position_centripetal (struct PositionCentripetal p)
+void position_centripetal (scalar f, scalar pos, bool add = false)
 {
-  scalar f = p.f, pos = p.pos;
 
   /**
   On trees we set the prolongation and restriction functions for
@@ -183,7 +177,7 @@ void position_centripetal (struct PositionCentripetal p)
           hp += sq (o.x + Delta*c.x - sfm.p.x);
         hp = sqrt (hp);
       }
-      if (p.add)
+      if (add)
         pos[] += 1./hp*sfm.eps*(rho2 - rho1);
       else
         pos[] = 1./hp*sfm.eps*(rho2 - rho1);

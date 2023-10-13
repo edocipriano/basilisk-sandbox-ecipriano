@@ -41,7 +41,7 @@ void vof2ls (scalar f, scalar ls) {
   restriction({ls});
 #endif
   redistance (ls, dt = 0.5*L0/(1 << grid->maxdepth),
-      it_max = 0.5*(1 << grid->maxdepth));
+      imax = 0.5*(1 << grid->maxdepth));
 }
 
 /**
