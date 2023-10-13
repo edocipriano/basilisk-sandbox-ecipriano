@@ -158,13 +158,13 @@ if higher order extrapolations have to be solved.
 */
 
 void linear_extrapolation (
-  scalar f,     // field to extrapolate
-  scalar ls,    // level set field
-  double dt,    // time step (not physical)
-  int nmax,     // number of maximum time steps
-  (const) scalar s = {-1},     // source term, optional: zero
-  (const) scalar c = {-1},     // vof field (optional)
-  int nl = 0       // from which layer of cells (optional, min=0, max=2)
+  scalar f,                   // field to extrapolate
+  scalar ls,                  // level set field
+  double dt,                  // time step (not physical)
+  int nmax,                   // number of maximum time steps
+  (const) scalar s = {-1},    // source term, default zero
+  (const) scalar c = {-1},    // vof field, optional
+  int nl = 0                  // from which layer of cells (optional, min=0, max=2)
 )
 {
   scalar H[], fn[];
