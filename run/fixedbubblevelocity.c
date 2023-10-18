@@ -291,10 +291,6 @@ event movie (t += 0.0001; t <= 0.01) {
   save ("movie.mp4");
 
 #if EXTRAPOLATION
-  ufext1.n[left] = neumann (0.);
-  ufext2.n[left] = neumann (0.);
-
-  boundary ((scalar *){uext1,uext2});
   clear();
   draw_vof ("f", lw = 1.5);
   squares ("uext1.x", spread = -1, linear = true);
