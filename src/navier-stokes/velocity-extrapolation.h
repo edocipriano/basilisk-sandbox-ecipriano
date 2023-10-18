@@ -24,8 +24,7 @@ face vector ufext1[], ufext2[];
 scalar ps1[], ps2[];
 mgstats mgpdiv1, mgpdiv2;
 extern scalar f;
-
-#define ufext ufext1
+int nl1 = 1, nl2 = 1;
 
 /**
 ## Helper Functions
@@ -33,15 +32,14 @@ extern scalar f;
 We define a function that converts the vof fraction
 to the level set field. */
 
-void vof2ls (scalar f, scalar ls) {
+void vof_to_ls (scalar f, scalar ls) {
   double deltamin = L0/(1 << grid->maxdepth);
   foreach()
     ls[] = -(2.*f[] - 1.)*deltamin*0.75;
 #if TREE
   restriction({ls});
 #endif
-  redistance (ls, dt = 0.5*L0/(1 << grid->maxdepth),
-      imax = 0.5*(1 << grid->maxdepth));
+  redistance (ls, imax = 3);
 }
 
 /**
@@ -56,7 +54,7 @@ mgstats project_div1 (face vector ufs, scalar ps,
 {
   scalar div[];
   foreach() {
-    p[] = 0.;
+    ps[] = 0.;
     div[] = 0.;
     foreach_dimension()
       div[] += ufext1.x[1] - ufext1.x[];
@@ -69,10 +67,10 @@ mgstats project_div1 (face vector ufs, scalar ps,
   foreach()
     marker[] *= 1./sq(dt);
 
-  mgstats mgp = poisson (p, div, alpha, lambda=marker,
+  mgstats mgp = poisson (ps, div, alpha, lambda=marker,
       tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
 #else
-  mgstats mgp = poisson (p, div, alpha,
+  mgstats mgp = poisson (ps, div, alpha,
       tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
 #endif
 
@@ -112,7 +110,6 @@ mgstats project_div2 (face vector ufs, scalar ps,
 
   foreach_face()
     ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
-  boundary((scalar*){ufs});
 
   return mgp;
 }
@@ -153,7 +150,7 @@ event end_timestep (i++)
     f1[] = (f[] > 1.e-10) ? f[] : 0.;
     f2[] = (1. - f[] > 1.e-10) ? (1. - f[]) : 0.;
   }
-  vof2ls (f1, ls1);
+  vof_to_ls (f1, ls1);
 
   foreach()
     ls2[] = -ls1[];
@@ -163,10 +160,12 @@ event end_timestep (i++)
   */
 
   double dtext = 0.5*L0/(1 << grid->maxdepth);
-  constant_extrapolation (uext1.x, ls1, dtext, 10, c=f1, nl=1);
-  constant_extrapolation (uext1.y, ls1, dtext, 10, c=f1, nl=1);
-  constant_extrapolation (uext2.x, ls2, dtext, 10, c=f2, nl=1);
-  constant_extrapolation (uext2.y, ls2, dtext, 10, c=f2, nl=1);
+  //constant_extrapolation (uext1.x, ls1, dtext, 10, c=f1, nl=2);
+  //constant_extrapolation (uext1.y, ls1, dtext, 10, c=f1, nl=2);
+  constant_extrapolation (uext1.x, ls1, dtext, 10, c=f1, nl=nl1);
+  constant_extrapolation (uext1.y, ls1, dtext, 10, c=f1, nl=nl1);
+  constant_extrapolation (uext2.x, ls2, dtext, 10, c=f2, nl=nl2);
+  constant_extrapolation (uext2.y, ls2, dtext, 10, c=f2, nl=nl2);
 
   /**
   Finally, we reconstruct the face velocities from the
@@ -201,10 +200,9 @@ event end_timestep (i++)
   mgpdiv2 = project_div2 (ufs2, ps2, alpha, dt, mgpdiv2.nrelax);
 
   foreach_face() {
-    ufext1.x[] += ufs1.x[];
-    ufext2.x[] += ufs2.x[];
+    ufext1.x[] -= ufs1.x[];
+    ufext2.x[] -= ufs2.x[];
   }
-
 }
 
 /**

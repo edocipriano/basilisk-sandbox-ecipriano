@@ -42,15 +42,14 @@ void write_levelset (void) {
 We define a function that converts the vof fraction
 to the level set field. */
 
-void vof2ls (scalar f, scalar levelset) {
+void vof_to_ls (scalar f, scalar levelset) {
   double deltamin = L0/(1 << grid->maxdepth);
   foreach()
     levelset[] = -(2.*f[] - 1.)*deltamin*0.75;
 #if TREE
   restriction({levelset});
 #endif
-  redistance (levelset, dt = 0.5*L0/(1 << grid->maxdepth),
-      imax = 0.5*(1 << grid->maxdepth));
+  redistance (levelset, imax = 500);
 }
 
 #define ufunc(x,y)(x*y)
@@ -81,7 +80,7 @@ int main (void) {
   /**
   We reconstruct the levelset field. */
 
-  vof2ls (f, levelset);
+  vof_to_ls (f, levelset);
   write_levelset();
 
   /**
