@@ -160,8 +160,6 @@ event end_timestep (i++)
   */
 
   double dtext = 0.5*L0/(1 << grid->maxdepth);
-  //constant_extrapolation (uext1.x, ls1, dtext, 10, c=f1, nl=2);
-  //constant_extrapolation (uext1.y, ls1, dtext, 10, c=f1, nl=2);
   constant_extrapolation (uext1.x, ls1, dtext, 10, c=f1, nl=nl1);
   constant_extrapolation (uext1.y, ls1, dtext, 10, c=f1, nl=nl1);
   constant_extrapolation (uext2.x, ls2, dtext, 10, c=f2, nl=nl2);
