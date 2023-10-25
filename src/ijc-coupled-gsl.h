@@ -414,5 +414,42 @@ void ijc_CoupledTemperature ()
   }
 }
 
+
+void EqBoilingTemperature (const double * xdata, double * fdata, void * params) {
+  double Tb = xdata[0];
+  double * xc = (double *)params;
+#ifdef USE_ANTOINE
+  double sumKeq = 0.;
+  foreach_elem (YLList, jj) {
+    scalar YL = YLList[jj];
+    sumKeq += YL.antoine (Tb, Pref)*xc[jj];
+  }
+  fdata[0] = sumKeq - 1.;
+#else
+  fdata[0] = Tb + 1.;
+#endif
+}
+
+int EqBoilingTemperatureGsl (const gsl_vector * x, void * params, gsl_vector * f) {
+  double * xdata = x->data;
+  double * fdata = f->data;
+
+  EqBoilingTemperature (xdata, fdata, params);
+  return GSL_SUCCESS;
+}
+
+double boilingtemperature (double Tfg, double * xc)
+{
+  Array * arrUnk = array_new();
+  array_append (arrUnk, &Tfg, sizeof(double));
+#ifdef USE_GSL
+  fsolve (EqBoilingTemperatureGsl, arrUnk, xc);
+#endif
+  double * unk = arrUnk->p;
+  double Tb = unk[0];
+  array_free (arrUnk);
+  return Tb;
+}
+
 #endif // SOLVE_TEMPERATURE
 
