@@ -103,6 +103,18 @@ void Equations (const double * xdata, double * fdata, void * params) {
     jL[jj] = rho1*inDmix1[jj]*ltrgrad;
   }
 
+  /**
+  Compute total diffusive fluxes for Fick corrected approach. */
+
+  double jLtot = 0., jGtot = 0.;
+#ifdef FICK_CORRECTED
+  for (int jj=0; jj<NLS; jj++)
+    jLtot += jL[jj];
+
+  for (int jj=0; jj<NGS; jj++)
+    jGtot += jG[jj];
+#endif
+
 #ifdef SOLVE_TEMPERATURE
   gradTGn = ebmgrad (point, TG, fL, fG, fsL, fsG, true,  TInti, &success);
   gradTLn = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TInti, &success);
@@ -132,40 +144,32 @@ void Equations (const double * xdata, double * fdata, void * params) {
     mEvapSum += mEvapi[jj];
   }
 
-  //double sum_YGInt = 0.;
-  //double sum_jG = 0.;
-  //for (int jj=0; jj<NLS; jj++) {
-  //  sum_jG += jG[LSI[jj]];
-  //  sum_YGInt += YGInti[LSI[jj]];
-  //}
-  //mEvapSum = sum_jG/(1. - sum_YGInt);
-
   count = 0;
 
   /**
-  Mass balance for species in liquid phase. */
+  [NEW]
+  Mass balance in gas phase for evaporating species. */
 
-  //for (int jj=0; jj<NLS-1; jj++) {
-  ////for (int jj=0; jj<NLS; jj++) {
+  for (int jj=0; jj<NLS; jj++) {
 
-  //  fdata[count++] = mEvapi[jj]
-  //                 - mEvapSum*YLInti[jj]
-  //                 - jL[jj]
-  //                 ;
-  //}
+    fdata[count++] = mEvapi[jj]
+                   - mEvapSum*YGInti[LSI[jj]]
+                   - jG[jj]
+                   + jGtot*YGInti[LSI[jj]]
+                   ;
+  }
 
-  //double sum_YLInt = 0.;
-  //for (int jj=0; jj<NLS; jj++)
-  //  sum_YLInt += YLInti[jj];
-  //fdata[count++] = 1. - sum_YLInt;
+  /**
+  [NEW]
+  Mass balance in liquid phase for liquid species. */
 
-  // TODO: only for pure liquid
   if (NLS > 1) {
     for (int jj=0; jj<NLS; jj++) {
 
       fdata[count++] = mEvapi[jj]
                      - mEvapSum*YLInti[jj]
                      - jL[jj]
+                     + jLtot*YLInti[jj];
                      ;
     }
   }
@@ -173,36 +177,38 @@ void Equations (const double * xdata, double * fdata, void * params) {
     fdata[count++] = YLInti[0] - 1.;
   }
 
-  /**
-  Mass balance for species in gas phase and for gas-only species. */
 
-  for (int jj=0; jj<NGS; jj++) {
+  ///**
+  //Mass balance for species in liquid phase. */
 
-    fdata[count++] = mEvapToti[jj]
-                   - mEvapSum*YGInti[jj]
-                   - jG[jj]
-                   ;
-  }
-  /*
-     OK per 1 specie
-  for (int jj=0; jj<NLS; jj++) {
+  //if (NLS > 1) {
+  //  for (int jj=0; jj<NLS; jj++) {
 
-    fdata[count++] = mEvapi[jj]
-                   - mEvapSum*YGInti[LSI[jj]]
-                   - jG[LSI[jj]]
-                   ;
-  }
+  //    fdata[count++] = mEvapi[jj]
+  //                   - mEvapSum*YLInti[jj]
+  //                   - jL[jj]
+  //                   + jLtot*YLInti[jj]
+  //                   ;
+  //  }
+  //}
+  //else {
+  //  fdata[count++] = YLInti[0] - 1.;
+  //}
 
-  fdata[count++] = 1. - sum_YGInt - YGInti[inertIndex];
-  */
+  ///**
+  //Mass balance for species in gas phase and for gas-only species. */
+
+  //for (int jj=0; jj<NGS; jj++) {
+
+  //  fdata[count++] = mEvapToti[jj]
+  //                 - mEvapSum*YGInti[jj]
+  //                 - jG[jj]
+  //                 + jGtot*YGInti[jj]
+  //                 ;
+  //}
 
   /**
   Thermodynamic (VLE) equilibrium at the interface. */
-
-#ifdef CLAPEYRON
-  for (int jj=0; jj<NLS; jj++)
-    inKeq[jj] = exp(-dhev/8.314*inMW[LSI[jj]]*(1./TInti - 1./Tsat))*YLInti[jj];
-#endif
 
   double Keq[NLS];
   for (int jj=0; jj<NLS; jj++)
@@ -222,6 +228,18 @@ void Equations (const double * xdata, double * fdata, void * params) {
 
   for (int jj=0; jj<NLS; jj++) {
     fdata[count++] = XLInti[jj]*Keq[jj] - XGInti[LSI[jj]];
+  }
+
+  /**
+  [NEW]
+  Mass balance in gas phase for gas-only species. */
+
+  for (int jj=0; jj<NGOS; jj++) {
+    fdata[count++] = mEvapToti[GOSI[jj]]
+                   - mEvapSum*YGInti[GOSI[jj]]
+                   - jG[GOSI[jj]]
+                   + jGtot*YGInti[GOSI[jj]]
+                   ;
   }
 
 #ifdef SOLVE_TEMPERATURE
@@ -410,6 +428,43 @@ void ijc_CoupledTemperature ()
       array_free (arrUnk);
     }
   }
+}
+
+
+void EqBoilingTemperature (const double * xdata, double * fdata, void * params) {
+  double Tb = xdata[0];
+  double * xc = (double *)params;
+#ifdef USE_ANTOINE
+  double sumKeq = 0.;
+  foreach_elem (YLList, jj) {
+    scalar YL = YLList[jj];
+    sumKeq += YL.antoine (Tb, Pref)*xc[jj];
+  }
+  fdata[0] = sumKeq - 1.;
+#else
+  fdata[0] = Tb + 1.;
+#endif
+}
+
+int EqBoilingTemperatureGsl (const gsl_vector * x, void * params, gsl_vector * f) {
+  double * xdata = x->data;
+  double * fdata = f->data;
+
+  EqBoilingTemperature (xdata, fdata, params);
+  return GSL_SUCCESS;
+}
+
+double boilingtemperature (double Tfg, double * xc)
+{
+  Array * arrUnk = array_new();
+  array_append (arrUnk, &Tfg, sizeof(double));
+#ifdef USE_GSL
+  fsolve (EqBoilingTemperatureGsl, arrUnk, xc);
+#endif
+  double * unk = arrUnk->p;
+  double Tb = unk[0];
+  array_free (arrUnk);
+  return Tb;
 }
 
 #endif // SOLVE_TEMPERATURE

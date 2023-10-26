@@ -12,7 +12,7 @@ This method was proposed by [Palmore et al., 2019](#palmore2019volume).
 */
 
 #include "aslam.h"
-#include "BOYD/src/LS_funcs/LS_reinit.h"
+#include "redistance.h"
 
 /**
 ## Field Allocation
@@ -24,8 +24,7 @@ face vector ufext1[], ufext2[];
 scalar ps1[], ps2[];
 mgstats mgpdiv1, mgpdiv2;
 extern scalar f;
-
-#define ufext ufext1
+int nl1 = 1, nl2 = 1;
 
 /**
 ## Helper Functions
@@ -33,15 +32,14 @@ extern scalar f;
 We define a function that converts the vof fraction
 to the level set field. */
 
-void vof2ls (scalar f, scalar ls) {
+void vof_to_ls (scalar f, scalar ls) {
   double deltamin = L0/(1 << grid->maxdepth);
   foreach()
     ls[] = -(2.*f[] - 1.)*deltamin*0.75;
 #if TREE
   restriction({ls});
 #endif
-  LS_reinit (ls, dt = 0.5*L0/(1 << grid->maxdepth),
-      it_max = 0.5*(1 << grid->maxdepth));
+  redistance (ls, imax = 3);
 }
 
 /**
@@ -49,14 +47,11 @@ We define a function that performs a projection step to
 correct the divergence of the velocity field. */
 
 trace
-mgstats project_div1 (struct Project q)
+mgstats project_div1 (face vector ufs, scalar ps,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
 {
-  face vector ufs = q.uf;
-  scalar ps = q.p;
-  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
-  double dt = q.dt ? q.dt : 1.;
-  int nrelax = q.nrelax ? q.nrelax : 4;
-
   scalar div[];
   foreach() {
     ps[] = 0.;
@@ -81,20 +76,16 @@ mgstats project_div1 (struct Project q)
 
   foreach_face()
     ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
-  boundary((scalar*){ufs});
 
   return mgp;
 }
 
 trace
-mgstats project_div2 (struct Project q)
+mgstats project_div2 (face vector ufs, scalar ps,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
 {
-  face vector ufs = q.uf;
-  scalar ps = q.p;
-  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
-  double dt = q.dt ? q.dt : 1.;
-  int nrelax = q.nrelax ? q.nrelax : 4;
-
   scalar div[];
   foreach() {
     ps[] = 0.;
@@ -119,7 +110,6 @@ mgstats project_div2 (struct Project q)
 
   foreach_face()
     ufs.x[] = -dt*alpha.x[]*face_gradient_x (ps, 0);
-  boundary((scalar*){ufs});
 
   return mgp;
 }
@@ -160,7 +150,7 @@ event end_timestep (i++)
     f1[] = (f[] > 1.e-10) ? f[] : 0.;
     f2[] = (1. - f[] > 1.e-10) ? (1. - f[]) : 0.;
   }
-  vof2ls (f1, ls1);
+  vof_to_ls (f1, ls1);
 
   foreach()
     ls2[] = -ls1[];
@@ -170,10 +160,10 @@ event end_timestep (i++)
   */
 
   double dtext = 0.5*L0/(1 << grid->maxdepth);
-  constant_extrapolation (uext1.x, ls1, dt=dtext, n=10, c=f1, nl=1);
-  constant_extrapolation (uext1.y, ls1, dt=dtext, n=10, c=f1, nl=1);
-  constant_extrapolation (uext2.x, ls2, dt=dtext, n=10, c=f2, nl=1);
-  constant_extrapolation (uext2.y, ls2, dt=dtext, n=10, c=f2, nl=1);
+  constant_extrapolation (uext1.x, ls1, dtext, 10, c=f1, nl=nl1);
+  constant_extrapolation (uext1.y, ls1, dtext, 10, c=f1, nl=nl1);
+  constant_extrapolation (uext2.x, ls2, dtext, 10, c=f2, nl=nl2);
+  constant_extrapolation (uext2.y, ls2, dtext, 10, c=f2, nl=nl2);
 
   /**
   Finally, we reconstruct the face velocities from the
@@ -208,10 +198,9 @@ event end_timestep (i++)
   mgpdiv2 = project_div2 (ufs2, ps2, alpha, dt, mgpdiv2.nrelax);
 
   foreach_face() {
-    ufext1.x[] += ufs1.x[];
-    ufext2.x[] += ufs2.x[];
+    ufext1.x[] -= ufs1.x[];
+    ufext2.x[] -= ufs2.x[];
   }
-
 }
 
 /**

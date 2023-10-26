@@ -240,7 +240,7 @@ event profiles (t = {1.03e-5, 6.03e-5, 1.40e-4}) {
   We sum each element of the arrays in every processor. */
 
   @if _MPI
-  int size = arrtemps->len/sizeof(double);
+  int size = arrmassf->len/sizeof(double);
   MPI_Allreduce (MPI_IN_PLACE, massf, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   @endif
 

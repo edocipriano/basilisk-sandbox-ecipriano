@@ -11,7 +11,10 @@ continuity equation is shifted and/or distributed.
 We perform this test case using the *Velocity Potential*
 approach, and we compare the results both with the
 theoretical velocity profile and with the numerical results
-obtained by [Tanguy et al., 2014](#tanguy2014benchmarks).
+obtained by [Tanguy et al., 2014](#tanguy2014benchmarks). The same
+test is repeated using the *Velocity Extrapolation* approach,
+providing a better and smoother velocity profile for the advection
+of the volume fraction, at the cost of a higher computational time.
 
 The animation shows the growth of the bubble in time.
 ![Evolution of the interface position and the volume fraction field](fixedbubblevelocity/movie.mp4)(width="500" height="500")
@@ -20,31 +23,43 @@ The animation shows the growth of the bubble in time.
 /**
 ## Phase Change Setup
 
-We divide the mass balance by the density of the gas phase,
-and we avoid the stefan flow shifting procedure.
-*/
+If the *Velocity Potential* approach is used, we divide the mass
+balance by the density of the gas phase, and we avoid the Stefan flow
+shifting procedure. If *Velocity Extrapolation* is used, we divide
+the mass balance by the liquid phase density, and we shift the
+expansion term toward the gas phase. */
 
-#define NOSHIFTING
-#define BYRHOGAS
+#if EXTRAPOLATION
+# define INT_USE_UF
+# define CONSISTENTPHASE2
+# define SHIFT_TO_GAS
+#else
+# define NOSHIFTING
+# define BYRHOGAS
+#endif
 
 /**
 ## Simulation Setup
 
 We use the centered Navier-Stokes equations solver with
-the evaporation source term in the projection step. The
-velocity potential approach is used to obtain a
-divergence-free velocity which can be used for
-the VOF advection equation. The evporation model is
-combined with the fixed flux mechanism, that imposes
-a constant vaporization flowrate. */
+the evaporation source term in the projection step.
+The evporation model is combined with the fixed flux
+mechanism, that imposes a constant vaporization flowrate. */
 
+#include "grid/multigrid.h"
 #include "navier-stokes/centered-evaporation.h"
-#include "navier-stokes/velocity-potential.h"
+#if EXTRAPOLATION
+# include "navier-stokes/velocity-extrapolation.h"
+# define ufext ufext1
+#else
+# include "navier-stokes/velocity-potential.h"
+#endif
 #include "two-phase.h"
 #include "tension.h"
 #include "evaporation.h"
 #include "fixedflux.h"
 #include "view.h"
+
 
 /**
 ### Boundary Conditions
@@ -57,22 +72,42 @@ the velocity potential *ps*. */
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
+#if EXTRAPOLATION
+ps1[top] = dirichlet (0.);
+ps2[top] = dirichlet (0.);
+#else
 ps[top] = dirichlet (0.);
+#endif
 
 u.n[right] = neumann (0.);
 u.t[right] = neumann (0.);
 p[right] = dirichlet (0.);
+#if EXTRAPOLATION
+ps1[right] = dirichlet (0.);
+ps2[right] = dirichlet (0.);
+#else
 ps[right] = dirichlet (0.);
+#endif
 
 u.n[left] = neumann (0.);
 u.t[left] = neumann (0.);
 p[left] = dirichlet (0.);
+#if EXTRAPOLATION
+ps1[left] = dirichlet (0.);
+ps2[left] = dirichlet (0.);
+#else
 ps[left] = dirichlet (0.);
+#endif
 
 u.n[bottom] = neumann (0.);
 u.t[bottom] = neumann (0.);
 p[bottom] = dirichlet (0.);
+#if EXTRAPOLATION
+ps1[bottom] = dirichlet (0.);
+ps2[bottom] = dirichlet (0.);
+#else
 ps[bottom] = dirichlet (0.);
+#endif
 
 /**
 ### Model Data
@@ -84,6 +119,7 @@ the maximum level of refinement. */
 int maxlevel = 7;
 double D0 = 0.002, mEvapVal = -0.1;
 double effective_radius0;
+
 
 int main (void) {
   /**
@@ -103,6 +139,16 @@ int main (void) {
 
   L0 = 0.008;
   origin (-0.5*L0, -0.5*L0);
+
+  /**
+  We modify the number of layers used in [velocity-extrapolation.h](/sandbox/ecipriano/src/navier-stokes/velocity-extrapolation.h)
+  in order to extrapolate the gas phase velocity from the second layer
+  of cells close to the interface. This is necessary if the expansion
+  term is shifted toward the gas phase. */
+
+#if EXTRAPOLATION
+  nl1 = 2;
+#endif
 
   /**
   We setup the grid and run the simulation. */
@@ -180,7 +226,7 @@ event output_data (i++) {
 We write on a file the velocity profile at a specific
 time step. */
 
-event profiles (t = 0.005) {
+event profiles (t = 0.005,last) {
   char name[80];
   sprintf (name, "Profiles-%d", maxlevel);
   FILE * fp = fopen (name, "w");
@@ -193,7 +239,11 @@ event profiles (t = 0.005) {
   Array * arrus = array_new();
   for (double x = 0.; x < 0.5*L0; x += 0.05*L0/(1 << maxlevel)) {
     double val_uf = interpolate (uf.x,  x, 0.);
+#if EXTRAPOLATION
+    double val_us = 0.;
+#else
     double val_us = interpolate (ufs.x, x, 0.);
+#endif
     val_uf = (val_uf == nodata) ? 0. : val_uf;
     val_us = (val_us == nodata) ? 0. : val_us;
     array_append (arruf, &val_uf, sizeof(double));
@@ -239,6 +289,19 @@ event movie (t += 0.0001; t <= 0.01) {
   draw_vof ("f", lw = 1.5);
   squares ("f", min = 0., max = 1., linear = true);
   save ("movie.mp4");
+
+#if EXTRAPOLATION
+  clear();
+  draw_vof ("f", lw = 1.5);
+  squares ("uext1.x", spread = -1, linear = true);
+  vectors ("uext1.x", scale = 1.e-3, lc = {1.,1.,1.});
+  save ("movie-uext1.mp4");
+
+  clear();
+  draw_vof ("f", lw = 1.5);
+  squares ("uext2.x", spread = -1, linear = true);
+  save ("movie-uext2.mp4");
+#endif
 }
 
 /**
@@ -259,8 +322,8 @@ set grid
 plot "../data/tanguy-fixedbubblevelocity-theoretical.csv" u 1:2 w p pt 6 t "Theoretical", \
      "../data/tanguy-fixedbubblevelocity-b.csv" u 1:2 w p pt 6 t "Tanguy et al., 2014 b", \
      "../data/tanguy-fixedbubblevelocity-c.csv" u 1:2 w p pt 6 t "Tanguy et al., 2014 c", \
-     "Profiles-7" u 1:2 w l lw 1.2 t "Field Velocity", \
-     "Profiles-7" u 1:3 w l lw 1.2 t "Stefan Velocity"
+     "Profiles-7" u 1:2 w l lw 1.2 t "Field Velocity (potential)", \
+     "../fixedbubblevelocity-extrapolation/Profiles-7" u 1:2 w l lw 1.2 t "Field Velocity (extrapolation)"
 
 ~~~
 
@@ -272,9 +335,25 @@ set key top left
 set size square
 set grid
 
-plot "OutputData-7" u 1:2 w l lw 2 t "LEVEL 7", \
-     "OutputData-7" u 1:3 every 10 w p pt 8 ps 1.5 t "Analytical"
+plot "OutputData-7" u 1:2 w l lw 2 t "LEVEL 7 potential", \
+     "../fixedbubblevelocity-extrapolation/OutputData-7" u 1:2 w l lw 2 t "LEVEL 7 extrapolation", \
+     "OutputData-7" every 20 u 1:3 w p pt 8 ps 1.5 t "Analytical"
 ~~~
+
+## Extrapolated Velocity Fields
+
+The following animations show the evolution of the extrapolated
+velocities `ufext1.x` and `ufext2.x`. The liquid phase velocity is
+used for the transport of the volume fraction. We notice that the
+extrapolation procedure leads to a velocity field which is smooth and
+continuous across the interface. The extrapolation procedure is
+expensive, and for this reason it is performed just for a few steps,
+without the need to extrapolate the velocity field over the whole
+domain. We just need a few cells across the interface.
+
+![Evolution of the liquid extrapolated velocity (x component)](fixedbubblevelocity-extrapolation/movie-uext1.mp4)(width="500" height="500")
+
+![Evolution of the gas extrapolated velocity (x component)](fixedbubblevelocity-extrapolation/movie-uext2.mp4)(width="500" height="500")
 
 ## References
 

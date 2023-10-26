@@ -20,21 +20,14 @@ be included (0 by default).
 # define F_ERR 1.e-10
 #endif
 
-struct _MapRegion {
-  scalar H;       // heaviside function
-  scalar f;       // vof field (f = 1 if liquid)
-  int nl;         // number of additional layers (default 0, optional 1 or 2)
-  int inverse;    // the vof field if = 1 if gas (default false)
-  int interface;  // map just a narrow band around the interface (default false)
-};
-
-void mapregion (struct _MapRegion p) {
+void mapregion (
+  scalar H,           // heaviside function
+  scalar f,           // vof field (f = 1 if liquid)
+  int nl = 0,         // number of additional layers (default 0, optional 1 or 2)
+  int inverse = 0,    // the vof field if = 1 if gas (default false)
+  int interface = 0)  // map just a narrow band around the interface (default false)
+{
   scalar fc[];
-  scalar H = p.H, f = p.f;
-  int nl = p.nl ? p.nl : 0.;
-  bool inverse = p.inverse ? true : false;
-  bool interface = p.interface ? true : false;
-
   foreach()
     fc[] = (!inverse) ? f[] : 1. - f[];
 

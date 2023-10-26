@@ -10,19 +10,22 @@ Aslam extrapolations are performed.
 #include "grid/multigrid.h"
 #include "utils.h"
 #include "aslam.h"
+#include "redistance.h"
 #include "view.h"
-#include "BOYD/src/LS_funcs/LS_reinit.h"
 
 /**
 We define a function that writes a picture with the
 map and isolines of the extended scalar fields.
 */
 
-void write_picture (char* name) {
+void write_picture (char* name, scalar u) {
+  vertex scalar phi[];
+  foreach_vertex()
+    phi[] = (u[] + u[-1] + u[0,-1] + u[-1,-1])/4.;
   clear();
   isoline ("levelset", val = 0., lw = 2.);
-  isoline("u", n = 30);
-  squares ("u", spread = -1);
+  isoline ("phi", n = 30);
+  squares ("phi", spread = -1);
   box();
   save (name);
 }
@@ -39,19 +42,18 @@ void write_levelset (void) {
 We define a function that converts the vof fraction
 to the level set field. */
 
-void vof2ls (scalar f, scalar levelset) {
+void vof_to_ls (scalar f, scalar levelset) {
   double deltamin = L0/(1 << grid->maxdepth);
   foreach()
     levelset[] = -(2.*f[] - 1.)*deltamin*0.75;
 #if TREE
   restriction({levelset});
 #endif
-  LS_reinit (levelset, dt = 0.5*L0/(1 << grid->maxdepth),
-      it_max = 0.5*(1 << grid->maxdepth));
+  redistance (levelset, imax = 500);
 }
 
 #define ufunc(x,y)(x*y)
-# define circle(x,y,R)(sq(R) - sq(x) - sq(y))
+#define circle(x,y,R)(sq(R) - sq(x) - sq(y))
 
 /**
 We declare the level set field *levelset*, and
@@ -78,7 +80,7 @@ int main (void) {
   /**
   We reconstruct the levelset field. */
 
-  vof2ls (f, levelset);
+  vof_to_ls (f, levelset);
   write_levelset();
 
   /**
@@ -92,12 +94,12 @@ int main (void) {
 
   foreach()
     u[] = ufunc(x,y)*f[];
-  write_picture ("initial.png");
+  write_picture ("initial.png", u);
 
   double dtmin = 0.5*L0/(1 << grid->maxdepth);
 
-  constant_extrapolation (u, levelset, dt=dtmin, n=300, c=f);
-  write_picture ("constant.png");
+  constant_extrapolation (u, levelset, dtmin, 300, c=f);
+  write_picture ("constant.png", u);
   fprintf (stderr, "constant = %g\n", statsf(u).sum);
 
   /**
@@ -106,8 +108,8 @@ int main (void) {
 
   foreach()
     u[] = ufunc(x,y)*f[];
-  linear_extrapolation (u, levelset, dt=dtmin, n=300, c=f);
-  write_picture ("linear.png");
+  linear_extrapolation (u, levelset, dtmin, 300, c=f);
+  write_picture ("linear.png", u);
   fprintf (stderr, "linear = %g\n", statsf(u).sum);
 }
 

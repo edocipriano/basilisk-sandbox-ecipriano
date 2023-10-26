@@ -48,6 +48,7 @@ a constant vaporization flowrate.
 #include "grid/multigrid.h"
 #include "navier-stokes/centered-evaporation.h"
 #include "navier-stokes/velocity-extrapolation.h"
+#define ufext ufext1
 #include "two-phase.h"
 #include "tension.h"
 #include "evaporation.h"
@@ -100,6 +101,7 @@ double R0 = 0.23;
 double mEvapVal = -0.05;
 
 int main(void) {
+  L0 = 1.;
   /**
   We set the density and viscosity values. */
 

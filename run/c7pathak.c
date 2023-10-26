@@ -132,6 +132,7 @@ int main (void) {
 
   f.sigma = 0.01;
   TOLERANCE = 1.e-6;
+  DT = 1.e-3;
 
   /**
   We run the simulation at different maximum

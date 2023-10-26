@@ -90,13 +90,11 @@ step with the volume expansion term due to the phase
 change. */
 
 trace
-mgstats project_sf (struct Project q)
+mgstats project_sf (face vector uf, scalar p,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
 {
-  face vector uf = q.uf;
-  scalar p = q.p;
-  (const) face vector alpha = q.alpha.x.i ? q.alpha : unityf;
-  double dt = q.dt ? q.dt : 1.;
-  int nrelax = q.nrelax ? q.nrelax : 4;
   
   /**
   We allocate a local scalar field and compute the divergence of
@@ -152,8 +150,8 @@ balanced by the pressure gradient. Taking care of boundary orientation
 and staggering of $\mathbf{a}$, this can be written */
 
 #if EMBED
-# define neumann_pressure(i) (alpha.n[i] ? a.n[i]*fm.n[i]/alpha.n[i] :	\
-			      a.n[i]*rho[]/(cm[] + SEPS))
+# define neumann_pressure(i) (alpha.n[i] ? a.n[i]*fm.n[i]/alpha.n[i] :  \
+            a.n[i]*rho[]/(cm[] + SEPS))
 #else
 # define neumann_pressure(i) (a.n[i]*fm.n[i]/alpha.n[i])
 #endif
@@ -327,20 +325,20 @@ void prediction()
       foreach_dimension() {
 #if EMBED
         if (!fs.x[] || !fs.x[1])
-	  du.x[] = 0.;
-	else
+    du.x[] = 0.;
+  else
 #endif
-	  du.x[] = u.x.gradient (u.x[-1], u.x[], u.x[1])/Delta;
+    du.x[] = u.x.gradient (u.x[-1], u.x[], u.x[1])/Delta;
       }
   else
     foreach()
       foreach_dimension() {
 #if EMBED
         if (!fs.x[] || !fs.x[1])
-	  du.x[] = 0.;
-	else
+    du.x[] = 0.;
+  else
 #endif
-	  du.x[] = (u.x[1] - u.x[-1])/(2.*Delta);
+    du.x[] = (u.x[1] - u.x[-1])/(2.*Delta);
     }
 
   trash ({uf});

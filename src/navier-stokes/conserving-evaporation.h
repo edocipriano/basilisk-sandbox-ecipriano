@@ -60,8 +60,8 @@ event defaults (i = 0)
   $\mathbf{u}$ now depend on those on $f$. */
   
   foreach_dimension() {
-    u.x.refine = u.x.prolongation = momentum_refine;
-    u.x.restriction = momentum_restriction;
+    //u.x.refine = u.x.prolongation = momentum_refine;    // don't work well
+    //u.x.restriction = momentum_restriction;             // same
     u.x.depends = list_add (u.x.depends, f);
   }
 #endif

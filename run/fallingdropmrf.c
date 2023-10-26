@@ -19,21 +19,19 @@ steady behavior, although it starts to slighly shift along the
 x axis.
 */
 
-//#define FILTERED
-
-#include "grid/multigrid.h"
 #include "navier-stokes/centered.h"
 #include "two-phase.h"
-//#include "navier-stokes/conserving.h"
 #include "tension.h"
-//#include "reduced.h"
+#include "reduced.h"
 #include "view.h"
 
 /**
 We initialize the additionals fields required for this simulation:
-*fx* and *fy* are used to compute the centroid of the droplet. */
+*fx* and *fy* are used to compute the centroid of the droplet;
+*omega* is the vorticity field. */
 
 scalar fx[], fy[];
+scalar tr[];
 
 /**
 We use inlet boundary condition on the bottom of the domain,
@@ -58,7 +56,6 @@ the velocity of that centroid. */
 int maxlevel, minlevel;
 double tEnd = 0.05;
 double R0 = 200.e-6;
-//double R0 = 0.25e-3;
 double xcentroid, ycentroid;
 double xcentroid_old, ycentroid_old;
 double uxcentroid, uxcentroid_old;
@@ -73,7 +70,6 @@ int main (void)
   mu1 = 1.138e-3; mu2 = 1.78e-5;
 
   f.sigma = 0.03;
-  //f.sigma = 0.073;
 
   /**
   We define the problem geometry and we include the
@@ -84,7 +80,7 @@ int main (void)
   maxlevel = 8;
 
   L0 = 6.*(6.*R0);
-  //G.y = -9.81;
+  G.y = -9.81;
 
   size (L0);
   origin (0., 0.);
@@ -109,15 +105,6 @@ event init (i = 0) {
 }
 
 /**
-Acceleration event, add gravity force. */
-
-event acceleration (i++) {
-  face vector av = a;
-  foreach_face(y)
-    av.y[] -= 9.81;
-}
-
-/**
 In this event, the centroid position is computed,
 as well as the inlet velocity. The shifting
 of the position of the droplet centroid with
@@ -135,12 +122,6 @@ event bcs (i++) {
   xcentroid = statsf(fx).sum / statsf(f).sum;
   ycentroid = statsf(fy).sum / statsf(f).sum;
 
-  {
-    Point point = locate (xcentroid, ycentroid);
-    uxcentroid = interpolate (uf.x, 0.5*L0, ycentroid);
-    uycentroid = interpolate (uf.y, 0.5*L0, ycentroid);
-  }
-
   uin = -(ycentroid - 0.3*L0)/dt;
   u.n[bottom] = dirichlet (uin);
 }
@@ -149,9 +130,9 @@ event bcs (i++) {
 We refine the mesh according to the volume fraction and the
 velocity field. */
 
-//event adapt (i++) {
-//  adapt_wavelet ({f,u}, (double[]){1.e-3,1.e-3,1.e-3,1.e-3}, maxlevel, minlevel);
-//}
+event adapt (i++) {
+  adapt_wavelet ({f,u}, (double[]){1.e-3,1.e-3,1.e-3,1.e-3}, maxlevel, minlevel);
+}
 
 /**
 The following events are for post-processing purposes:
@@ -160,7 +141,7 @@ write a video with the evolution of the interface and the
 vorticity field. */
 
 event outputfile (i++) {
-  fprintf (stdout, "%f %f %f %f\n", t, uin, xcentroid, ycentroid);
+  fprintf (stdout, "%f %f\n", t, uin);
 }
 
 event movie (t += 0.0001; t <= tEnd) {
