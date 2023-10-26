@@ -33,7 +33,7 @@ relative to the path $OPENSMOKE_INTERFACE/kinetics, must be set by the
 user.
 */
 
-char * kinfolder;
+char * kinfolder, * liqfolder;
 
 event defaults (i = 0)
 {
@@ -41,9 +41,14 @@ event defaults (i = 0)
   sprintf (kinfolder_root, "%s/kinetics/%s/kinetics",
       getenv ("OPENSMOKE_INTERFACE"), kinfolder);
 
+  char liqfolder_root[120];
+  sprintf (liqfolder_root, "%s/kinetics/%s",
+      getenv ("OPENSMOKE_INTERFACE"), liqfolder);
+
+  OpenSMOKE_Init();
   OpenSMOKE_ReadKinetics (kinfolder_root);
-  //OpenSMOKE_ReadLiquidKinetics();
-  //OpenSMOKE_ReadLiquidProperties();
+  OpenSMOKE_ReadLiquidKinetics (kinfolder_root);
+  OpenSMOKE_ReadLiquidProperties (liqfolder_root);
 }
 
 event cleanup (t = end)
