@@ -871,8 +871,6 @@ event phasechange (i++)
       scalar YL = YLList[jj];
       scalar JL = JLList[jj];
 
-      double theta = cm[]*max (fL[], 1.e-5);
-
       JL[] = 0.;
       foreach_dimension()
         JL[] += (inDmix1[jj]*face_gradient_x (YL, 1)*fsL.x[1]*fm.x[1] -
@@ -882,8 +880,6 @@ event phasechange (i++)
     foreach_elem (YGList, jj) {
       scalar YG = YGList[jj];
       scalar JG = JGList[jj];
-
-      double theta = cm[]*max (fG[], 1.e-5);
 
       JG[] = 0.;
       foreach_dimension()
