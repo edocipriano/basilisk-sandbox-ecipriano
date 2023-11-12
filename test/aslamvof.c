@@ -38,20 +38,6 @@ void write_levelset (void) {
   save ("levelset.png");
 }
 
-/**
-We define a function that converts the vof fraction
-to the level set field. */
-
-void vof_to_ls (scalar f, scalar levelset) {
-  double deltamin = L0/(1 << grid->maxdepth);
-  foreach()
-    levelset[] = -(2.*f[] - 1.)*deltamin*0.75;
-#if TREE
-  restriction({levelset});
-#endif
-  redistance (levelset, imax = 500);
-}
-
 #define ufunc(x,y)(x*y)
 #define circle(x,y,R)(sq(R) - sq(x) - sq(y))
 
@@ -80,7 +66,7 @@ int main (void) {
   /**
   We reconstruct the levelset field. */
 
-  vof_to_ls (f, levelset);
+  vof_to_ls (f, levelset, imax=300);
   write_levelset();
 
   /**
@@ -96,9 +82,7 @@ int main (void) {
     u[] = ufunc(x,y)*f[];
   write_picture ("initial.png", u);
 
-  double dtmin = 0.5*L0/(1 << grid->maxdepth);
-
-  constant_extrapolation (u, levelset, dtmin, 300, c=f);
+  constant_extrapolation (u, levelset, 0.5, 300, c=f);
   write_picture ("constant.png", u);
   fprintf (stderr, "constant = %g\n", statsf(u).sum);
 
@@ -108,7 +92,7 @@ int main (void) {
 
   foreach()
     u[] = ufunc(x,y)*f[];
-  linear_extrapolation (u, levelset, dtmin, 300, c=f);
+  linear_extrapolation (u, levelset, 0.5, 300, c=f);
   write_picture ("linear.png", u);
   fprintf (stderr, "linear = %g\n", statsf(u).sum);
 }
