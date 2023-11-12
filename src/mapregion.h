@@ -21,18 +21,20 @@ be included (0 by default).
 #endif
 
 void mapregion (
-  scalar H,           // heaviside function
-  scalar f,           // vof field (f = 1 if liquid)
-  int nl = 0,         // number of additional layers (default 0, optional 1 or 2)
-  int inverse = 0,    // the vof field if = 1 if gas (default false)
-  int interface = 0)  // map just a narrow band around the interface (default false)
+  scalar H,             // heaviside function
+  scalar f,             // vof field (f = 1 if liquid)
+  int nl = 0,           // number of additional layers (default 0, optional 1 or 2)
+  int inverse = 0,      // the vof field if = 1 if gas (default false)
+  int narrow = 0,       // map just a narrow band around the interface (default false)
+  int nointerface = 0   // if false heaviside set to zero at the interface
+)
 {
   scalar fc[];
   foreach()
     fc[] = (!inverse) ? f[] : 1. - f[];
 
   foreach() {
-    if (interface)
+    if (narrow)
       H[] = (fc[] > F_ERR && fc[] < 1.-F_ERR) ? 1. : 0.;
     else
       H[] = (fc[] < 1.-F_ERR) ? 1. : 0.;
@@ -46,6 +48,8 @@ void mapregion (
       }
       H[] = lightup ? 1. : 0.;
     }
+    if (nointerface)
+      H[] = (fc[] > F_ERR && fc[] < 1.-F_ERR) ? 0. : H[];
   }
 }
 
