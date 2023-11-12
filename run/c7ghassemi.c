@@ -32,12 +32,14 @@ this test case. */
 #define NGS 2
 #define NLS 1
 
-#define VARPROP
 #define FILTERED
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE
-#define DIFFUSIVE
+#define FICK_CORRECTED
+#define MOLAR_DIFFUSION
+#define VARPROP
+#define PINNED
 
 /**
 ## Simulation Setup
@@ -49,13 +51,15 @@ evaporation model together with the multiomponent phase
 change mechanism. */
 
 #include "axi.h"
-#include "navier-stokes/centered-evaporation.h"
-#include "navier-stokes/centered-doubled.h"
-#include "two-phase-varprop.h"
+#include "navier-stokes/velocity-jump.h"
 #include "opensmoke-properties.h"
+#include "two-phase-varprop.h"
+#ifdef PINNED
+#include "pinning.h"
+#endif
 #include "tension.h"
 #include "evaporation-varprop.h"
-#include "multicomponent-varprop.h"
+#include "multicomponent.h"
 #include "view.h"
 
 /**
@@ -72,16 +76,19 @@ char* inert_species[1] = {"N2"};
 double gas_start[NGS] = {0., 1.};
 double liq_start[NLS] = {1.};
 double inDmix1[NLS] = {0.};
-double inDmix2[NGS] = {6.77e-7, 6.77e-7};
+double inDmix2[NGS] = {0., 0.};
 double inKeq[NLS] = {0.};
 
-double lambda1 = 0.1121;
-double lambda2 = 0.04428;
-double dhev = 3.23e5;
-double cp1 = 2505.;
-double cp2 = 1053.;
+double lambda1 = 0.;
+double lambda2 = 0.;
+double dhev = 0.;
+double cp1 = 0.;
+double cp2 = 0.;
+
 double TL0 = 300.;
-double TG0 = 563.;
+//double TG0 = 468.;
+//double TG0 = 508.;
+double TG0 = 773.;
 
 /**
 ### Boundary conditions
@@ -89,6 +96,41 @@ double TG0 = 563.;
 Outflow boundary conditions are set at the top and right
 sides of the domain. */
 
+#ifdef VELOCITY_JUMP
+# ifdef PINNED
+u1.n[left] = neumann (0.);
+u1.t[left] = neumann (0.);
+u2.n[left] = neumann (0.);
+u2.t[left] = neumann (0.);
+p[left] = dirichlet (0.);
+ps[left] = dirichlet (0.);
+pg[left] = dirichlet (0.);
+
+u1.n[right] = dirichlet (0.);
+u1.t[right] = dirichlet (0.);
+u2.n[right] = dirichlet (0.);
+u2.t[right] = dirichlet (0.);
+p[right] = neumann (0.);
+ps[right] = neumann (0.);
+pg[right] = neumann (0.);
+# else
+u1.n[top] = neumann (0.);
+u1.t[top] = neumann (0.);
+u2.n[top] = neumann (0.);
+u2.t[top] = neumann (0.);
+p[top] = dirichlet (0.);
+ps[top] = dirichlet (0.);
+pg[top] = dirichlet (0.);
+
+u1.n[right] = neumann (0.);
+u1.t[right] = neumann (0.);
+u2.n[right] = neumann (0.);
+u2.t[right] = neumann (0.);
+p[right] = dirichlet (0.);
+ps[right] = dirichlet (0.);
+pg[right] = dirichlet (0.);
+#endif
+#else
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
@@ -102,6 +144,7 @@ p[right] = dirichlet (0.);
 uext.n[right] = neumann (0.);
 uext.t[right] = neumann (0.);
 pext[right] = dirichlet (0.);
+#endif
 
 /**
 ### Simulation Data
@@ -110,9 +153,11 @@ We declare the maximum and minimum levels of refinement,
 the initial radius and diameter, and the radius from the
 numerical simulation. */
 
-int maxlevel = 8, minlevel = 2;
-double D0 = 5.e-6, effective_radius0;
-//double D0 = 0.5e-3, effective_radius0;
+int maxlevel, minlevel = 2;
+//double D0 = 5.e-6, effective_radius0;
+//double D0 = 0.78e-3, effective_radius0;
+double D0 = 1.e-3, effective_radius0, d_over_d02 = 1., df = 125e-6;
+double volumecorr = 0., volume0 = 0.;
 
 int main (void) {
   kinfolder = "evaporation/n-heptane-in-nitrogen";
@@ -122,15 +167,22 @@ int main (void) {
   properties correspond to the n-heptane/nitrogen system
   at 28.6 bar. */
 
-  rho1 = 626.7; rho2 = 17.51;
   mu1 = 1.e-3; mu2 = 1.e-5;
-  Pref = 2860000.;
+  rho1 = 0.; rho2 = 0.;
+  Pref = 1e+6;
 
   /**
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
-  L0 = 10.*D0;
+  L0 = 4.*D0;
+
+#ifdef PINNED
+  X0 = -0.5*L0;
+  Y0 = 0.5*df;
+  pinning.ap = 0.5*D0;
+  pinning.ac = pinning.ap - 0.05*D0;
+#endif
 
   /**
   We change the surface tension coefficient. and we
@@ -138,13 +190,16 @@ int main (void) {
 
   f.sigma = 0.03;
   //TOLERANCE = 1.e-6;
+  DT = 1.e-5;
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  init_grid (1 << maxlevel);
-  run();
+  for (maxlevel = 7; maxlevel <= 7; maxlevel++) {
+    init_grid (1 << maxlevel);
+    run();
+  }
 }
 
 #define circle(x,y,R)(sq(R) - sq(x) - sq(y))
@@ -155,15 +210,26 @@ initial radius of the droplet. We don't use the value D0
 because for small errors of initialization the squared
 diameter decay would not start from 1. */
 
+double mLiq0 = 0.;
+
 event init (i = 0) {
   fraction (f, circle (x, y, 0.5*D0));
   effective_radius0 = pow(3.*statsf(f).sum, 1./3.);
+
+  double volumeint = 2.*pi*statsf(f).sum;
+  double volumetot = 4./3.*pi*pow (0.5*D0, 3.);
+  volumecorr = volumetot - volumeint;
+  volume0 = 2.*pi*statsf(f).sum + volumecorr;
+  effective_radius0 = pow(3./4./pi*volume0, 1./3.);
+
+  foreach (reduction(+:mLiq0))
+    mLiq0 += rho1v[]*f[]*dv();
 
   /**
   We set the molecular weights of the chemial species
   involved in the simulation (by default inMW=1). */
 
-  for (int jj=0; jj<NLS; jj++)
+  foreach_elem (YGList, jj)
     inMW[jj] = OpenSMOKE_MW (jj);
 
   /**
@@ -171,38 +237,50 @@ event init (i = 0) {
   to the attribute *antoine* of the liquid phase mass
   fraction fields. */
 
+#ifdef USE_ANTOINE
   scalar YL = YLList[0];
   YL.antoine = antoine_heptane;
+#endif
 }
 
 /**
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-//event bcs (i = 0) {
-//  scalar C7 = YGList[0];
-//  scalar N2 = YGList[1];
-//
-//  C7[top] = dirichlet (0.);
-//  C7[right] = dirichlet (0.);
-//
-//  N2[top] = dirichlet (1.);
-//  N2[right] = dirichlet (1.);
-//
-//  TG[top] = dirichlet (TG0);
-//  TG[right] = dirichlet (TG0);
-//}
+event bcs (i = 0) {
+  scalar C7 = YGList[0];
+  scalar N2 = YGList[1];
+
+  C7[top] = dirichlet (0.);
+  C7[right] = dirichlet (0.);
+
+  N2[top] = dirichlet (1.);
+  N2[right] = dirichlet (1.);
+
+  TG[top] = dirichlet (TG0);
+  TG[right] = dirichlet (TG0);
+}
 
 /**
 We adapt the grid according to the mass fractions of the
 mass fraction of n-heptane, the temperature, and the
 velocity field. */
 
-#if TREE
 event adapt (i++) {
   scalar C7 = YList[0];
   adapt_wavelet_leave_interface ({C7,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.,1.e-2,1.e-2}, maxlevel, minlevel, 1);
+      (double[]){1.e-1,1.e0,1.e-3,1.e-3}, maxlevel, minlevel, 1);
+}
+
+/**
+We add the gravity contribution if the suspended droplet
+configuration is considered. */
+
+#ifdef PINNED
+event acceleration (i++) {
+  face vector av = a;
+  foreach_face(x)
+    av.x[] -= 9.81;
 }
 #endif
 
@@ -217,80 +295,34 @@ The following lines of code are for post-processing purposes. */
 We write on a file the squared diameter decay and the
 dimensionless time. */
 
-event output_data (i++) {
+event output_data (i++, last) {
   char name[80];
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
 
   scalar YInt_c7 = YGIntList[0];
   scalar Y_c7 = YList[0];
-  double effective_radius = pow(3.*statsf(f).sum, 1./3.);
-  double d_over_d02 = sq (effective_radius / effective_radius0);
 
-  double TIntavg = avg_interface (TInt, f);
-  double YIntavg = avg_interface (YInt_c7, f);
-  double Tavg = avg_interface (T, f);
-  double Yavg = avg_interface (Y_c7, f);
+  //double effective_radius = pow(3.*statsf(f).sum, 1./3.);
+  //d_over_d02 = sq (effective_radius / effective_radius0);
 
-  fprintf (fp, "%g %g %g %g %g %g %g\n",
-      t/sq (D0*1e3), effective_radius, d_over_d02, TIntavg, YIntavg, Tavg, Yavg);
+  double volume = 2.*pi*statsf(f).sum + volumecorr;
+  double effective_radius = pow (3./4./pi*volume, 1./3.);
+  d_over_d02 = sq (effective_radius / effective_radius0);
+
+  double TIntavg = avg_interface (TInt, f, 0.1);
+  double YIntavg = avg_interface (YInt_c7, f, 0.1);
+  double Tavg = avg_interface (T, f, 0.1);
+  double Yavg = avg_interface (Y_c7, f, 0.1);
+
+  double mLiq = 0.;
+  foreach(reduction(+:mLiq))
+    mLiq += rho1v[]*f[]*dv();
+
+  fprintf (fp, "%g %g %g %g %g %g %g %g\n",
+      t/sq(D0*1e3), effective_radius, d_over_d02, mLiq/mLiq0, TIntavg, YIntavg, Tavg, Yavg);
   fflush (fp);
 }
-
-///**
-//### Temperature and Mass Fraction Profiles
-//
-//We write on a file the temperature and mass fraction
-//profiles at different time instants. */
-//
-//event profiles (t = {3.29e-6, 3.e-5, 1.05e-4, 1.5e-4}) {
-//  char name[80];
-//  sprintf (name, "Profiles-%d", maxlevel);
-//
-//  /**
-//  We create an array with the temperature and mass
-//  fraction profiles for each processor. */
-//
-//  scalar C7 = YList[0];
-//
-//  Array * arrtemps = array_new();
-//  Array * arrmassf = array_new();
-//  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-//    double valt = interpolate (T, x, 0.);
-//    double valm = interpolate (C7, x, 0.);
-//    valt = (valt == nodata) ? 0. : valt;
-//    valm = (valm == nodata) ? 0. : valm;
-//    array_append (arrtemps, &valt, sizeof(double));
-//    array_append (arrmassf, &valm, sizeof(double));
-//  }
-//  double * temps = (double *)arrtemps->p;
-//  double * massf = (double *)arrmassf->p;
-//
-//  /**
-//  We sum each element of the arrays in every processor. */
-//
-//  @if _MPI
-//  int size = arrtemps->len/sizeof(double);
-//  MPI_Allreduce (MPI_IN_PLACE, temps, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-//  MPI_Allreduce (MPI_IN_PLACE, massf, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-//  @endif
-//
-//  /**
-//  The master node writes the profiles on a file. */
-//
-//  if (pid() == 0) {
-//    static FILE * fpp = fopen (name, "w");
-//    int count = 0;
-//    for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-//      fprintf (fpp, "%g %g %g\n", x, temps[count], massf[count]);
-//      count++;
-//    }
-//    fprintf (fpp, "\n\n");
-//    fflush (fpp);
-//  }
-//  array_free (arrtemps);
-//  array_free (arrmassf);
-//}
 
 /**
 ### Movie
@@ -299,34 +331,18 @@ We write the animation with the evolution of the
 n-heptane mass fraction, the interface position
 and the temperature field. */
 
-event movie (t += 2.e-6) {
-//event movie (t += 2.e-4) {
+event movie (t += 0.01; t <= 10) {
   clear();
   box();
-  view (ty = -0.5, width=1200.);
+  view (ty = -0.5);
   draw_vof ("f");
   squares ("NC7H16", min = 0., max = 1., linear = true);
-  mirror ({1.,0.}) {
-    draw_vof ("f");
-    squares ("T", min = statsf(T).min, max = TG0, linear = true);
-  }
   save ("movie.mp4");
 }
 
-event snapshots (t += 1.e-5) {
-  char name[80];
-  sprintf (name, "snapshot-%g", t);
-  dump (name);
-}
-
-#if TRACE > 1
-event profiling (i += 20) {
-  static FILE * fp = fopen ("profiling", "w");
-  trace_print (fp, 1);
-}
-#endif
-
-event stop (t = 1.6e-4) {
+event stop (i++) {
+  if (d_over_d02 <= 0.05)
+    return 1;
 }
 
 /**
@@ -360,7 +376,7 @@ plot "../data/pathak-heptane-T563-temp.csv" w p ps 2 t "Pathank et al., 2018", \
 
 ~~~gnuplot Evolution of the temperature profiles
 reset
-set xlabel "radius \mu m"
+set xlabel "radius [m] x10^{6}"
 set ylabel "Temperature [K]"
 set key bottom right
 set grid
@@ -377,7 +393,7 @@ plot "../data/pathak-heptane-T563-Tprofile-329e-6.csv" w p pt 8 lc 1 t "time = 3
 
 ~~~gnuplot Evolution of the n-heptane mass fraction profiles
 reset
-set xlabel "radius \mu m"
+set xlabel "radius [m] x10^{6}"
 set ylabel "Mass Fraction [-]"
 set key top right
 set grid

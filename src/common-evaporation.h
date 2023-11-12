@@ -161,11 +161,11 @@ double avg_neighbor (Point point, scalar Y, scalar f) {
 * *f*: vof volume fraction field
 */
 
-double avg_interface (scalar Y, scalar f) {
+double avg_interface (scalar Y, scalar f, double tol=F_ERR) {
   double Yavg = 0.;
   int counter = 0;
   foreach(reduction(+:Yavg) reduction(+:counter)) {
-    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+    if (f[] > tol && f[] < 1.-tol) {
       counter++;
       Yavg += Y[];
     }

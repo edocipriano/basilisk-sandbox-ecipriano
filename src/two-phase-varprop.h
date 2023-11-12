@@ -10,7 +10,7 @@ method. The volume fraction in fluid 1 is $f=1$ and $f=0$ in fluid
 2. The densities and dynamic viscosities for fluid 1 and 2 are *rho1*,
 *mu1*, *rho2*, *mu2*, respectively. */
 
-#include "vof-varprop.h"
+#include "vof.h"
 
 scalar f[], * interfaces = {f};
 double rho1 = 1., mu1 = 0., rho2 = 1., mu2 = 0.;
@@ -33,7 +33,7 @@ event defaults (i = 0) {
   If the viscosity is non-zero, we need to allocate the face-centered
   viscosity field. */
   
-  if (mu1 || mu2)
+  //if (mu1 || mu2)
     mu = new face vector;
 
   /**
@@ -103,7 +103,8 @@ event properties (i++)
     double rho2vh = rho2;
 #endif
     alphav.x[] = fm.x[]/aavg (ff, rho1vh, rho2vh);
-    if (mu1 || mu2) {
+    //if (mu1 || mu2) {
+    {
       face vector muv = mu;
 #ifdef VARPROP
       double mu1vh = 0.5*(mu1v[] + mu1v[-1]);

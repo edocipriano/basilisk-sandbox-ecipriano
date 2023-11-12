@@ -162,6 +162,18 @@ scalar * sgimpList = NULL;    // [NGS]
 scalar * JLList    = NULL;    // [NLS]
 scalar * JGList    = NULL;    // [NGS]
 #endif
+#ifdef VARPROP
+scalar * Dmix1List = NULL;    // [NLS]
+scalar * Dmix2List = NULL;    // [NGS]
+scalar * dhevList  = NULL;    // [NLS]
+#endif
+#ifdef MOLAR_DIFFUSION
+scalar * XLList    = NULL;    // [NLS]
+scalar * XGList    = NULL;    // [NGS]
+scalar * XLIntList = NULL;    // [NLS]
+scalar * XGIntList = NULL;    // [NGS]
+scalar * JGXList   = NULL;    // [NGS]
+#endif
 
 /**
 We declare useful fields used for loops over chemical
@@ -187,8 +199,22 @@ bool init_fields;
 scalar fG[], fL[], fuT[];
 face vector fsL[], fsG[];
 scalar f0[];
+scalar MW1mix[], MW2mix[];
 
 scalar divu[], fold[];
+
+/**
+Variable properties stuff. */
+
+#ifdef VARPROP
+scalar dummy[];
+scalar frho1r[], frho2r[];
+scalar frho1[], frho2[];
+scalar frhocp1r[], frhocp2r[];
+scalar frhocp1[], frhocp2[];
+scalar frhocp1r0[], frhocp2r0[];
+scalar rho1v0[], rho2v0[];
+#endif
 
 /**
 ## Defaults
@@ -257,6 +283,18 @@ event defaults (i = 0)
 #ifdef FICK_CORRECTED
   JLList    = NULL;
   JGList    = NULL;
+#endif
+#ifdef VARPROP
+  Dmix1List = NULL;
+  Dmix2List = NULL;
+  dhevList  = NULL;
+#endif
+#ifdef MOLAR_DIFFUSION
+  XLList    = NULL;
+  XGList    = NULL;
+  XLIntList = NULL;
+  XGIntList = NULL;
+  JGXList   = NULL;
 #endif
 
   for (int jj=0; jj<NLS; jj++) {
@@ -381,6 +419,96 @@ event defaults (i = 0)
   reset (JGList, 0.);
 #endif
 
+#ifdef VARPROP
+  for (int jj=0; jj<NLS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "Dmix1_%s", liq_species[jj]);
+    a.name = strdup (name);
+    //a.nodump = true;
+    Dmix1List = list_append (Dmix1List, a);
+  }
+  for (int jj=0; jj<NGS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "Dmix2_%s", gas_species[jj]);
+    a.name = strdup (name);
+    //a.nodump = true;
+    Dmix2List = list_append (Dmix2List, a);
+  }
+  reset (Dmix1List, 0.);
+  reset (Dmix2List, 0.);
+
+  for (int jj=0; jj<NLS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "dhev_%s", liq_species[jj]);
+    a.name = strdup (name);
+    //a.nodump = true;
+    dhevList = list_append (dhevList, a);
+  }
+  reset (dhevList, 0.);
+#endif
+#ifdef MOLAR_DIFFUSION
+  for (int jj=0; jj<NLS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "XL_%s", liq_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    XLList = list_append (XLList, a);
+  }
+  reset (XLList, 0.);
+
+  for (int jj=0; jj<NGS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "XG_%s", gas_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    XGList = list_append (XGList, a);
+  }
+  reset (XGList, 0.);
+
+  for (int jj=0; jj<NLS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "XLInt_%s", liq_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    XLIntList = list_append (XLIntList, a);
+  }
+  reset (XLIntList, 0.);
+
+  for (int jj=0; jj<NGS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "XGInt_%s", gas_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    XGIntList = list_append (XGIntList, a);
+  }
+  reset (XGIntList, 0.);
+
+  for (int jj=0; jj<NGS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "JGX_%s", gas_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    JGXList = list_append (JGXList, a);
+  }
+  reset (JGXList, 0.);
+#endif
+
   fL.nodump = true;
   fG.nodump = true;
 
@@ -390,12 +518,42 @@ event defaults (i = 0)
   for (scalar s in YLList)
     s.inverse = false;
 
+#ifdef MOLAR_DIFFUSION
+  for (scalar s in XGList)
+    s.inverse = true;
+
+  for (scalar s in XLList)
+    s.inverse = false;
+#endif
+
   /**
   We restore to NULL the tracers associated with fu
   and fuext in order to re-run simulations correctly. */
 
   fuext.tracers = NULL;
   fu.tracers    = NULL;
+
+#ifdef VARPROP
+  //frho1r.inverse = false;
+  //frho2r.inverse = true;
+  //frhocp1r.inverse = false;
+  //frhocp2r.inverse = true;
+
+  //scalar * forig = list_copy (f.tracers);
+  //free (f.tracers);
+  //f.tracers = list_concat (forig, {frho1r,frho2r,frhocp1r,frhocp2r});
+  //free (forig);
+
+  //frho1.inverse = false;
+  //frho2.inverse = true;
+  //frhocp1.inverse = false;
+  //frhocp2.inverse = true;
+
+  //fuext.tracers = list_concat (fuext.tracers, {frho1});
+  //fuext.tracers = list_concat (fuext.tracers, {frhocp1});
+  //fu.tracers = list_concat (fu.tracers, {frho2});
+  //fu.tracers = list_concat (fu.tracers, {frhocp2});
+#endif
 
 #ifdef CONSISTENTPHASE1
   fuext.tracers = list_concat (fuext.tracers, YLList);
@@ -475,6 +633,65 @@ event defaults (i = 0)
     inMW[jj] = 1.;
 
   init_fields = true;
+
+#ifdef VARPROP
+  if (is_constant (rho2v)) {
+    scalar * l = list_copy (all);
+    rho2v = new scalar;
+    free (all);
+    all = list_concat ({rho2v}, l);
+    free (l);
+  }
+  if (is_constant (mu2v)) {
+    scalar * l = list_copy (all);
+    mu2v = new scalar;
+    free (all);
+    all = list_concat ({mu2v}, l);
+    free (l);
+  }
+  if (is_constant (cp2v)) {
+    scalar * l = list_copy (all);
+    cp2v = new scalar;
+    free (all);
+    all = list_concat ({cp2v}, l);
+    free (l);
+  }
+  if (is_constant (lambda2v)) {
+    scalar * l = list_copy (all);
+    lambda2v = new scalar;
+    free (all);
+    all = list_concat ({lambda2v}, l);
+    free (l);
+  }
+  if (is_constant (rho1v)) {
+    scalar * l = list_copy (all);
+    rho1v = new scalar;
+    free (all);
+    all = list_concat ({rho1v}, l);
+    free (l);
+  }
+  if (is_constant (mu1v)) {
+    scalar * l = list_copy (all);
+    mu1v = new scalar;
+    free (all);
+    all = list_concat ({mu1v}, l);
+    free (l);
+  }
+  if (is_constant (cp1v)) {
+    scalar * l = list_copy (all);
+    cp1v = new scalar;
+    free (all);
+    all = list_concat ({cp1v}, l);
+    free (l);
+  }
+  if (is_constant (lambda1v)) {
+    scalar * l = list_copy (all);
+    lambda1v = new scalar;
+    free (all);
+    all = list_concat ({lambda1v}, l);
+    free (l);
+  }
+#endif
 }
 
 /**
@@ -571,6 +788,13 @@ event cleanup (t = end)
   delete (JLList), free (JLList), JLList = NULL;
   delete (JGList), free (JGList), JGList = NULL;
 #endif
+#ifdef MOLAR_DIFFUSION
+  delete (XLList), free (XLList), XLList = NULL;
+  delete (XGList), free (XGList), XGList = NULL;
+  delete (XLIntList), free (XLIntList), XLIntList = NULL;
+  delete (XGIntList), free (XGIntList), XGIntList = NULL;
+  delete (JGXList), free (JGXList), JGXList = NULL;
+#endif
   delete (fu.tracers), free (fu.tracers), fu.tracers = NULL;
   delete (fuext.tracers), free (fuext.tracers), fuext.tracers = NULL;
   free (LSI);
@@ -579,6 +803,66 @@ event cleanup (t = end)
   delete ({TL,TG});
 #endif
 }
+
+/**
+## Helper functions
+
+We define a function which is used to update the mixture molecular
+weight and the mole fractions (if needed). */
+
+void update_mw_moles (void) {
+  double MW1[NLS], MW2[NGS];
+  foreach_elem (YLList, jj)
+    MW1[jj] = inMW[LSI[jj]];
+  foreach_elem (YGList, jj)
+    MW2[jj] = inMW[jj];
+
+#ifdef MOLAR_DIFFUSION
+  reset (XLList, 0.);
+  reset (XGList, 0.);
+  reset ({MW1mix,MW2mix}, 0.);
+#endif
+
+  foreach() {
+    if (f[] > F_ERR) {
+      double x1[NLS], y1[NLS];
+      foreach_elem (YLList, jj) {
+        scalar YL = YLList[jj];
+        y1[jj] = (NLS == 1) ? 1. : YL[];
+      }
+      correctfrac (y1, NLS);
+      mass2molefrac (x1, y1, MW1, NLS);
+      MW1mix[] = mass2mw (y1, MW1, NLS);
+#ifdef MOLAR_DIFFUSION
+      foreach_elem (XLList, jj) {
+        scalar XL = XLList[jj];
+        XL[] = x1[jj];
+      }
+#endif
+    }
+
+    if ((1. - f[]) > F_ERR) {
+      double x2[NGS], y2[NGS];
+      foreach_elem (YGList, jj) {
+        scalar YG = YGList[jj];
+        y2[jj] = YG[];
+      }
+      correctfrac (y2, NGS);
+      mass2molefrac (x2, y2, MW2, NGS);
+      MW2mix[] = mass2mw (y2, MW2, NGS);
+#ifdef MOLAR_DIFFUSION
+      foreach_elem (XGList, jj) {
+        scalar XG = XGList[jj];
+        XG[] = x2[jj];
+      }
+#endif
+    }
+  }
+}
+
+#ifdef VARPROP
+# include "update-properties.h"
+#endif
 
 /**
 ## Phase Change
@@ -615,9 +899,17 @@ event phasechange (i++)
 
     for (int jj=0; jj<NGS; jj++) {
       scalar YG = YGList[jj];
-        YG[] = ((1. - f[]) > F_ERR) ? YG[]/(1. - f[]) : 0.;
+      YG[] = ((1. - f[]) > F_ERR) ? YG[]/(1. - f[]) : 0.;
     }
   }
+
+  /**
+  We compute the mole fraction fields if the diffusivity is
+  molar-based. */
+
+#ifdef MOLAR_DIFFUSION
+  update_mw_moles();
+#endif
 
   /**
   We compute the value of volume fraction *f* on the
@@ -711,6 +1003,12 @@ event phasechange (i++)
         YLIntConv[jj] = avg_neighbor (point, YL, f);
       }
       mass2molefrac (XLIntConv, YLIntConv, inMWL, NLS);
+#ifdef MOLAR_DIFFUSION
+      foreach_elem (XLIntList, jj) {
+        scalar XLInt = XLIntList[jj];
+        XLInt[] = XLIntConv[jj];
+      }
+#endif
 
       /**
       We compute *XGInt* from the thermodynamic equilibrium.
@@ -722,11 +1020,20 @@ event phasechange (i++)
       for (int jj=0; jj<NLS; jj++) {
         XGIntConv[jj] = inKeq[jj]*XLIntConv[jj];
 #ifdef USE_CLAPEYRON
-        XGIntConv[jj] = clapeyron (min (TInt[], Tboil[jj]-1.), Tboil[jj], dhev, inMW[jj])*XLIntConv[jj];
+        double dhevvh = dhev;
+# ifdef VARPROP
+        scalar dhevjj = dhevList[jj];
+        dhevvh = dhevjj[];
+# endif
+        XGIntConv[jj] = clapeyron (min (TInt[], Tboil[jj]-1.),
+            Tboil[jj], dhevvh, inMW[jj])*XLIntConv[jj];
 #endif
 #ifdef USE_ANTOINE
         scalar YL = YLList[jj];
         XGIntConv[jj] = min (YL.antoine (TInt[], Pref), 0.98)*XLIntConv[jj];
+#endif
+#ifdef USE_ANTOINE_OPENSMOKE
+        XGIntConv[jj] = min (opensmoke_antoine (TInt[], Pref, jj), 0.98)*XLIntConv[jj];
 #endif
         sumXGi += XGIntConv[jj];
       }
@@ -741,6 +1048,10 @@ event phasechange (i++)
       for (int jj=0; jj<NLS; jj++) {
         scalar YGInt = YGIntList[LSI[jj]];
         YGInt[] = YGIntConv[jj];
+#ifdef MOLAR_DIFFUSION
+        scalar XGInt = XGIntList[LSI[jj]];
+        XGInt[] = XGIntConv[jj];
+#endif
       }
 
       /**
@@ -765,16 +1076,53 @@ event phasechange (i++)
       }
 
       /**
+      We repeat the same operations to close the molar fractions of the
+      gas-only species in the system. */
+
+#ifdef MOLAR_DIFFUSION
+      double xGinorm[NGOS];
+      double sumXGigo = 0., sumXGl = 0.;
+      if (f[] > F_ERR && f[] < 1.-F_ERR) {
+        for (int jj=0; jj<NLS; jj++) {
+          sumXGl += XGIntConv[jj];
+        }
+        for (int jj=0; jj<NGOS; jj++) {
+          scalar XG = XGList[GOSI[jj]];
+          xGinorm[jj] = XG[];
+          sumXGigo += xGinorm[jj];
+        }
+        for (int jj=0; jj<NGOS; jj++) {
+          scalar XGInt = XGIntList[GOSI[jj]];
+          XGInt[] = (1. - sumXGl)*xGinorm[jj]/(sumXGigo + 1.e-10);
+        }
+      }
+#endif
+
+      /**
       We compute the sum of the diffusive fluxes in gas phase, to be
       used for the Fick corrected approach. */
 
       double jGtot = 0.;
 #ifdef FICK_CORRECTED
       for (int jj=0; jj<NGS; jj++) {
+        double rho2vh = rho2;
+        double inDmix2vh = inDmix2[jj];
+# ifdef VARPROP
+        rho2vh = rho2v[];
+        scalar Dmix2v = Dmix2List[jj];
+        inDmix2vh = Dmix2v[];
+# endif
+# ifdef MOLAR_DIFFUSION
+        scalar XGInt = XGIntList[jj];
+        scalar XG    = XGList[jj];
+        double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInt[], &success);
+        gtrgrad *= (MW2mix[] > 0.) ? inMW[jj]/MW2mix[] : 0.;
+# else
         scalar YGInt = YGIntList[jj];
         scalar YG    = YGList[jj];
         double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
-        jGtot += -rho2*inDmix2[jj]*gtrgrad;
+# endif
+        jGtot += -rho2vh*inDmix2vh*gtrgrad;
       }
 #endif
 
@@ -786,16 +1134,33 @@ event phasechange (i++)
       double sum_jG = 0., sum_YGInt = 0.;
 
       for (int jj=0; jj<NLS; jj++) {
+        //scalar YGInt = YGIntList[LSI[jj]];
+        //scalar YLInt = YLIntList[jj];
+        //scalar YL    = YLList[jj];
+        //scalar YG    = YGList[LSI[jj]];
+
+        //YLInt[] = avg_neighbor (point, YL, f);
+        //YGInt[] = YGIntConv[jj];
+
+        double rho2vh = rho2;
+        double inDmix2vh = inDmix2[LSI[jj]];
+#ifdef VARPROP
+        rho2vh = rho2v[];
+        scalar Dmix2v = Dmix2List[LSI[jj]];
+        inDmix2vh = Dmix2v[];
+#endif
+
         scalar YGInt = YGIntList[LSI[jj]];
-        scalar YLInt = YLIntList[jj];
-        scalar YL    = YLList[jj];
+#ifdef MOLAR_DIFFUSION
+        scalar XGInt = XGIntList[LSI[jj]];
+        scalar XG    = XGList[LSI[jj]];
+        double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInt[], &success);
+        gtrgrad *= (MW2mix[] > 0.) ? inMW[LSI[jj]]/MW2mix[] : 0.;
+#else
         scalar YG    = YGList[LSI[jj]];
-
-        YLInt[] = avg_neighbor (point, YL, f);
-        YGInt[] = YGIntConv[jj];
-
         double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
-        sum_jG += -rho2*inDmix2[LSI[jj]]*gtrgrad - YGInt[]*jGtot;
+#endif
+        sum_jG += -rho2vh*inDmix2vh*gtrgrad - YGInt[]*jGtot;
         sum_YGInt += YGInt[];
       }
 #ifdef DIFFUSIVE
@@ -816,23 +1181,54 @@ event phasechange (i++)
       double jGtot = 0.;
 #ifdef FICK_CORRECTED
       for (int jj=0; jj<NGS; jj++) {
+        double rho2vh = rho2;
+        double inDmix2vh = inDmix2[jj];
+# ifdef VARPROP
+        rho2vh = rho2v[];
+        scalar Dmix2v = Dmix2List[jj];
+        inDmix2vh = Dmix2v[];
+# endif
+
+# ifdef MOLAR_DIFFUSION
+        scalar XGInt = XGIntList[jj];
+        scalar XG    = XGList[jj];
+        double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInt[], &success);
+        gtrgrad *= (MW2mix[] > 0.) ? inMW[jj]/MW2mix[] : 0.;
+# else
         scalar YGInt = YGIntList[jj];
         scalar YG    = YGList[jj];
         double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
-        jGtot += -rho2*inDmix2[jj]*gtrgrad;
+# endif
+        jGtot += -rho2vh*inDmix2vh*gtrgrad;
       }
 #endif
 
       for (int jj=0; jj<NLS; jj++) {
         scalar mEvap = mEvapList[LSI[jj]];
-        scalar YG    = YGList[LSI[jj]];
         scalar YGInt = YGIntList[LSI[jj]];
 
-        double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
-#ifdef DIFFUSIVE
-        mEvap[] = - rho2*inDmix2[LSI[jj]]*gtrgrad - YGInt[]*jGtot;
+        double rho2vh = rho2;
+        double inDmix2vh = inDmix2[LSI[jj]];
+#ifdef VARPROP
+        rho2vh = rho2v[];
+        scalar Dmix2v = Dmix2List[LSI[jj]];
+        inDmix2vh = Dmix2v[];
+#endif
+
+#ifdef MOLAR_DIFFUSION
+        scalar XGInt = XGIntList[LSI[jj]];
+        scalar XG    = XGList[LSI[jj]];
+        double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInt[], &success);
+        gtrgrad *= (MW2mix[] > 0.) ? inMW[LSI[jj]]/MW2mix[] : 0.;
 #else
-        mEvap[] = mEvapTot[]*YGInt[] - rho2*inDmix2[LSI[jj]]*gtrgrad - YGInt[]*jGtot;
+        scalar YG    = YGList[LSI[jj]];
+        double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
+#endif
+
+#ifdef DIFFUSIVE
+        mEvap[] = - rho2vh*inDmix2vh*gtrgrad - YGInt[]*jGtot;
+#else
+        mEvap[] = mEvapTot[]*YGInt[] - rho2vh*inDmix2vh*gtrgrad - YGInt[]*jGtot;
 #endif
       }
     }
@@ -872,9 +1268,21 @@ event phasechange (i++)
       scalar JL = JLList[jj];
 
       JL[] = 0.;
-      foreach_dimension()
-        JL[] += (inDmix1[jj]*face_gradient_x (YL, 1)*fsL.x[1]*fm.x[1] -
-            inDmix1[jj]*face_gradient_x (YL, 0)*fsL.x[]*fm.x[])/Delta;
+      foreach_dimension() {
+#ifdef VARPROP
+        double rho1vhr = 0.5*(rho1v[1] + rho1v[]);
+        double rho1vhl = 0.5*(rho1v[] + rho1v[-1]);
+        scalar Dmix1v = Dmix1List[jj];
+        double inDmix1vhr = 0.5*(Dmix1v[1] + Dmix1v[]);
+        double inDmix1vhl = 0.5*(Dmix1v[] + Dmix1v[-1]);
+
+        JL[] += (rho1vhr*inDmix1vhr*face_gradient_x (YL, 1)*fsL.x[1]*fm.x[1] -
+            rho1vhl*inDmix1vhl*face_gradient_x (YL, 0)*fsL.x[]*fm.x[])/Delta;
+#else
+        JL[] += (rho1*inDmix1[jj]*face_gradient_x (YL, 1)*fsL.x[1]*fm.x[1] -
+            rho1*inDmix1[jj]*face_gradient_x (YL, 0)*fsL.x[]*fm.x[])/Delta;
+#endif
+      }
     }
 
     foreach_elem (YGList, jj) {
@@ -882,9 +1290,21 @@ event phasechange (i++)
       scalar JG = JGList[jj];
 
       JG[] = 0.;
-      foreach_dimension()
-        JG[] += (inDmix2[jj]*face_gradient_x (YG, 1)*fsG.x[1]*fm.x[1] -
-            inDmix2[jj]*face_gradient_x (YG, 0)*fsG.x[]*fm.x[])/Delta;
+      foreach_dimension() {
+#ifdef VARPROP
+        double rho2vhr = 0.5*(rho2v[1] + rho2v[]);
+        double rho2vhl = 0.5*(rho2v[] + rho2v[-1]);
+        scalar Dmix2v = Dmix2List[jj];
+        double inDmix2vhr = 0.5*(Dmix2v[1] + Dmix2v[]);
+        double inDmix2vhl = 0.5*(Dmix2v[] + Dmix2v[-1]);
+
+        JG[] += (rho2vhr*inDmix2vhr*face_gradient_x (YG, 1)*fsG.x[1]*fm.x[1] -
+            rho2vhl*inDmix2vhl*face_gradient_x (YG, 0)*fsG.x[]*fm.x[])/Delta;
+#else
+        JG[] += (rho2*inDmix2[jj]*face_gradient_x (YG, 1)*fsG.x[1]*fm.x[1] -
+            rho2*inDmix2[jj]*face_gradient_x (YG, 0)*fsG.x[]*fm.x[])/Delta;
+#endif
+      }
     }
   }
 
@@ -896,6 +1316,45 @@ event phasechange (i++)
       JLtot[] -= JL[]*cm[];
     for (scalar JG in JGList)
       JGtot[] -= JG[]*cm[];
+  }
+#endif
+
+#ifdef MOLAR_DIFFUSION
+  foreach() {
+    foreach_elem (YGList, jj) {
+      scalar JGX = JGXList[jj];
+      scalar YG = YGList[jj];
+      JGX[] = 0.;
+      foreach_elem (YGList, kk) {
+        //if (jj != kk) {
+        {
+          scalar YGk = YGList[kk];
+          foreach_dimension() {
+            double MW2mixvhr = 0.5*(MW2mix[1] + MW2mix[]);
+            double MW2mixvhl = 0.5*(MW2mix[] + MW2mix[-1]);
+            double YGvhr = 0.5*(YG[1] + YG[]);
+            double YGvhl = 0.5*(YG[] + YG[-1]);
+
+            double corrmolevhr = MW2mixvhr/inMW[kk]*YGvhr;
+            double corrmolevhl = MW2mixvhl/inMW[kk]*YGvhl;
+# ifdef VARPROP
+            double rho2vhr = 0.5*(rho2v[1] + rho2v[]);
+            double rho2vhl = 0.5*(rho2v[] + rho2v[-1]);
+            scalar Dmix2v = Dmix2List[jj];
+            double inDmix2vhr = 0.5*(Dmix2v[1] + Dmix2v[]);
+            double inDmix2vhl = 0.5*(Dmix2v[] + Dmix2v[-1]);
+
+            JGX[] += (rho2vhr*inDmix2vhr*corrmolevhr*face_gradient_x (YGk, 1)*fsG.x[1]*fm.x[1] -
+                rho2vhl*inDmix2vhl*corrmolevhl*face_gradient_x (YGk, 0)*fsG.x[]*fm.x[])/Delta;
+# else
+            JGX[] += (rho2*inDmix2[jj]*corrmolevhr*face_gradient_x (YGk, 1)*fsG.x[1]*fm.x[1] -
+                rho2*inDmix2[jj]*corrmolevhl*face_gradient_x (YGk, 0)*fsG.x[]*fm.x[])/Delta;
+# endif
+          }
+        }
+      }
+      JGX[] *= cm[];
+    }
   }
 #endif
 
@@ -932,11 +1391,15 @@ event phasechange (i++)
         scalar mEvap = mEvapList[jj];
 
 #ifdef AXI
-        sgexp[] = -mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        sgimp[] = +mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //sgexp[] = -mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //sgimp[] = +mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        sgexp[] = -mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        sgimp[] = +mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        sgexp[] = -mEvap[]/rho2*area/Delta*cm[];
-        sgimp[] = +mEvapTot[]/rho2*area/Delta*cm[];
+        //sgexp[] = -mEvap[]/rho2*area/Delta*cm[];
+        //sgimp[] = +mEvapTot[]/rho2*area/Delta*cm[];
+        sgexp[] = -mEvap[]*area/Delta*cm[];
+        sgimp[] = +mEvapTot[]*area/Delta*cm[];
 #endif
       }
 
@@ -946,11 +1409,15 @@ event phasechange (i++)
         scalar mEvap = mEvapList[LSI[jj]];
 
 #ifdef AXI
-        slexp[] = +mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        slimp[] = -mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //slexp[] = +mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //slimp[] = -mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        slexp[] = +mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        slimp[] = -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        slexp[] = +mEvap[]/rho1*area/Delta*cm[];
-        slimp[] = -mEvapTot[]/rho1*area/Delta*cm[];
+        //slexp[] = +mEvap[]/rho1*area/Delta*cm[];
+        //slimp[] = -mEvapTot[]/rho1*area/Delta*cm[];
+        slexp[] = +mEvap[]*area/Delta*cm[];
+        slimp[] = -mEvapTot[]*area/Delta*cm[];
 #endif
       }
     }
@@ -969,7 +1436,20 @@ event phasechange (i++)
       sgexp[] += JGtot[]*YG[];
     }
 #endif
+#ifdef MOLAR_DIFFUSION
+    foreach_elem (YGList, jj) {
+      scalar JGX = JGXList[jj];
+      scalar sgexp = sgexpList[jj];
+
+      sgexp[] -= JGX[];
+    }
+#endif
   }
+
+#ifdef VARPROP
+  update_properties();
+  update_divergence();
+#endif
 
   /**
   We restore the tracer form of the liquid and gas-phase
@@ -1029,6 +1509,10 @@ event tracer_diffusion (i++)
 #endif
   }
 
+#ifdef MOLAR_DIFFUSION
+  update_mw_moles();
+#endif
+
   /**
   We compute the value of volume fraction *f* on the
   cell-faces using a geometric approach (necessary
@@ -1052,11 +1536,24 @@ event tracer_diffusion (i++)
 
   for (int jj=0; jj<NLS; jj++) {
     face vector Dmix1f[];
-    foreach_face()
-      Dmix1f.x[] = inDmix1[jj]*fsL.x[]*fm.x[];
+    foreach_face() {
+#ifdef VARPROP
+      scalar Dmix1jj = Dmix1List[jj];
+      double Dmix1vh = 0.5*(Dmix1jj[] + Dmix1jj[-1]);
+      double rho1vh = 0.5*(rho1v[] + rho1v[-1]);
+      Dmix1f.x[] = rho1vh*Dmix1vh*fsL.x[]*fm.x[];
+#else
+      Dmix1f.x[] = rho1*inDmix1[jj]*fsL.x[]*fm.x[];
+      //Dmix1f.x[] = inDmix1[jj]*fsL.x[]*fm.x[];
+#endif
+    }
 
     foreach()
-      theta1[] = cm[]*max(fL[], F_ERR);
+#ifdef VARPROP
+      theta1[] = cm[]*max(rho1v[]*fL[], F_ERR);
+#else
+      theta1[] = cm[]*max(rho1*fL[], F_ERR);
+#endif
 
     scalar YL = YLList[jj];
     scalar slexp = slexpList[jj];
@@ -1073,11 +1570,32 @@ event tracer_diffusion (i++)
   for (int jj=0; jj<NGS; jj++) {
 
     face vector Dmix2f[];
-    foreach_face()
-      Dmix2f.x[] = inDmix2[jj]*fsG.x[]*fm.x[];
+    foreach_face() {
+#ifdef VARPROP
+      scalar Dmix2v = Dmix2List[jj];
+      double Dmix2vh = 0.5*(Dmix2v[] + Dmix2v[-1]);
+      double rho2vh = 0.5*(rho2v[] + rho2v[-1]);
+      Dmix2f.x[] = rho2vh*Dmix2vh*fsG.x[]*fm.x[];
+
+//# ifdef MOLAR_DIFFUSION
+//      scalar YG = YGList[jj];
+//      double MW2mixvh = 0.5*(MW2mix[] + MW2mix[-1]);
+//      double YGvh = 0.5*(YG[] + YG[-1]);
+//      Dmix2f.x[] *= (1. - MW2mixvh/inMW[jj]*YGvh);
+//# endif
+
+#else
+      Dmix2f.x[] = rho2*inDmix2[jj]*fsG.x[]*fm.x[];
+      //Dmix2f.x[] = inDmix2[jj]*fsG.x[]*fm.x[];
+#endif
+    }
 
     foreach()
-      theta2[] = cm[]*max(fG[], F_ERR);
+#ifdef VARPROP
+      theta2[] = cm[]*max(rho2v[]*fG[], F_ERR);
+#else
+      theta2[] = cm[]*max(rho2*fG[], F_ERR);
+#endif
 
     scalar YG = YGList[jj];
     scalar sgexp = sgexpList[jj];
@@ -1094,8 +1612,19 @@ event tracer_diffusion (i++)
 #ifdef SOLVE_TEMPERATURE
 
   foreach_face() {
+#ifdef VARPROP
+    double alpha1l = (rho1v[] != 0.) ? lambda1v[]/rho1v[]/cp1v[] : 0.;
+    double alpha2l = (rho2v[] != 0.) ? lambda2v[]/rho2v[]/cp2v[] : 0.;
+    double alpha1r = (rho1v[-1] != 0.) ? lambda1v[-1]/rho1v[-1]/cp1v[-1] : 0.;
+    double alpha2r = (rho2v[-1] != 0.) ? lambda2v[-1]/rho2v[-1]/cp2v[-1] : 0.;
+    lambda1f.x[] = 0.5*(alpha1r + alpha1l)*fsL.x[]*fm.x[];
+    lambda2f.x[] = 0.5*(alpha2r + alpha2l)*fsG.x[]*fm.x[];
+#else
     lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
     lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
+    //lambda1f.x[] = lambda1*fsL.x[]*fm.x[];
+    //lambda2f.x[] = lambda2*fsG.x[]*fm.x[];
+#endif
   }
 
   /**
@@ -1116,26 +1645,41 @@ event tracer_diffusion (i++)
       double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
       double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
 
-      double lheatflux = lambda1*ltrgrad;
-      double gheatflux = lambda2*gtrgrad;
+      double rho1vh = rho1;
+      double rho2vh = rho2;
+      double cp1vh = cp1;
+      double cp2vh = cp2;
+      double lambda1vh = lambda1;
+      double lambda2vh = lambda2;
+#ifdef VARPROP
+      rho1vh = rho1v[];
+      rho2vh = rho2v[];
+      cp1vh = cp1v[];
+      cp2vh = cp2v[];
+      lambda1vh = lambda1v[];
+      lambda2vh = lambda2v[];
+#endif
+      double lheatflux = lambda1vh*ltrgrad;
+      double gheatflux = lambda2vh*gtrgrad;
 
 #ifdef AXI
-      slT[] = lheatflux/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgT[] = gheatflux/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      slTimp[] = mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgTimp[] = mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      slT[] = lheatflux/rho1vh/cp1vh*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgT[] = gheatflux/rho2vh/cp2vh*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-      slT[] = lheatflux/rho1/cp1*area/Delta*cm[];
-      sgT[] = gheatflux/rho2/cp2*area/Delta*cm[];
-      slTimp[] = mEvapTot[]/rho1*area/Delta*cm[];
-      sgTimp[] = mEvapTot[]/rho2*area/Delta*cm[];
+      slT[] = lheatflux/rho1vh/cp1vh*area/Delta*cm[];
+      sgT[] = gheatflux/rho2vh/cp2vh*area/Delta*cm[];
 #endif
     }
   }
 
   foreach() {
+#ifdef VARPROP
     theta1[] = cm[]*max(fL[], F_ERR);
     theta2[] = cm[]*max(fG[], F_ERR);
+#else
+    theta1[] = cm[]*max(fL[], F_ERR);
+    theta2[] = cm[]*max(fG[], F_ERR);
+#endif
   }
 
   /**
@@ -1176,7 +1720,7 @@ event tracer_diffusion (i++)
   /**
   We reconstruct the volume-averaged mass fractions and
   the one-field mass fraction field. */
-  
+
   foreach() {
     for (scalar YL in YLList) {
       YL[] = clamp (YL[], 0., 1.);

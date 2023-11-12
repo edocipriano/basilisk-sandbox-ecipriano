@@ -252,10 +252,14 @@ void Equations (const double * xdata, double * fdata, void * params) {
     vapheat -= dhev*mEvapi[jj];
 
   fdata[count++] = vapheat
+# ifdef VARPROP
+                 + lambda1v[]*gradTLn
+                 + lambda2v[]*gradTGn
+# else
                  + lambda1*gradTLn
                  + lambda2*gradTGn
+# endif
                  ;
-
 #endif
 }
 
@@ -433,8 +437,8 @@ void ijc_CoupledTemperature ()
 
 void EqBoilingTemperature (const double * xdata, double * fdata, void * params) {
   double Tb = xdata[0];
-  double * xc = (double *)params;
 #ifdef USE_ANTOINE
+  double * xc = (double *)params;
   double sumKeq = 0.;
   foreach_elem (YLList, jj) {
     scalar YL = YLList[jj];

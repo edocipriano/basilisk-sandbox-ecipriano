@@ -115,7 +115,7 @@ mgstats project_sf (face vector uf, scalar p,
   foreach() {
     div[] += stefanflow[]/dt;
 #ifdef VARPROP
-    div[] -= drhodt[]/dt;
+    div[] += drhodt[]/dt;
 #endif
   }
 

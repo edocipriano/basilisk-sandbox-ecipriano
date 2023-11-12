@@ -120,7 +120,6 @@ event init (i = 0)
     fu[] = f[];
     fuext[] = f[];
   }
-  //boundary({fu,fuext});
 }
 
 /**
@@ -151,7 +150,6 @@ event phasechange (i++)
     fu[] = f[];
     fuext[] = f[];
   }
-  //boundary({fu,fuext});
 
   /**
   We compute the total vaporization mass-flowrate *mEvapTot*. */
@@ -300,21 +298,18 @@ event vof (i++)
       uf.x[] -= vpc.x[];
 #endif
   }
-  //boundary((scalar*){uf});
 
   // It can be useful to compute the stability
   // conditions based on this modified velocity
   event ("stability");
 
   vof_advection ({f}, i);
-  //boundary ({f});
 
   /**
   We restore the value of the $\mathbf{uf}$ velocity field. */
 
   foreach_face()
     uf.x[] = uf_save.x[];
-  //boundary((scalar *){uf});
 
   /**
   We set the list of interfaces to NULL so that the default *vof()*
@@ -345,25 +340,35 @@ event tracer_advection (i++)
     uf_save.x[] = uf.x[];
     uf.x[] = ufext.x[];
   }
-  //boundary((scalar *){uf});
 
   /**
   We call the vof_advection function to transport
   the volume fraction *fuext* and associated tracers. */
 
   vof_advection ({fuext}, i);
-  //boundary({fuext});
 
+#ifdef VELOCITY_JUMP
+  foreach_face()
+# ifdef BOILING_SETUP
+    uf.x[] = uf1.x[];
+# else
+    uf.x[] = uf2.x[];
+# endif
+#else
   foreach_face()
     uf.x[] = uf_save.x[];
-  //boundary({uf});
+#endif
 
   /**
   We call the vof_advection function to transport
   the volume fraction *fu* and associated tracers. */
 
   vof_advection ({fu}, i);
-  //boundary({fu});
+
+#ifdef VELOCITY_JUMP
+  foreach_face()
+    uf.x[] = uf_save.x[];
+#endif
 
   /**
   We restore the original list of interfaces, which is

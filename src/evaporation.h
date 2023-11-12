@@ -328,14 +328,28 @@ event tracer_advection (i++)
 
   vof_advection ({fuext}, i);
 
+#ifdef VELOCITY_JUMP
+  foreach_face()
+# ifdef BOILING_SETUP
+    uf.x[] = uf1.x[];
+# else
+    uf.x[] = uf2.x[];
+# endif
+#else
   foreach_face()
     uf.x[] = uf_save.x[];
+#endif
 
   /**
   We call the vof_advection function to transport
   the volume fraction *fu* and associated tracers. */
 
   vof_advection ({fu}, i);
+
+#ifdef VELOCITY_JUMP
+  foreach_face()
+    uf.x[] = uf_save.x[];
+#endif
 
   /**
   We restore the original list of interfaces, which is

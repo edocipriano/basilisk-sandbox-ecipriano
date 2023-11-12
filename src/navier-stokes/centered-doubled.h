@@ -60,6 +60,9 @@ step with the volume expansion term due to the phase
 change. */
 
 extern scalar stefanflowext;
+#ifdef VARPROP
+scalar drhodtext[];
+#endif
 
 trace
 mgstats project_sfext (face vector uf, scalar p,
@@ -84,12 +87,13 @@ mgstats project_sfext (face vector uf, scalar p,
   /**
   We add the volume expansion contribution. */
 
+  extern scalar drhodtext;
   foreach() {
 #ifdef EXT_STEFANFLOW
     div[] += stefanflowext[]/dt;
 #endif
 #ifdef VARPROP
-    div[] += drhodt[]/dt;
+    div[] += drhodtext[]/dt;
 #endif
   }
 

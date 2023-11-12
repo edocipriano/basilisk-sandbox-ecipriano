@@ -49,8 +49,10 @@ void fsolve_gsl (nls_fun fun,
     iter++;
     status = gsl_multiroot_fsolver_iterate (s);
 
-    if (status)   /* check if solver is stuck */
+    if (status)   /* check if solver is stuck */ {
+      fprintf (stderr, "WARNING: Non linear systems solver is stuck.\n");
       break;
+    }
 
     status =
       gsl_multiroot_test_residual (s->f, 1.e-7);

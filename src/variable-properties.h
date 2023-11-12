@@ -66,7 +66,7 @@ simulations.
 */
 
 double gasprop_thermal_expansion (ThermoState * ts) {
-  return 1./ts->T;
+  return ts->T > 0. ? 1./ts->T : 0.;
 }
 
 /**
