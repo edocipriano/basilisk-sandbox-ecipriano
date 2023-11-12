@@ -30,6 +30,8 @@ struct SparkModel {
   double temperature;
   double diameter;
   scalar T;
+  bool linear;
+  bool constant;
 };
 
 struct SparkModel spark = {
@@ -38,6 +40,8 @@ struct SparkModel spark = {
   .duration = 0.,         // Duration of the spark
   .temperature = 0.,      // Maximum temperature of the spark
   .diameter = 0.,         // Diameter of the spark
+  .linear = false,        // Linear temperature profile
+  .constant = false,      // Constant temperature profile
 };
 
 /**
@@ -48,22 +52,26 @@ spark diameter are identified, and the temperature
 increase is applied on these cells.
 */
 
+#if dimension == 1
+# define sparkd(x, y, R) (sq(R) - sq(x - spark.position.x))
+#elif dimension == 2
+# define sparkd(x, y, R) (sq(R) - sq(x - spark.position.x) - sq(y - spark.position.y))
+#elif dimension == 3
+# define sparkd(x, y, z, R) (sq(R) - sq(x - spark.position.x) - sq(y - spark.position.y) - sq(z - spark.position.z))
+#endif
+
 event set_spark (i++) {
+  scalar spark_T = spark.T;
   if (t >= spark.time && t <= (spark.time + spark.duration)) {
-    scalar spark_T = spark.T;
-    foreach () {
-      double dist = 0.;
-      dist = sq (x - spark.position.x);
-#if dimension > 1
-      dist += sq (y - spark.position.y);
-#endif
-#if dimension > 2
-      dist += sq (z - spark.position.z);
-#endif
-      dist = sqrt (dist);
-      if (dist < 0.5*spark.diameter && spark_T[] < spark.temperature) {
-        spark_T[] = spark.temperature -
-          (spark.temperature - 300.)*exp (-30.*(t - spark.time));
+    foreach() {
+      if (sparkd(x,y,0.5*spark.diameter) > 0.) {
+        if (spark.linear)
+          spark_T[] = 300. + (spark.temperature - 300.)*(t - spark.time)/spark.duration;
+        else if (spark.constant)
+          spark_T[] = spark.temperature;
+        else
+          spark_T[] = spark.temperature -
+            (spark.temperature - 300.)*exp (-30.*(t - spark.time));
       }
     }
   }
