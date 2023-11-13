@@ -71,7 +71,7 @@ field. The equilibrium constant *inKeq* is ignored when
 *USE_ANTOINE* or *USE_CLAPEYRON* is used. */
 
 double TL0 = 300.;
-double TG0 = 300.;
+double TG0 = 305.;
 
 /**
 ### Boundary conditions
@@ -80,31 +80,6 @@ Outflow boundary conditions are set at the top and right
 sides of the domain. */
 
 #ifdef VELOCITY_JUMP
-# ifdef PINNED
-u1.n[left] = neumann (0.);
-u1.t[left] = neumann (0.);
-u2.n[left] = neumann (0.);
-u2.t[left] = neumann (0.);
-p[left] = dirichlet (0.);
-ps[left] = dirichlet (0.);
-pg[left] = dirichlet (0.);
-
-u1.n[right] = dirichlet (0.);
-u1.t[right] = dirichlet (0.);
-u2.n[right] = dirichlet (0.);
-u2.t[right] = dirichlet (0.);
-p[right] = neumann (0.);
-ps[right] = neumann (0.);
-pg[right] = neumann (0.);
-# else
-u1.n[top] = neumann (0.);
-u1.t[top] = neumann (0.);
-u2.n[top] = neumann (0.);
-u2.t[top] = neumann (0.);
-p[top] = dirichlet (0.);
-ps[top] = dirichlet (0.);
-pg[top] = dirichlet (0.);
-
 u1.n[right] = neumann (0.);
 u1.t[right] = neumann (0.);
 u2.n[right] = neumann (0.);
@@ -112,7 +87,26 @@ u2.t[right] = neumann (0.);
 p[right] = dirichlet (0.);
 ps[right] = dirichlet (0.);
 pg[right] = dirichlet (0.);
-#endif
+
+u1.n[left] = dirichlet (0.);
+u1.t[left] = dirichlet (0.);
+u2.n[left] = dirichlet (0.);
+u2.t[left] = dirichlet (0.);
+p[left] = neumann (0.);
+ps[left] = neumann (0.);
+pg[left] = neumann (0.);
+
+u1.n[bottom] = dirichlet (0.);
+u1.t[bottom] = dirichlet (0.);
+u2.n[bottom] = dirichlet (0.);
+u2.t[bottom] = dirichlet (0.);
+p[bottom] = neumann (0.);
+ps[bottom] = neumann (0.);
+pg[bottom] = neumann (0.);
+uf1.n[bottom] = 0.;
+uf1.t[bottom] = 0.;
+uf2.n[bottom] = 0.;
+uf2.t[bottom] = 0.;
 #else
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
@@ -137,7 +131,7 @@ the initial radius and diameter, and the radius from the
 numerical simulation. */
 
 int maxlevel, minlevel = 2;
-double D0 = 0.6e-3, effective_radius0, d_over_d02 = 1.;
+double D0 = 0.56e-3, effective_radius0, d_over_d02 = 1.;
 double volumecorr = 0., volume0 = 0.;
 
 int main (void) {
@@ -150,13 +144,13 @@ int main (void) {
 
   mu1 = 1.e-3; mu2 = 1.e-5;
   rho1 = 0.; rho2 = 0.;
-  Pref = 1e+5;
+  Pref = 5*101325.;
 
   /**
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
-  L0 = 4.*D0;
+  L0 = 10.*D0;
 
 #ifdef PINNED
   double df = 0.1*D0;
@@ -164,15 +158,6 @@ int main (void) {
   Y0 = 0.5*df;
   pinning.ap = 0.5*D0;
   pinning.ac = pinning.ap - 0.05*D0;
-#endif
-
-#ifdef SPARK
-  spark.T = TG;
-  spark.position = (coord){0., 0.75*D0};
-  spark.diameter = 0.3/2.*D0;
-  spark.time = 0.;
-  spark.duration = 0.001;
-  spark.temperature = 3500.;
 #endif
 
   /**
@@ -185,7 +170,7 @@ int main (void) {
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 7; maxlevel <= 7; maxlevel++) {
+  for (maxlevel = 8; maxlevel <= 8; maxlevel++) {
     init_grid (1 << maxlevel);
     run();
   }
@@ -220,6 +205,16 @@ event init (i = 0) {
 
   foreach_elem (YGList, jj)
     inMW[jj] = OpenSMOKE_MW (jj);
+
+#ifdef SPARK
+  spark.T = TG;
+  spark.position = (coord){0., 1.*D0};
+  spark.diameter = 0.1*D0;
+  spark.time = 0.02;
+  spark.duration = 0.05;
+  spark.temperature = 2500.;
+#endif
+
 }
 
 /**
@@ -232,16 +227,16 @@ event bcs (i = 0) {
   scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
 
   CH3OH[top] = dirichlet (0.);
-  CH3OH[right] = dirichlet (0.);
+  CH3OH[left] = dirichlet (0.);
 
   N2[top] = dirichlet (0.79);
-  N2[right] = dirichlet (0.79);
+  N2[left] = dirichlet (0.79);
 
   O2[top] = dirichlet (0.21);
-  O2[right] = dirichlet (0.21);
+  O2[left] = dirichlet (0.21);
 
   TG[top] = dirichlet (TG0);
-  TG[right] = dirichlet (TG0);
+  TG[left] = dirichlet (TG0);
 }
 
 /**
@@ -314,12 +309,12 @@ We write the animation with the evolution of the
 n-heptane mass fraction, the interface position
 and the temperature field. */
 
-event movie (t += 0.01; t <= 10) {
+event movie (t += 0.001; t <= 10) {
   clear();
   box();
   view (ty = -0.5);
   draw_vof ("f");
-  squares ("CH3OH", min = 0., max = 1., linear = true);
+  squares ("T", min = TL0, max = statsf(T).max, linear = true);
   save ("movie.mp4");
 }
 

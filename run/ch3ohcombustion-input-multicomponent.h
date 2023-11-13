@@ -84,7 +84,7 @@ double inDmix2[NGS] = {
 
 double inDmix1[NLS] = {0.};
 
-double inKeq[NLS] = {0.};
+double inKeq[NLS] = {0.7};
 
 double Tboil[NLS] = {337.85};
 
