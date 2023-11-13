@@ -61,6 +61,12 @@ increase is applied on these cells.
 #endif
 
 event set_spark (i++) {
+#if TREE
+  if (t <= spark.time) {
+    extern int maxlevel;
+    refine (sparkd(x, y, 0.5*spark.diameter) > 0. && level < maxlevel);
+  }
+#endif
   scalar spark_T = spark.T;
   if (t >= spark.time && t <= (spark.time + spark.duration)) {
     foreach() {
