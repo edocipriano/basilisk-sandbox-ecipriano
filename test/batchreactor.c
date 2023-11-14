@@ -54,7 +54,7 @@ int main (void) {
 
   OpenSMOKE_Init();
   OpenSMOKE_InitODESolver();
-  OpenSMOKE_ReadKinetics ("/Users/ecipriano/OpenSMOKE/OpenSMOKEppTutorials/examples/OpenSMOKEpp_BatchReactor/01d-nonisothermal-constantpressure/kinetics");
+  OpenSMOKE_ReadKinetics ("/Users/ecipriano/OpenSMOKE/OpenSMOKEppTutorials/examples/OpenSMOKEpp_BatchReactor/01d-nonisothermal-constantpressure/kinetics-POLIMI_TOT_NOX_1412");
 
   /**
   We check that NGS is equal to the species found in the

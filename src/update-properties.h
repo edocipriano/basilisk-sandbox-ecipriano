@@ -401,15 +401,17 @@ void update_divergence (void) {
       -betaexp1[]/(rho1v[]*cp1v[])*laplT1 : 0.;
 
     drho2dt += (TG[]*rho2v[]*cp2v[] > 0.) ?
-      -1./(TG[]*rho2v[]*cp2v[])*laplT2 : 0.;
+      //-1./(TG[]*rho2v[]*cp2v[])*laplT2 : 0.;
+      1./(TG[]*rho2v[]*cp2v[])*laplT2 : 0.;
 
     // Add gas compressibility due to composition
     drho2dt += ((1. - f[]) > F_ERR) ? -laplYtot : 0.;
 
-    drhodt[] = f[]*drho1dt + (1. - f[])*drho2dt;
+    //drhodt[] = f[]*drho1dt + (1. - f[])*drho2dt;
+    drhodt[] = f[]*drho1dt;
     drhodtext[] = f[]*drho1dt;
 
-    drhodt[] = (f[] > F_ERR && f[] < 1.-F_ERR) ? 0. : drhodt[];
+    //drhodt[] = (f[] > F_ERR && f[] < 1.-F_ERR) ? 0. : drhodt[];
   }
 }
 

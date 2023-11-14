@@ -133,7 +133,7 @@ the initial radius and diameter, and the radius from the
 numerical simulation. */
 
 int maxlevel, minlevel = 2;
-double D0 = 0.56e-3, effective_radius0, d_over_d02 = 1.;
+double D0 = 1.8e-3, effective_radius0, d_over_d02 = 1.;
 double volumecorr = 0., volume0 = 0.;
 
 int main (void) {
@@ -146,16 +146,16 @@ int main (void) {
 
   mu1 = 1.e-3; mu2 = 1.e-5;
   rho1 = 0.; rho2 = 0.;
-  Pref = 5*101325.;
+  Pref = 1e+5;
 
   /**
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
-  L0 = 12.*D0;
+  L0 = 30e-3;
 
 #ifdef PINNED
-  double df = 0.1*D0;
+  double df = 0.6e-3;
   X0 = -0.5*L0;
   Y0 = 0.5*df;
   pinning.ap = 0.5*D0;
@@ -166,13 +166,13 @@ int main (void) {
   We change the surface tension coefficient. and we
   decrease the tolerance of the Poisson solver. */
 
-  f.sigma = 0.0227;
+  f.sigma = 0.03;
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 8; maxlevel <= 8; maxlevel++) {
+  for (maxlevel = 9; maxlevel <= 9; maxlevel++) {
     init_grid (1 << maxlevel);
     run();
   }
@@ -210,10 +210,10 @@ event init (i = 0) {
 
 #ifdef SPARK
   spark.T = TG;
-  spark.position = (coord){0., 1.*D0};
+  spark.position = (coord){0., D0};
   spark.diameter = 0.2*D0;
   spark.time = 0.02;
-  spark.duration = 0.04;
+  spark.duration = 0.05;
   spark.temperature = 2500.;
 #endif
 
@@ -226,23 +226,23 @@ event init (i = 0) {
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-event bcs (i = 0) {
-  scalar CH3OH = YGList[OpenSMOKE_IndexOfSpecies ("CH3OH")];
-  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
-  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
-
-  CH3OH[top] = dirichlet (0.);
-  CH3OH[left] = dirichlet (0.);
-
-  N2[top] = dirichlet (0.79);
-  N2[left] = dirichlet (0.79);
-
-  O2[top] = dirichlet (0.21);
-  O2[left] = dirichlet (0.21);
-
-  TG[top] = dirichlet (TG0);
-  TG[left] = dirichlet (TG0);
-}
+//event bcs (i = 0) {
+//  scalar CH3OH = YGList[OpenSMOKE_IndexOfSpecies ("CH3OH")];
+//  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
+//  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
+//
+//  CH3OH[top] = dirichlet (0.);
+//  CH3OH[left] = dirichlet (0.);
+//
+//  N2[top] = dirichlet (0.79);
+//  N2[left] = dirichlet (0.79);
+//
+//  O2[top] = dirichlet (0.21);
+//  O2[left] = dirichlet (0.21);
+//
+//  TG[top] = dirichlet (TG0);
+//  TG[left] = dirichlet (TG0);
+//}
 
 /**
 We adapt the grid according to the mass fractions of the

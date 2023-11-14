@@ -159,7 +159,8 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
 
   double ci[NGS], ri[NGS];
   for (int jj=0; jj<NGS; jj++) {
-    ci[jj] = massfracs[jj]*rho/OpenSMOKE_MW(jj);
+    //ci[jj] = massfracs[jj]*rho/OpenSMOKE_MW(jj);
+    ci[jj] = ctot*molefracs[jj];
     ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
     ri[jj] = 0.;
   }
@@ -169,6 +170,8 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   otp.P = Pressure;
   otp.xH2O = molefracs[otm.indexH2O];
   otp.xCO2 = molefracs[otm.indexCO2];
+  otp.xCO  = molefracs[otm.indexCO];
+  otp.xCH4 = molefracs[otm.indexCH4];
 
   /**
   Compute the kinetic constant, reaction rates,
