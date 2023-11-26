@@ -185,7 +185,7 @@ void position_centripetal (scalar f, scalar pos, bool add = false)
       rho2vh = rho2v[];
 #endif
 
-      if (p.add)
+      if (add)
         pos[] += 1./hp*sfm.eps*(rho2vh - rho1vh);
       else
         pos[] = 1./hp*sfm.eps*(rho2vh - rho1vh);
