@@ -281,7 +281,9 @@ mgstats project_sf_twofield (face vector uf1, face vector uf2, scalar p,
   And compute $\mathbf{u}_f^{n+1}$ using $\mathbf{u}_f$ and $p$. */
 
   foreach_face() {
+#ifndef DECOUPLED
     uf1.x[] -= dt*alpha.x[]*face_gradient_x (p, 0);
+#endif
     uf2.x[] -= dt*alpha.x[]*face_gradient_x (p, 0);
   }
 
@@ -529,6 +531,7 @@ void extrapolations (void)
   liquid and gas phase cells are populated with the vaporization rate
   without changing its values. */
 
+#ifndef DIFFUSIVE
   foreach() {
     //mEvapTot1[] = mEvapTot[]*(1./rho2 - 1./rho1);
     //mEvapTot2[] = mEvapTot[]*(1./rho2 - 1./rho1);
@@ -543,10 +546,12 @@ void extrapolations (void)
     mEvapTot2[] = (f[] > F_ERR && f[] < 1.-F_ERR) ?
       mEvapTot[]*rhojump : 0.;
   }
+
   constant_extrapolation (mEvapTot1, ls1, 0.5, 20, c=faslam1, nl=0,
       nointerface=true);
   constant_extrapolation (mEvapTot2, ls2, 0.5, 20, c=faslam2, nl=0,
       nointerface=true);
+#endif
 }
 
 /**

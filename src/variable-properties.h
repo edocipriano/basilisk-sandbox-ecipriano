@@ -62,6 +62,33 @@ simulations.
 */
 
 /**
+### *check_termostate()*: check that the thermodynamic state is
+reasonable. */
+
+int check_thermostate (ThermoState * ts, int NS) {
+  double sum = 0.;
+  for (int jj=0; jj<NS; jj++)
+    sum += ts->x[jj];
+
+  int T_ok = (ts->T > 180. && ts->T < 4000.) ? true : false;
+  int P_ok = (ts->P > 1e3 && ts->P < 1e7) ? true : false;
+  int X_ok = (sum > 1.-1.e-3 && sum < 1.+1.e-3) ? true : false;
+
+  return T_ok*P_ok*X_ok;
+}
+
+/**
+### *print_thermostate()*: print the thermodynamic state of the mixture.
+*/
+
+void print_thermostate (ThermoState * ts, int NS, FILE * fp = stdout) {
+  fprintf (fp, "Temperature = %g - Pressure = %g\n", ts->T, ts->P);
+  for (int jj=0; jj<NS; jj++)
+    fprintf (fp, "  Composition[%d] = %g\n", jj, ts->x[jj]);
+  fprintf (fp, "\n");
+}
+
+/**
 ### *gasprop_thermal_expansion()*: Thermal expansion coefficient of an ideal gas
 */
 
@@ -81,6 +108,6 @@ double liqprop_thermal_expansion (ThermoProps * tp, ThermoState * ts) {
   tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
   double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
   double rhoval = tp->rhov (ts);
-  return -1./rhoval*(rhotop - rhobot)/(2.*epsT);
+  return (rhoval > 0.) ? -1./rhoval*(rhotop - rhobot)/(2.*epsT) : 0.;
 }
 

@@ -29,6 +29,7 @@ struct SparkModel {
   double duration;
   double temperature;
   double diameter;
+  double baseline;
   scalar T;
   bool linear;
   bool constant;
@@ -40,6 +41,7 @@ struct SparkModel spark = {
   .duration = 0.,         // Duration of the spark
   .temperature = 0.,      // Maximum temperature of the spark
   .diameter = 0.,         // Diameter of the spark
+  .baseline = 300.,       // Baseline/Minimum temperature value
   .linear = false,        // Linear temperature profile
   .constant = false,      // Constant temperature profile
 };
@@ -72,12 +74,12 @@ event set_spark (i++) {
     foreach() {
       if (sparkd(x,y,0.5*spark.diameter) > 0.) {
         if (spark.linear)
-          spark_T[] = 300. + (spark.temperature - 300.)*(t - spark.time)/spark.duration;
+          spark_T[] = spark.baseline + (spark.temperature - spark.baseline)*(t - spark.time)/spark.duration;
         else if (spark.constant)
           spark_T[] = spark.temperature;
         else
           spark_T[] = spark.temperature -
-            (spark.temperature - 300.)*exp (-30.*(t - spark.time));
+            (spark.temperature - spark.baseline)*exp (-30.*(t - spark.time));
       }
     }
   }

@@ -31,14 +31,33 @@ this test case. */
 
 #include "ch3ohcombustion-input-multicomponent.h"
 
+//#define NGS 3
+//#define NLS 1
+//
+//char* gas_species[NGS] = {"CH3OH", "N2", "O2"};
+//char* liq_species[NLS] = {"CH3OH"};
+//char* inert_species[1] = {"N2"};
+//double gas_start[NGS] = {0., 0.7670907862, 0.2329092138};
+//double liq_start[NLS] = {1.};
+//double inDmix1[NLS] = {0.};
+//double inDmix2[NGS] = {0., 0., 0.};
+//double inKeq[NLS] = {0.};
+//
+//double lambda1 = 0.;
+//double lambda2 = 0.;
+//double dhev = 0.;
+//double cp1 = 0.;
+//double cp2 = 0.;
+
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE_OPENSMOKE
 #define FICK_CORRECTED
-#define MOLAR_DIFFUSION
+//#define MOLAR_DIFFUSION
 #define VARPROP
-#define RADIATION
-#define PINNED
+#define CHEMISTRY
+//#define RADIATION
+//#define PINNED
 
 /**
 ## Simulation Setup
@@ -50,17 +69,18 @@ evaporation model together with the multiomponent phase
 change mechanism. */
 
 #include "axi.h"
-#include "navier-stokes/velocity-jump.h"
+//#include "navier-stokes/velocity-jump.h"
+#include "navier-stokes/centered-evaporation.h"
+#include "navier-stokes/centered-doubled.h"
 #include "opensmoke-properties.h"
 #include "two-phase-varprop.h"
 #ifdef PINNED
 #include "pinning.h"
 #endif
 #include "tension.h"
-#include "radiation.h"
 #include "evaporation-varprop.h"
 #include "multicomponent.h"
-#include "spark.h"
+//#include "spark.h"
 #include "chemistry.h"
 #include "view.h"
 
@@ -73,7 +93,7 @@ field. The equilibrium constant *inKeq* is ignored when
 *USE_ANTOINE* or *USE_CLAPEYRON* is used. */
 
 double TL0 = 300.;
-double TG0 = 305.;
+double TG0 = 2000.;
 
 /**
 ### Boundary conditions
@@ -90,25 +110,13 @@ p[right] = dirichlet (0.);
 ps[right] = dirichlet (0.);
 pg[right] = dirichlet (0.);
 
-u1.n[top] = dirichlet (0.);
-u1.t[top] = dirichlet (0.);
-u2.n[top] = dirichlet (0.);
-u2.t[top] = dirichlet (0.);
-p[top] = neumann (0.);
-ps[top] = neumann (0.);
-pg[top] = neumann (0.);
-
-u1.n[bottom] = dirichlet (0.);
-u1.t[bottom] = dirichlet (0.);
-u2.n[bottom] = dirichlet (0.);
-u2.t[bottom] = dirichlet (0.);
-p[bottom] = neumann (0.);
-ps[bottom] = neumann (0.);
-pg[bottom] = neumann (0.);
-uf1.n[bottom] = 0.;
-uf1.t[bottom] = 0.;
-uf2.n[bottom] = 0.;
-uf2.t[bottom] = 0.;
+u1.n[top] = neumann (0.);
+u1.t[top] = neumann (0.);
+u2.n[top] = neumann (0.);
+u2.t[top] = neumann (0.);
+p[top] = dirichlet (0.);
+ps[top] = dirichlet (0.);
+pg[top] = dirichlet (0.);
 #else
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
@@ -138,6 +146,7 @@ double volumecorr = 0., volume0 = 0.;
 
 int main (void) {
   kinfolder = "skeletal/methanol";
+  //kinfolder = "evaporation/methanol-in-air";
 
   /**
   We set the material properties of the fluids. The
@@ -152,7 +161,8 @@ int main (void) {
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
-  L0 = 12.*D0;
+  double RR = 7.986462e+01;
+  L0 = 0.5*RR*D0;
 
 #ifdef PINNED
   double df = 0.1*D0;
@@ -167,15 +177,16 @@ int main (void) {
   decrease the tolerance of the Poisson solver. */
 
   f.sigma = 0.0227;
+  TOLERANCE = 1.e-4;
+  init_fields = true;
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 8; maxlevel <= 8; maxlevel++) {
-    init_grid (1 << maxlevel);
-    run();
-  }
+  maxlevel = 10;
+  init_grid (1 << (maxlevel - 2));
+  run();
 }
 
 #define circle(x,y,R)(sq(R) - sq(x) - sq(y))
@@ -189,17 +200,44 @@ diameter decay would not start from 1. */
 double mLiq0 = 0.;
 
 event init (i = 0) {
+  refine (circle (x, y, 2.*D0) > 0. && level < maxlevel);
   fraction (f, circle (x, y, 0.5*D0));
+#ifdef PINNED
+  effective_radius0 = pow(3./2.*statsf(f).sum, 1./3.);
+#else
   effective_radius0 = pow(3.*statsf(f).sum, 1./3.);
-
-  double volumeint = 2.*pi*statsf(f).sum;
-  double volumetot = 4./3.*pi*pow (0.5*D0, 3.);
-  volumecorr = volumetot - volumeint;
-  volume0 = 2.*pi*statsf(f).sum + volumecorr;
-  effective_radius0 = pow(3./4./pi*volume0, 1./3.);
+#endif
 
   foreach (reduction(+:mLiq0))
     mLiq0 += rho1v[]*f[]*dv();
+
+  if (!init_fields) {
+    double gas_int[NGS];
+    for (int jj=0; jj<NGS; jj++)
+      gas_int[jj] = 0.;
+    gas_int[OpenSMOKE_IndexOfSpecies ("CH3OH")] = 0.168;
+    gas_int[OpenSMOKE_IndexOfSpecies ("N2")] = 0.639;
+    gas_int[OpenSMOKE_IndexOfSpecies ("O2")] = 0.193;
+
+    foreach() {
+      double r = sqrt (sq(x) + sq(y));
+      double r1 = 0.5*D0, r2 = 1.5*D0;
+      TL[] = f[]*TL0;
+      //TG[] = (1. - f[])*radialprofile (r, r1, r2, TL0, TG0);
+      TG[] = (1. - f[])*TG0;
+      T[] = TL[] + TG[];
+
+      foreach_elem (YLList, jj) {
+        scalar YL = YLList[jj];
+        YL[] = f[]*liq_start[jj];
+      }
+      foreach_elem (YGList, jj) {
+        scalar YG = YGList[jj];
+        //YG[] = (1. - f[])*radialprofile (r, r1, r2, gas_int[jj], gas_start[jj]);
+        YG[] = (1. - f[])*gas_start[jj];
+      }
+    }
+  }
 
   /**
   We set the molecular weights of the chemial species
@@ -210,39 +248,92 @@ event init (i = 0) {
 
 #ifdef SPARK
   spark.T = TG;
-  spark.position = (coord){0., 1.*D0};
+  spark.position = (coord){0., 0.7*D0};
   spark.diameter = 0.2*D0;
-  spark.time = 0.02;
-  spark.duration = 0.04;
-  spark.temperature = 2500.;
+  //spark.time = 0.02;
+  spark.time = 0.;
+  spark.duration = 0.004;
+  spark.temperature = 2700.;
 #endif
 
-#ifdef RADIATION
-  divq_rad = optically_thin;
-#endif
+//#ifdef RADIATION
+//  divq_rad = optically_thin;
+//#endif
+
+  fprintf (stderr, "Tb = %g\n", boilingtemperature (300., liq_start));
+
+  // Check frazioni molari
+  {
+    double W[NGS], X[NGS], MWW[NGS];
+    X[0] = 0.;
+    X[1] = 0.79;
+    X[2] = 0.21;
+    MWW[0] = 32.;
+    MWW[1] = 28.;
+    MWW[2] = 32.;
+    mole2massfrac (W, X, MWW, NGS);
+    fprintf (stderr, "W[Me] = %g\n", W[0]);
+    fprintf (stderr, "W[N2] = %g\n", W[1]);
+    fprintf (stderr, "W[O2] = %g\n", W[2]);
+  }
+
+  // Check properties
+  {
+    double xd[] = {1.};
+
+    ThermoState tsd;
+    tsd.T = 500.;
+    tsd.P = Pref;
+    tsd.x = xd;
+
+    fprintf (stderr, "dhev = %g\n", tp1.dhev (&tsd, 0));
+    fprintf (stderr, "Keq  = %g\n", opensmoke_antoine (tsd.T, tsd.P, 0));
+
+    double xgas[] = {0., 0.79, 0.21};
+
+    ThermoState tsgas;
+    tsgas.T = 2000.;
+    tsgas.P = Pref;
+    tsgas.x = xgas;
+
+    fprintf (stderr, "kG = %g\n", tp2.lambdav (&tsgas));
+  }
 }
+
+//event set_spark (i++) {
+//#if TREE
+//  if (t <= spark.time)
+//    refine (circle(x,y,D0+0.2*D0)*circle(x,y,D0-0.2*D0) < 0. && level < maxlevel);
+//#endif
+//  if (t >= spark.time && t <= (spark.time + spark.duration)) {
+//    foreach() {
+//      if (circle(x,y,0.7*D0+0.1*D0)*circle(x,y,0.7*D0-0.1*D0) < 0.)
+//        TG[] = spark.baseline + (spark.temperature - spark.baseline)*(t - spark.time)/spark.duration;
+//    }
+//  }
+//}
 
 /**
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-event bcs (i = 0) {
-  scalar CH3OH = YGList[OpenSMOKE_IndexOfSpecies ("CH3OH")];
-  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
-  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
-
-  CH3OH[top] = dirichlet (0.);
-  CH3OH[left] = dirichlet (0.);
-
-  N2[top] = dirichlet (0.79);
-  N2[left] = dirichlet (0.79);
-
-  O2[top] = dirichlet (0.21);
-  O2[left] = dirichlet (0.21);
-
-  TG[top] = dirichlet (TG0);
-  TG[left] = dirichlet (TG0);
-}
+//event bcs (i = 0) {
+//  scalar CH3OH = YGList[OpenSMOKE_IndexOfSpecies ("CH3OH")];
+//  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
+//  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
+//
+//  CH3OH[top] = dirichlet (0.);
+//  CH3OH[right] = dirichlet (0.);
+//
+//  N2[top] = dirichlet (0.7670907862);
+//  N2[right] = dirichlet (0.7670907862);
+//
+//  O2[top] = dirichlet (0.2329092138);
+//  O2[right] = dirichlet (0.2329092138);
+//
+//  TG[top] = dirichlet (TG0);
+//  TG[right] = dirichlet (TG0);
+//}
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -310,11 +401,11 @@ event output_data (i++, last) {
   scalar YInt_c7 = YGIntList[0];
   scalar Y_c7 = YList[0];
 
-  //double effective_radius = pow(3.*statsf(f).sum, 1./3.);
-  //d_over_d02 = sq (effective_radius / effective_radius0);
-
-  double volume = 2.*pi*statsf(f).sum + volumecorr;
-  double effective_radius = pow (3./4./pi*volume, 1./3.);
+#ifdef PINNED
+  double effective_radius = pow(3./2.*statsf(f).sum, 1./3.);
+#else
+  double effective_radius = pow(3.*statsf(f).sum, 1./3.);
+#endif
   d_over_d02 = sq (effective_radius / effective_radius0);
 
   double TIntavg = avg_interface (TInt, f, 0.1);
@@ -326,8 +417,8 @@ event output_data (i++, last) {
   foreach(reduction(+:mLiq))
     mLiq += rho1v[]*f[]*dv();
 
-  fprintf (fp, "%g %g %g %g %g %g %g %g\n",
-      t/sq(D0*1e3), effective_radius, d_over_d02, mLiq/mLiq0, TIntavg, YIntavg, Tavg, Yavg);
+  fprintf (fp, "%g %g %g %g %g %g %g %g %g\n",
+      t, t/sq(D0*1e3), effective_radius, d_over_d02, mLiq/mLiq0, TIntavg, YIntavg, Tavg, Yavg);
   fflush (fp);
 }
 
@@ -338,10 +429,10 @@ We write the animation with the evolution of the
 n-heptane mass fraction, the interface position
 and the temperature field. */
 
-event movie (t += 0.001; t <= 10) {
+event movie (t += 0.01; t <= 10) {
   clear();
   box();
-  view (ty = -0.5);
+  view (tx = -0.5, ty = -0.5);
   draw_vof ("f");
   squares ("T", min = TL0, max = statsf(T).max, linear = true);
   save ("movie.mp4");

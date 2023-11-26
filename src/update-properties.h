@@ -4,10 +4,15 @@
 Update the thermodynamic properties for the multicomponent phase
 change model, and compute the lagrangian derivative of the density,
 which is used as a sorce term for the velocity divergence, to
-describe small compressibility effects. */
+describe low Mach compressibility effects. */
+
+#ifndef T_PROP
+# define T_PROP 0.1
+#endif
 
 scalar Hcheck[];
 scalar betaexp1[], betaexp2[];
+scalar rho1vInt[], rho2vInt[];
 
 void update_properties_constant (void) {
   foreach() {
@@ -21,6 +26,7 @@ void update_properties_constant (void) {
 
     rho1v[] = rho1;
     rho1v0[] = rho1;
+    rho1vInt[] = rho1;
     mu1v[] = mu1;
     cp1v[] = cp1;
     lambda1v[] = lambda1;
@@ -57,6 +63,7 @@ void update_properties_initial (void) {
     ts2h.x = gas_start;
 
     rho1v[] = tp1.rhov (&ts1h);
+    rho1vInt[] = rho1v[];
     rho1v0[] = rho1v[];
     mu1v[] = tp1.muv (&ts1h);
     cp1v[] = tp1.cpv (&ts1h);
@@ -113,11 +120,6 @@ void update_properties (void)
   foreach_elem (YGList, jj)
     MW2[jj] = inMW[jj];
 
-  //mapregion (Hcheck, f, nl=0, narrow=true, nointerface=false);
-
-  //double T_PROP = 1.e-6;
-  double T_PROP = 0.1;
-
   foreach() {
     MW1mix[] = 0.;
     MW2mix[] = 0.;
@@ -136,8 +138,11 @@ void update_properties (void)
       ts1h.T = TL[];
       ts1h.P = Pref;
       ts1h.x = x1;
+      //ThermoState ts1h;
+      //ts1h.T = TL0;
+      //ts1h.P = Pref;
+      //ts1h.x = liq_start;
 
-      rho1v0[] = rho1v[];
       rho1v[] = tp1.rhov (&ts1h);
       mu1v[] = tp1.muv (&ts1h);
       cp1v[] = tp1.cpv (&ts1h);
@@ -155,7 +160,7 @@ void update_properties (void)
       }
     }
     else {
-      rho1v[] = 0.;
+      //rho1v[] = 0.;
       rho1v0[] = 0.;
       mu1v[] = 0.;
       cp1v[] = 0.;
@@ -186,7 +191,11 @@ void update_properties (void)
       ts2h.P = Pref;
       ts2h.x = x2;
 
-      rho2v0[] = rho2v[];
+      ThermoState ts2h_init;
+      ts2h_init.T = TG0;
+      ts2h_init.P = Pref;
+      ts2h_init.x = gas_start;
+
       rho2v[] = tp2.rhov (&ts2h);
       mu2v[] = tp2.muv (&ts2h);
       cp2v[] = tp2.cpv (&ts2h);
@@ -199,7 +208,7 @@ void update_properties (void)
       }
     }
     else {
-      rho2v[] = 0.;
+      //rho2v[] = 0.;
       rho2v0[] = 0.;
       mu2v[] = 0.;
       cp2v[] = 0.;
@@ -210,16 +219,66 @@ void update_properties (void)
         Dmix2v[] = 0.;
       }
     }
-
-    frho1r[] = f[]*rho1v[];
-    frho2r[] = (1. - f[])*rho2v[];
-    frhocp1r[] = f[]*rho1v[]*cp1v[];
-    frhocp2r[] = (1. - f[])*rho2v[]*cp2v[];
-    frho1[] = frho1r[];
-    frho2[] = frho2r[];
-    frhocp1[] = frhocp1r[];
-    frhocp2[] = frhocp2r[];
   }
+
+  //// Update interface properties
+  //foreach() {
+  //  if (f[] > F_ERR && f[] < 1.-F_ERR) {
+
+  //    // Liquid interface side
+  //    double x1[NLS], y1[NLS];
+  //    foreach_elem (YLIntList, jj) {
+  //      scalar YLInt = YLIntList[jj];
+  //      y1[jj] = YLInt[];
+  //    }
+  //    correctfrac (y1, NLS);
+  //    mass2molefrac (x1, y1, MW1, NLS);
+
+  //    ThermoState ts1h;
+  //    ts1h.T = TInt[];
+  //    ts1h.P = Pref;
+  //    ts1h.x = x1;
+
+  //    //rho1v[] = tp1.rhov (&ts1h);
+  //    //mu1v[] = tp1.muv (&ts1h);
+  //    //cp1v[] = tp1.cpv (&ts1h);
+  //    //lambda1v[] = tp1.lambdav (&ts1h);
+  //    //betaexp1[] = liqprop_thermal_expansion (&tp1, &ts1h);
+
+  //    //foreach_elem (YLIntList, jj) {
+  //    //  scalar dhevjj = dhevList[jj];
+  //    //  dhevjj[] = tp1.dhev (&ts1h, jj);
+
+  //    //  scalar Dmix1v = Dmix1List[jj];
+  //    //  Dmix1v[] = tp1.diff (&ts1h, jj);
+  //    //}
+
+  //    // Gas interface side
+  //    double x2[NGS], y2[NGS];
+  //    foreach_elem (YGIntList, jj) {
+  //      scalar YGInt = YGIntList[jj];
+  //      y2[jj] = YGInt[];
+  //    }
+  //    correctfrac (y2, NGS);
+  //    mass2molefrac (x2, y2, MW2, NGS);
+
+  //    ThermoState ts2h;
+  //    ts2h.T = TInt[];
+  //    ts2h.P = Pref;
+  //    ts2h.x = x2;
+
+  //    rho2vInt[] = tp2.rhov (&ts2h);
+  //    //mu2v[] = tp2.muv (&ts2h);
+  //    //cp2v[] = tp2.cpv (&ts2h);
+  //    //lambda2v[] = tp2.lambdav (&ts2h);
+  //    //betaexp2[] = gasprop_thermal_expansion (&ts2h);
+
+  //    //foreach_elem (YGIntList, jj) {
+  //    //  scalar Dmix2v = Dmix2List[jj];
+  //    //  Dmix2v[] = tp2.diff (&ts2h, jj);
+  //    //}
+  //  }
+  //}
 
   foreach() {
     if (f[] <= T_PROP) {
@@ -228,6 +287,7 @@ void update_properties (void)
       double cp1vgh = 0.;
       double lambda1vgh = 0.;
       double dhevgh[NLS];
+      double beta1vgh = 0.;
       for (int jj=0; jj<NLS; jj++)
         dhevgh[jj] = 0.;
 
@@ -239,6 +299,7 @@ void update_properties (void)
           mu1vgh += mu1v[];
           cp1vgh += cp1v[];
           lambda1vgh += lambda1v[];
+          beta1vgh += betaexp1[];
 
           for (int jj=0; jj<NLS; jj++) {
             scalar dhevjj = dhevList[jj];
@@ -246,11 +307,12 @@ void update_properties (void)
           }
         }
       }
-      //rho1v0[] = rho1v[];
+      rho1v0[] = rho1v[];
       rho1v[] = (counter != 0) ? rho1vgh/counter : 0.;
       mu1v[] = (counter != 0) ? mu1vgh/counter : 0.;
       cp1v[] = (counter != 0) ? cp1vgh/counter : 0.;
       lambda1v[] = (counter != 0) ? lambda1vgh/counter : 0.;
+      betaexp1[] = (counter != 0) ? beta1vgh/counter : 0.;
 
       for (int jj=0; jj<NLS; jj++) {
         scalar dhevjj = dhevList[jj];
@@ -293,28 +355,10 @@ void update_properties (void)
         Dmix2jj[] = (counter != 0) ? Dmix2vgh[jj]/counter : 0.;
       }
     }
-
-    frho1r[] = f[]*rho1v[];
-    frhocp1r[] = f[]*rho1v[]*cp1v[];
-    frho2r[] = (1. - f[])*rho2v[];
-    frhocp2r[] = (1. - f[])*rho2v[]*cp2v[];
-    frho1[] = frho1r[];
-    frho2[] = frho2r[];
-    frhocp1[] = frhocp1r[];
-    frhocp2[] = frhocp2r[];
   }
 }
 
 void update_divergence (void) {
-
-  //// Compute density lagrangian derivative - Method 1
-  //scalar rhovt[], cpvt[], betavt[], lambdavt[];
-  //foreach() {
-  //  rhovt[] = aavg (f[], rho1v[], rho2v[]);
-  //  betavt[] = aavg (f[], betaexp1[], betaexp2[]);
-  //  lambdavt[] = aavg (f[], lambda1v[], lambda2v[]);
-  //  cpvt[] = aavg (f[], cp1v[], cp2v[]);
-  //}
 
   /**
   We define the variables used to compute the lagrangian derivative
@@ -324,7 +368,43 @@ void update_divergence (void) {
   restriction (YLList);
   restriction (YGList);
 
+  double massfracs[NGS], molefracs[NGS], ci[NGS], ri[NGS], Qr = 0.;
+  foreach_elem (YGList, jj) {
+    massfracs[jj] = 0.;
+    molefracs[jj] = 0.;
+    ci[jj] = 0.;
+    ri[jj] = 0.;
+  }
+
   foreach() {
+
+#ifdef CHEMISTRY
+    // Set up chemical reactions contribution
+    if ((1. - f[]) < F_ERR) {
+      OpenSMOKE_GasProp_SetTemperature (TG[]);
+      OpenSMOKE_GasProp_SetPressure (Pref);
+
+      foreach_elem (YGList, jj) {
+        scalar YG = YGList[jj];
+        massfracs[jj] = YG[];
+      }
+      correctfrac (massfracs, NGS);
+      mass2molefrac (molefracs, massfracs, inMW, NGS);
+
+      double ctot = (TG[] > 0.) ? Pref/(R_GAS*1000.)/TG[] : 0.;
+      foreach_elem (YGList, jj) {
+        ci[jj] = ctot*molefracs[jj];
+        ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
+        ri[jj] = 0.;
+      }
+
+      OpenSMOKE_GasProp_KineticConstants();
+      OpenSMOKE_GasProp_ReactionRates (ci);     // [kmol/m3]
+      OpenSMOKE_GasProp_FormationRates (ri);    // [kmol/m3/s]
+
+      Qr = OpenSMOKE_GasProp_HeatRelease (ri);
+    }
+#endif
 
     // Compute chemical species contributions
     double laplYtot = 0.;
@@ -340,14 +420,20 @@ void update_divergence (void) {
         laplYjj += (fm.x[1]*fsG.x[]*rhofr*Dmixfr*face_gradient_x (YG, 1) -
             fm.x[]*fsG.x[]*rhofl*Dmixfl*face_gradient_x (YG, 0));
       }
+      laplYjj /= Delta;
       //// Add interfacial contribution
       //scalar sgexp = sgexpList[jj];
       //scalar sgimp = sgimpList[jj];
       //laplYjj += sgexp[];
       //laplYjj += sgimp[]*YG[];
 
+      // Add chemical reactions contribution
+      if ((1. - f[]) < F_ERR)
+        laplYjj += OpenSMOKE_MW(jj)*ri[jj];
+
       // Multiply by the species molecular weight
-      laplYtot += 1./(inMW[jj]*Delta)*laplYjj;
+      //laplYtot += 1./(inMW[jj]*Delta)*laplYjj;
+      laplYtot += 1./inMW[jj]*laplYjj;
     }
     laplYtot *= MW2mix[]/rho2v[];
 
@@ -369,6 +455,9 @@ void update_divergence (void) {
           fm.x[]*fsG.x[]*lambdafl*face_gradient_x (TG, 0));
     }
     laplT2 /= Delta;
+
+    if ((1. - f[]) < F_ERR)
+      laplT2 += Qr;
 
     // Add temperature interface contribution
     if (f[] > F_ERR && f[] < 1.-F_ERR) {
@@ -401,17 +490,15 @@ void update_divergence (void) {
       -betaexp1[]/(rho1v[]*cp1v[])*laplT1 : 0.;
 
     drho2dt += (TG[]*rho2v[]*cp2v[] > 0.) ?
-      //-1./(TG[]*rho2v[]*cp2v[])*laplT2 : 0.;
-      1./(TG[]*rho2v[]*cp2v[])*laplT2 : 0.;
+      -1./(TG[]*rho2v[]*cp2v[])*laplT2 : 0.;
 
     // Add gas compressibility due to composition
     drho2dt += ((1. - f[]) > F_ERR) ? -laplYtot : 0.;
 
-    //drhodt[] = f[]*drho1dt + (1. - f[])*drho2dt;
-    drhodt[] = f[]*drho1dt;
-    drhodtext[] = f[]*drho1dt;
+    drho2dt *= (1. - f[]);
 
-    //drhodt[] = (f[] > F_ERR && f[] < 1.-F_ERR) ? 0. : drhodt[];
+    drhodt[] = drho1dt + drho2dt;
+    drhodtext[] = drho1dt;
   }
 }
 
