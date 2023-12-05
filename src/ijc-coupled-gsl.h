@@ -458,8 +458,8 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
   double vapheat = 0.;
   for (int jj=0; jj<NLS; jj++) {
     scalar mEvap = mEvapList[LSI[jj]];
-    scalar dhevjj = dhevList[jj];
 #ifdef VARPROP
+    scalar dhevjj = dhevList[jj];
     //dhevjj[] = tp1.dhev (&ts1h, jj);
     vapheat -= mEvap[]*dhevjj[];
 #else
@@ -474,8 +474,8 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
 #ifdef VARPROP
        + lambda1v[]*ltrgrad
        + lambda2v[]*gtrgrad
-      // + tp1.lambdav (&ts1h)*ltrgrad
-      // + tp2.lambdav (&ts2h)*gtrgrad
+       //+ tp1.lambdav (&ts1h)*ltrgrad
+       //+ tp2.lambdav (&ts2h)*gtrgrad
 #else
        + lambda1*ltrgrad
        + lambda2*gtrgrad

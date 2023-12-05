@@ -37,6 +37,9 @@ void update_properties_constant (void) {
 
       scalar Dmix1v = Dmix1List[jj];
       Dmix1v[] = inDmix1[jj];
+
+      scalar Cp1v = Cp1List[jj];
+      Cp1v[] = cp1;
     }
 
     rho2v[] = rho2;
@@ -48,6 +51,9 @@ void update_properties_constant (void) {
     foreach_elem (Dmix2List, jj) {
       scalar Dmix2v = Dmix2List[jj];
       Dmix2v[] = inDmix2[jj];
+
+      scalar Cp2v = Cp2List[jj];
+      Cp2v[] = cp2;
     }
   }
 }
@@ -75,6 +81,9 @@ void update_properties_initial (void) {
 
       scalar Dmix1v = Dmix1List[jj];
       Dmix1v[] = tp1.diff (&ts1h, jj);
+
+      scalar Cp1v = Cp1List[jj];
+      Cp1v[] = tp1.cps (&ts1h, jj);
     }
 
     rho2v[] = tp2.rhov (&ts2h);
@@ -86,6 +95,9 @@ void update_properties_initial (void) {
     foreach_elem (Dmix2List, jj) {
       scalar Dmix2v = Dmix2List[jj];
       Dmix2v[] = tp2.diff (&ts2h, jj);
+
+      scalar Cp2v = Cp2List[jj];
+      Cp2v[] = tp2.cps (&ts2h, jj);
     }
   }
 }
@@ -138,10 +150,6 @@ void update_properties (void)
       ts1h.T = TL[];
       ts1h.P = Pref;
       ts1h.x = x1;
-      //ThermoState ts1h;
-      //ts1h.T = TL0;
-      //ts1h.P = Pref;
-      //ts1h.x = liq_start;
 
       rho1v[] = tp1.rhov (&ts1h);
       mu1v[] = tp1.muv (&ts1h);
@@ -157,24 +165,30 @@ void update_properties (void)
         // Liquid phase diffusivity
         scalar Dmix1v = Dmix1List[jj];
         Dmix1v[] = tp1.diff (&ts1h, jj);
-      }
-    }
-    else {
-      //rho1v[] = 0.;
-      rho1v0[] = 0.;
-      mu1v[] = 0.;
-      cp1v[] = 0.;
-      cp1v[] = 0.;
-      lambda1v[] = 0.;
-      betaexp1[] = 0.;
 
-      foreach_elem (Dmix1List, jj) {
-        scalar Dmix1v = Dmix1List[jj];
-        scalar dhevjj = dhevList[jj];
-        Dmix1v[] = 0.;
-        dhevjj[] = 0.;
+        // Liquid phase species heat capacity
+        scalar Cp1v = Cp1List[jj];
+        Cp1v[] = tp1.cps (&ts1h, jj);
       }
     }
+    //else {
+    //  //rho1v[] = 0.;
+    //  rho1v0[] = 0.;
+    //  mu1v[] = 0.;
+    //  cp1v[] = 0.;
+    //  cp1v[] = 0.;
+    //  lambda1v[] = 0.;
+    //  betaexp1[] = 0.;
+
+    //  foreach_elem (Dmix1List, jj) {
+    //    scalar Dmix1v = Dmix1List[jj];
+    //    scalar dhevjj = dhevList[jj];
+    //    scalar Cp1v   = Cp1List[jj];
+    //    Dmix1v[] = 0.;
+    //    dhevjj[] = 0.;
+    //    Cp1v[]   = 0.;
+    //  }
+    //}
 
     if ((1. - f[]) > T_PROP) {
       double x2[NGS], y2[NGS];
@@ -191,11 +205,6 @@ void update_properties (void)
       ts2h.P = Pref;
       ts2h.x = x2;
 
-      ThermoState ts2h_init;
-      ts2h_init.T = TG0;
-      ts2h_init.P = Pref;
-      ts2h_init.x = gas_start;
-
       rho2v[] = tp2.rhov (&ts2h);
       mu2v[] = tp2.muv (&ts2h);
       cp2v[] = tp2.cpv (&ts2h);
@@ -205,20 +214,25 @@ void update_properties (void)
       foreach_elem (Dmix2List, jj) {
         scalar Dmix2v = Dmix2List[jj];
         Dmix2v[] = tp2.diff (&ts2h, jj);
-      }
-    }
-    else {
-      //rho2v[] = 0.;
-      rho2v0[] = 0.;
-      mu2v[] = 0.;
-      cp2v[] = 0.;
-      betaexp2[] = 0.;
 
-      foreach_elem (Dmix2List, jj) {
-        scalar Dmix2v = Dmix2List[jj];
-        Dmix2v[] = 0.;
+        scalar Cp2v = Cp2List[jj];
+        Cp2v[] = tp2.cps (&ts2h, jj);
       }
     }
+    //else {
+    //  //rho2v[] = 0.;
+    //  rho2v0[] = 0.;
+    //  mu2v[] = 0.;
+    //  cp2v[] = 0.;
+    //  betaexp2[] = 0.;
+
+    //  foreach_elem (Dmix2List, jj) {
+    //    scalar Dmix2v = Dmix2List[jj];
+    //    scalar Cp2v   = Cp2List[jj];
+    //    Dmix2v[] = 0.;
+    //    Cp2v[] = 0.;
+    //  }
+    //}
   }
 
   //// Update interface properties
@@ -368,17 +382,18 @@ void update_divergence (void) {
   restriction (YLList);
   restriction (YGList);
 
-  double massfracs[NGS], molefracs[NGS], ci[NGS], ri[NGS], Qr = 0.;
-  foreach_elem (YGList, jj) {
-    massfracs[jj] = 0.;
-    molefracs[jj] = 0.;
-    ci[jj] = 0.;
-    ri[jj] = 0.;
-  }
-
   foreach() {
 
 #ifdef CHEMISTRY
+    double Qr = 0.;
+    double massfracs[NGS], molefracs[NGS], ci[NGS], ri[NGS];
+    foreach_elem (YGList, jj) {
+      massfracs[jj] = 0.;
+      molefracs[jj] = 0.;
+      ci[jj] = 0.;
+      ri[jj] = 0.;
+    }
+
     // Set up chemical reactions contribution
     if ((1. - f[]) < F_ERR) {
       OpenSMOKE_GasProp_SetTemperature (TG[]);
@@ -421,15 +436,18 @@ void update_divergence (void) {
             fm.x[]*fsG.x[]*rhofl*Dmixfl*face_gradient_x (YG, 0));
       }
       laplYjj /= Delta;
-      //// Add interfacial contribution
-      //scalar sgexp = sgexpList[jj];
-      //scalar sgimp = sgimpList[jj];
-      //laplYjj += sgexp[];
-      //laplYjj += sgimp[]*YG[];
+
+      // Add interfacial contribution
+      scalar sgexp = sgexpList[jj];
+      scalar sgimp = sgimpList[jj];
+      laplYjj += sgexp[];
+      laplYjj += sgimp[]*YG[];
 
       // Add chemical reactions contribution
-      if ((1. - f[]) < F_ERR)
-        laplYjj += OpenSMOKE_MW(jj)*ri[jj];
+#ifdef CHEMISTRY
+        //laplYjj += OpenSMOKE_MW(jj)*ri[jj]*cm[]*(1. - f[]);
+        laplYjj += OpenSMOKE_MW(jj)*ri[jj]*(1. - f[]);
+#endif
 
       // Multiply by the species molecular weight
       //laplYtot += 1./(inMW[jj]*Delta)*laplYjj;
@@ -456,31 +474,35 @@ void update_divergence (void) {
     }
     laplT2 /= Delta;
 
-    if ((1. - f[]) < F_ERR)
-      laplT2 += Qr;
-
-    // Add temperature interface contribution
-    if (f[] > F_ERR && f[] < 1.-F_ERR) {
-      coord n = facet_normal (point, f, fsL), p;
-      double alpha = plane_alpha (f[], n);
-      double area = plane_area_center (n, alpha, &p);
-      normalize (&n);
-
-      double bc = TInt[];
-      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
-      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
-
-      double lheatflux = lambda1v[]*ltrgrad;
-      double gheatflux = lambda2v[]*gtrgrad;
-
-#ifdef AXI
-    laplT1 += lheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
-    laplT2 += gheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
-#else
-    laplT1 += lheatflux*area/Delta*cm[];
-    laplT2 += gheatflux*area/Delta*cm[];
+#ifdef CHEMISTRY
+      //laplT2 += Qr*cm[]*(1. - f[]);
+      laplT2 += Qr*(1. - f[]);
 #endif
-    }
+
+//    // Add temperature interface contribution
+//    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+//      coord n = facet_normal (point, f, fsL), p;
+//      double alpha = plane_alpha (f[], n);
+//      double area = plane_area_center (n, alpha, &p);
+//      normalize (&n);
+//
+//      double bc = TInt[];
+//      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
+//      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
+//
+//      double lheatflux = lambda1v[]*ltrgrad;
+//      double gheatflux = lambda2v[]*gtrgrad;
+//
+//#ifdef AXI
+//    laplT1 += lheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
+//    laplT2 += gheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
+//#else
+//    laplT1 += lheatflux*area/Delta*cm[];
+//    laplT2 += gheatflux*area/Delta*cm[];
+//#endif
+//    }
+    laplT1 += slT[];
+    laplT2 += sgT[];
 
     double drho1dt = 0.;
     double drho2dt = 0.;

@@ -19,6 +19,14 @@ equations. */
 
 #pragma autolink -lgsl -lgslcblas
 
+#ifndef FSOLVE_RELTOL
+# define FSOLVE_RELTOL 0.
+#endif
+
+#ifndef FSOLVE_ABSTOL
+# define FSOLVE_ABSTOL 1.e-7
+#endif
+
 typedef int (* nls_fun) (const gsl_vector * x, void * params, gsl_vector * f);
 
 void fsolve_gsl (nls_fun fun,
@@ -54,8 +62,13 @@ void fsolve_gsl (nls_fun fun,
       break;
     }
 
-    status =
-      gsl_multiroot_test_residual (s->f, 1.e-7);
+    if (FSOLVE_RELTOL > 0.)
+      status =
+        gsl_multiroot_test_delta (s->dx, s->x, FSOLVE_ABSTOL, FSOLVE_RELTOL);
+    else
+      status =
+        gsl_multiroot_test_residual (s->f, FSOLVE_ABSTOL);
+
   }
   while (status == GSL_CONTINUE && iter < 1000);
 

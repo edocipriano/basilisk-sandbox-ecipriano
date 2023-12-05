@@ -101,6 +101,5 @@ event chemistry (i++) {
 #endif
     }
   }
-  boundary(YGList);
 }
 

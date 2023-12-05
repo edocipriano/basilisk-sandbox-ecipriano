@@ -29,35 +29,36 @@ used according to the thermodynamic equilibrium implemented
 in [Pathak et al., 2018](#pathak2018steady), which proposed
 this test case. */
 
-#include "ch3ohcombustion-input-multicomponent.h"
+//#include "ch3ohcombustion-input-multicomponent.h"
 
-//#define NGS 3
-//#define NLS 1
-//
-//char* gas_species[NGS] = {"CH3OH", "N2", "O2"};
-//char* liq_species[NLS] = {"CH3OH"};
-//char* inert_species[1] = {"N2"};
-//double gas_start[NGS] = {0., 0.7670907862, 0.2329092138};
-//double liq_start[NLS] = {1.};
-//double inDmix1[NLS] = {0.};
-//double inDmix2[NGS] = {0., 0., 0.};
-//double inKeq[NLS] = {0.};
-//
-//double lambda1 = 0.;
-//double lambda2 = 0.;
-//double dhev = 0.;
-//double cp1 = 0.;
-//double cp2 = 0.;
+#define NGS 3
+#define NLS 1
+
+char* gas_species[NGS] = {"CH3OH", "N2", "O2"};
+char* liq_species[NLS] = {"CH3OH"};
+char* inert_species[1] = {"N2"};
+double gas_start[NGS] = {0., 0.7670907862, 0.2329092138};
+double liq_start[NLS] = {1.};
+double inDmix1[NLS] = {0.};
+double inDmix2[NGS] = {0., 0., 0.};
+double inKeq[NLS] = {0.};
+
+double lambda1 = 0.;
+double lambda2 = 0.;
+double dhev = 0.;
+double cp1 = 0.;
+double cp2 = 0.;
 
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE_OPENSMOKE
 #define FICK_CORRECTED
-//#define MOLAR_DIFFUSION
+#define MOLAR_DIFFUSION
 #define VARPROP
-#define CHEMISTRY
+//#define MASS_DIFFUSION_ENTHALPY
+//#define CHEMISTRY
 //#define RADIATION
-//#define PINNED
+//#define GRAVIY
 
 /**
 ## Simulation Setup
@@ -74,14 +75,14 @@ change mechanism. */
 #include "navier-stokes/centered-doubled.h"
 #include "opensmoke-properties.h"
 #include "two-phase-varprop.h"
-#ifdef PINNED
+#ifdef GRAVIY
 #include "pinning.h"
 #endif
 #include "tension.h"
 #include "evaporation-varprop.h"
 #include "multicomponent.h"
 //#include "spark.h"
-#include "chemistry.h"
+//#include "chemistry.h"
 #include "view.h"
 
 /**
@@ -93,7 +94,7 @@ field. The equilibrium constant *inKeq* is ignored when
 *USE_ANTOINE* or *USE_CLAPEYRON* is used. */
 
 double TL0 = 300.;
-double TG0 = 2000.;
+double TG0 = 500.;
 
 /**
 ### Boundary conditions
@@ -145,8 +146,11 @@ double D0 = 0.56e-3, effective_radius0, d_over_d02 = 1.;
 double volumecorr = 0., volume0 = 0.;
 
 int main (void) {
-  kinfolder = "skeletal/methanol";
-  //kinfolder = "evaporation/methanol-in-air";
+  //kinfolder = "skeletal/methanol";
+  kinfolder = "evaporation/methanol-in-air";
+  //kinfolder = "evaporation/ethanol-in-air";
+  //kinfolder = "evaporation/n-heptane-in-air";
+  //kinfolder = "evaporation/n-decane-in-air";
 
   /**
   We set the material properties of the fluids. The
@@ -155,7 +159,7 @@ int main (void) {
 
   mu1 = 1.e-3; mu2 = 1.e-5;
   rho1 = 0.; rho2 = 0.;
-  Pref = 5*101325.;
+  Pref = 1*101325.;
 
   /**
   We change the dimension of the domain as a function
@@ -164,7 +168,7 @@ int main (void) {
   double RR = 7.986462e+01;
   L0 = 0.5*RR*D0;
 
-#ifdef PINNED
+#ifdef GRAVIY
   double df = 0.1*D0;
   X0 = -0.5*L0;
   Y0 = 0.5*df;
@@ -202,7 +206,7 @@ double mLiq0 = 0.;
 event init (i = 0) {
   refine (circle (x, y, 2.*D0) > 0. && level < maxlevel);
   fraction (f, circle (x, y, 0.5*D0));
-#ifdef PINNED
+#ifdef GRAVIY
   effective_radius0 = pow(3./2.*statsf(f).sum, 1./3.);
 #else
   effective_radius0 = pow(3.*statsf(f).sum, 1./3.);
@@ -211,40 +215,14 @@ event init (i = 0) {
   foreach (reduction(+:mLiq0))
     mLiq0 += rho1v[]*f[]*dv();
 
-  if (!init_fields) {
-    double gas_int[NGS];
-    for (int jj=0; jj<NGS; jj++)
-      gas_int[jj] = 0.;
-    gas_int[OpenSMOKE_IndexOfSpecies ("CH3OH")] = 0.168;
-    gas_int[OpenSMOKE_IndexOfSpecies ("N2")] = 0.639;
-    gas_int[OpenSMOKE_IndexOfSpecies ("O2")] = 0.193;
-
-    foreach() {
-      double r = sqrt (sq(x) + sq(y));
-      double r1 = 0.5*D0, r2 = 1.5*D0;
-      TL[] = f[]*TL0;
-      //TG[] = (1. - f[])*radialprofile (r, r1, r2, TL0, TG0);
-      TG[] = (1. - f[])*TG0;
-      T[] = TL[] + TG[];
-
-      foreach_elem (YLList, jj) {
-        scalar YL = YLList[jj];
-        YL[] = f[]*liq_start[jj];
-      }
-      foreach_elem (YGList, jj) {
-        scalar YG = YGList[jj];
-        //YG[] = (1. - f[])*radialprofile (r, r1, r2, gas_int[jj], gas_start[jj]);
-        YG[] = (1. - f[])*gas_start[jj];
-      }
-    }
-  }
-
   /**
   We set the molecular weights of the chemial species
   involved in the simulation (by default inMW=1). */
 
-  foreach_elem (YGList, jj)
+  foreach_elem (YGList, jj) {
     inMW[jj] = OpenSMOKE_MW (jj);
+    fprintf (stdout, "inMW[%d] = %g\n", jj, inMW[jj]);
+  }
 
 #ifdef SPARK
   spark.T = TG;
@@ -259,45 +237,6 @@ event init (i = 0) {
 //#ifdef RADIATION
 //  divq_rad = optically_thin;
 //#endif
-
-  fprintf (stderr, "Tb = %g\n", boilingtemperature (300., liq_start));
-
-  // Check frazioni molari
-  {
-    double W[NGS], X[NGS], MWW[NGS];
-    X[0] = 0.;
-    X[1] = 0.79;
-    X[2] = 0.21;
-    MWW[0] = 32.;
-    MWW[1] = 28.;
-    MWW[2] = 32.;
-    mole2massfrac (W, X, MWW, NGS);
-    fprintf (stderr, "W[Me] = %g\n", W[0]);
-    fprintf (stderr, "W[N2] = %g\n", W[1]);
-    fprintf (stderr, "W[O2] = %g\n", W[2]);
-  }
-
-  // Check properties
-  {
-    double xd[] = {1.};
-
-    ThermoState tsd;
-    tsd.T = 500.;
-    tsd.P = Pref;
-    tsd.x = xd;
-
-    fprintf (stderr, "dhev = %g\n", tp1.dhev (&tsd, 0));
-    fprintf (stderr, "Keq  = %g\n", opensmoke_antoine (tsd.T, tsd.P, 0));
-
-    double xgas[] = {0., 0.79, 0.21};
-
-    ThermoState tsgas;
-    tsgas.T = 2000.;
-    tsgas.P = Pref;
-    tsgas.x = xgas;
-
-    fprintf (stderr, "kG = %g\n", tp2.lambdav (&tsgas));
-  }
 }
 
 //event set_spark (i++) {
@@ -350,7 +289,7 @@ event adapt (i++) {
 We add the gravity contribution if the suspended droplet
 configuration is considered. */
 
-#ifdef PINNED
+#ifdef GRAVIY
 event acceleration (i++) {
   face vector av = a;
   foreach_face(x)
@@ -393,7 +332,7 @@ event logger (i++) {
 We write on a file the squared diameter decay and the
 dimensionless time. */
 
-event output_data (i++, last) {
+event output_data (i++) {
   char name[80];
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
@@ -401,7 +340,7 @@ event output_data (i++, last) {
   scalar YInt_c7 = YGIntList[0];
   scalar Y_c7 = YList[0];
 
-#ifdef PINNED
+#ifdef GRAVIY
   double effective_radius = pow(3./2.*statsf(f).sum, 1./3.);
 #else
   double effective_radius = pow(3.*statsf(f).sum, 1./3.);
@@ -410,7 +349,7 @@ event output_data (i++, last) {
 
   double TIntavg = avg_interface (TInt, f, 0.1);
   double YIntavg = avg_interface (YInt_c7, f, 0.1);
-  double Tavg = avg_interface (T, f, 0.1);
+  double mEvapavg = avg_interface (mEvapTot, f, 0.1);
   double Yavg = avg_interface (Y_c7, f, 0.1);
 
   double mLiq = 0.;
@@ -418,7 +357,7 @@ event output_data (i++, last) {
     mLiq += rho1v[]*f[]*dv();
 
   fprintf (fp, "%g %g %g %g %g %g %g %g %g\n",
-      t, t/sq(D0*1e3), effective_radius, d_over_d02, mLiq/mLiq0, TIntavg, YIntavg, Tavg, Yavg);
+      t, t/sq(D0*1e3), effective_radius, d_over_d02, mLiq/mLiq0, TIntavg, YIntavg, mEvapavg, Yavg);
   fflush (fp);
 }
 

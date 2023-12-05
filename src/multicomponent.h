@@ -166,6 +166,8 @@ scalar * JGList    = NULL;    // [NGS]
 scalar * Dmix1List = NULL;    // [NLS]
 scalar * Dmix2List = NULL;    // [NGS]
 scalar * dhevList  = NULL;    // [NLS]
+scalar * Cp1List   = NULL;    // [NLS]
+scalar * Cp2List   = NULL;    // [NGS]
 #endif
 #ifdef MOLAR_DIFFUSION
 scalar * XLList    = NULL;    // [NLS]
@@ -283,6 +285,8 @@ event defaults (i = 0)
   Dmix1List = NULL;
   Dmix2List = NULL;
   dhevList  = NULL;
+  Cp1List   = NULL;
+  Cp2List   = NULL;
 #endif
 #ifdef MOLAR_DIFFUSION
   XLList    = NULL;
@@ -446,6 +450,27 @@ event defaults (i = 0)
     dhevList = list_append (dhevList, a);
   }
   reset (dhevList, 0.);
+
+  for (int jj=0; jj<NLS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "Cp1_%s", liq_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    Cp1List = list_append (Cp1List, a);
+  }
+  for (int jj=0; jj<NGS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "Cp2_%s", gas_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    Cp2List = list_append (Cp2List, a);
+  }
+  reset (Cp1List, 0.);
+  reset (Cp2List, 0.);
 #endif
 #ifdef MOLAR_DIFFUSION
   for (int jj=0; jj<NLS; jj++) {
@@ -1388,6 +1413,12 @@ event phasechange (i++)
       sgexp[] = 0.;
       sgimp[] = 0.;
     }
+#ifdef SOLVE_TEMPERATURE
+    slT[] = 0.;
+    sgT[] = 0.;
+    sgTimp[] = 0.;
+    slTimp[] = 0.;
+#endif
 
     if (f[] > F_ERR && f[] < 1.-F_ERR) {
       coord n = facet_normal (point, fL, fsL), p;
@@ -1401,13 +1432,9 @@ event phasechange (i++)
         scalar mEvap = mEvapList[jj];
 
 #ifdef AXI
-        //sgexp[] = -mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        //sgimp[] = +mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
         sgexp[] = -mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
         sgimp[] = +mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        //sgexp[] = -mEvap[]/rho2*area/Delta*cm[];
-        //sgimp[] = +mEvapTot[]/rho2*area/Delta*cm[];
         sgexp[] = -mEvap[]*area/Delta*cm[];
         sgimp[] = +mEvapTot[]*area/Delta*cm[];
 #endif
@@ -1419,17 +1446,40 @@ event phasechange (i++)
         scalar mEvap = mEvapList[LSI[jj]];
 
 #ifdef AXI
-        //slexp[] = +mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        //slimp[] = -mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
         slexp[] = +mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
         slimp[] = -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        //slexp[] = +mEvap[]/rho1*area/Delta*cm[];
-        //slimp[] = -mEvapTot[]/rho1*area/Delta*cm[];
         slexp[] = +mEvap[]*area/Delta*cm[];
         slimp[] = -mEvapTot[]*area/Delta*cm[];
 #endif
       }
+#ifdef SOLVE_TEMPERATURE
+      double bc = TInt[];
+      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
+      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
+
+      double lambda1vh = lambda1;
+      double lambda2vh = lambda2;
+# ifdef VARPROP
+      lambda1vh = lambda1v[];
+      lambda2vh = lambda2v[];
+# endif
+      double lheatflux = lambda1vh*ltrgrad;
+      double gheatflux = lambda2vh*gtrgrad;
+
+# ifndef VARPROP  // Without VARPROP this form converges better
+      lheatflux /= (rho1*cp1);
+      gheatflux /= (rho2*cp2);
+# endif
+
+# ifdef AXI
+      slT[] = lheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgT[] = gheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
+# else
+      slT[] = lheatflux*area/Delta*cm[];
+      sgT[] = gheatflux*area/Delta*cm[];
+# endif
+#endif
     }
 #ifdef FICK_CORRECTED
     foreach_elem (YLList, jj) {
@@ -1456,9 +1506,50 @@ event phasechange (i++)
 #endif
   }
 
+#ifdef MASS_DIFFUSION_ENTHALPY
+  foreach() {
+    double mde2 = 0.;
+    coord gTG = {0., 0., 0.};
+    coord gYj = {0., 0., 0.};
+    coord gYsum = {0., 0., 0.};
+
+    foreach_dimension()
+      gTG.x = (TG[1] - TG[-1])/(2.*Delta);
+
+    foreach_dimension() {
+      foreach_elem (YGList, jj) {
+        scalar Dmix2v = Dmix2List[jj];
+# ifdef MOLAR_DIFFUSION
+        scalar XG = XGList[jj];
+        gYsum.x -= (MW2mix[] > 0.) ?
+          rho2v[]*Dmix2v[]*inMW[jj]/MW2mix[]*(XG[1] - XG[-1])/(2.*Delta) : 0.;
+# else
+      scalar YG = YGList[jj];
+      gYsum.x -= rho2v[]*Dmix2v[]*(YG[1] - YG[-1])/(2.*Delta);
+# endif
+    }
+
+    foreach_elem (YGList, jj) {
+      scalar YG = YGList[jj];
+      scalar Cp2v = Cp2List[jj];
+      scalar Dmix2v = Dmix2List[jj];
+# ifdef MOLAR_DIFFUSION
+        scalar XG = XGList[jj];
+        gYj.x = (MW2mix[] > 0.) ?
+          -rho2v[]*Dmix2v[]*inMW[jj]/MW2mix[]*(XG[1] - XG[-1])/(2.*Delta) : 0.;
+# else
+    gYj.x = -rho2v[]*Dmix2v[]*(YG[1] - YG[-1])/(2.*Delta);
+# endif
+        mde2 += Cp2v[]*(gYj.x - YG[]*gYsum.x)*gTG.x;
+      }
+    }
+    sgT[] -= mde2*cm[]*(f[] < F_ERR);
+  }
+#endif
+
 #ifdef VARPROP
   update_properties();
-  //update_divergence();
+  update_divergence();
 #endif
 
   /**
@@ -1651,69 +1742,18 @@ event tracer_diffusion (i++)
 
   foreach_face() {
 #ifdef VARPROP
-    double alpha1l = (rho1v[] != 0.) ? lambda1v[]/rho1v[]/cp1v[] : 0.;
-    double alpha2l = (rho2v[] != 0.) ? lambda2v[]/rho2v[]/cp2v[] : 0.;
-    double alpha1r = (rho1v[-1] != 0.) ? lambda1v[-1]/rho1v[-1]/cp1v[-1] : 0.;
-    double alpha2r = (rho2v[-1] != 0.) ? lambda2v[-1]/rho2v[-1]/cp2v[-1] : 0.;
+    //double alpha1l = (rho1v[] != 0.) ? lambda1v[]/rho1v[]/cp1v[] : 0.;
+    //double alpha2l = (rho2v[] != 0.) ? lambda2v[]/rho2v[]/cp2v[] : 0.;
+    //double alpha1r = (rho1v[-1] != 0.) ? lambda1v[-1]/rho1v[-1]/cp1v[-1] : 0.;
+    //double alpha2r = (rho2v[-1] != 0.) ? lambda2v[-1]/rho2v[-1]/cp2v[-1] : 0.;
     //lambda1f.x[] = 0.5*(alpha1r + alpha1l)*fsL.x[]*fm.x[];
     //lambda2f.x[] = 0.5*(alpha2r + alpha2l)*fsG.x[]*fm.x[];
     lambda1f.x[] = 0.5*(lambda1v[] + lambda1v[-1])*fsL.x[]*fm.x[];
     lambda2f.x[] = 0.5*(lambda2v[] + lambda2v[-1])*fsG.x[]*fm.x[];
 #else
-    //lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
-    //lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
-    lambda1f.x[] = lambda1*fsL.x[]*fm.x[];
-    lambda2f.x[] = lambda2*fsG.x[]*fm.x[];
+    lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
+    lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
 #endif
-  }
-
-  /**
-  Compute source terms for temperature equations. */
-
-  foreach() {
-    sgT[] = 0.; slT[] = 0.;
-    sgTimp[] = 0.; slTimp[] = 0.;
-    theta1[] = cm[]*max(f[], F_ERR);
-    theta2[] = cm[]*max(1. - f[], F_ERR);
-    if (f0[] > F_ERR && f0[] < 1.-F_ERR) {
-      coord n = facet_normal (point, fL, fsL), p;
-      double alpha = plane_alpha (fL[], n);
-      double area = plane_area_center (n, alpha, &p);
-      normalize (&n);
-
-      double bc = TInt[];
-      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
-      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
-
-      double rho1vh = rho1;
-      double rho2vh = rho2;
-      double cp1vh = cp1;
-      double cp2vh = cp2;
-      double lambda1vh = lambda1;
-      double lambda2vh = lambda2;
-#ifdef VARPROP
-      rho1vh = rho1v[];
-      rho2vh = rho2v[];
-      cp1vh = cp1v[];
-      cp2vh = cp2v[];
-      lambda1vh = lambda1v[];
-      lambda2vh = lambda2v[];
-#endif
-      double lheatflux = lambda1vh*ltrgrad;
-      double gheatflux = lambda2vh*gtrgrad;
-
-#ifdef AXI
-      //slT[] = lheatflux/rho1vh/cp1vh*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      //sgT[] = gheatflux/rho2vh/cp2vh*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      slT[] = lheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgT[] = gheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
-#else
-      //slT[] = lheatflux/rho1vh/cp1vh*area/Delta*cm[];
-      //sgT[] = gheatflux/rho2vh/cp2vh*area/Delta*cm[];
-      slT[] = lheatflux*area/Delta*cm[];
-      sgT[] = gheatflux*area/Delta*cm[];
-#endif
-    }
   }
 
   foreach() {
@@ -1721,8 +1761,8 @@ event tracer_diffusion (i++)
     theta1[] = cm[]*max(fL[]*rho1v[]*cp1v[], F_ERR);
     theta2[] = cm[]*max(fG[]*rho2v[]*cp2v[], F_ERR);
 #else
-    theta1[] = cm[]*max(fL[]*rho1*cp1, F_ERR);
-    theta2[] = cm[]*max(fG[]*rho2*cp2, F_ERR);
+    theta1[] = cm[]*max(fL[], F_ERR);
+    theta2[] = cm[]*max(fG[], F_ERR);
 #endif
   }
 
