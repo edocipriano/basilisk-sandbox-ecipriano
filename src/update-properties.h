@@ -515,7 +515,8 @@ void update_divergence (void) {
       -1./(TG[]*rho2v[]*cp2v[])*laplT2 : 0.;
 
     // Add gas compressibility due to composition
-    drho2dt += ((1. - f[]) > F_ERR) ? -laplYtot : 0.;
+    //drho2dt += ((1. - f[]) > F_ERR) ? -laplYtot : 0.;
+    drho2dt += (f[] == 0.) ? -laplYtot : 0.;
 
     drho2dt *= (1. - f[]);
 

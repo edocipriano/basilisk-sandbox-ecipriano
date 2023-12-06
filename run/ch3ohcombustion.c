@@ -55,10 +55,10 @@ double cp2 = 0.;
 #define FICK_CORRECTED
 #define MOLAR_DIFFUSION
 #define VARPROP
-//#define MASS_DIFFUSION_ENTHALPY
+#define MASS_DIFFUSION_ENTHALPY
+#define GRAVITY
 //#define CHEMISTRY
 //#define RADIATION
-//#define GRAVIY
 
 /**
 ## Simulation Setup
@@ -75,8 +75,8 @@ change mechanism. */
 #include "navier-stokes/centered-doubled.h"
 #include "opensmoke-properties.h"
 #include "two-phase-varprop.h"
-#ifdef GRAVIY
-#include "pinning.h"
+#ifdef GRAVITY
+# include "pinning.h"
 #endif
 #include "tension.h"
 #include "evaporation-varprop.h"
@@ -94,7 +94,7 @@ field. The equilibrium constant *inKeq* is ignored when
 *USE_ANTOINE* or *USE_CLAPEYRON* is used. */
 
 double TL0 = 300.;
-double TG0 = 500.;
+double TG0 = 2000.;
 
 /**
 ### Boundary conditions
@@ -119,6 +119,39 @@ p[top] = dirichlet (0.);
 ps[top] = dirichlet (0.);
 pg[top] = dirichlet (0.);
 #else
+# ifdef GRAVITY
+u.n[right] = dirichlet (0.);
+u.t[right] = dirichlet (0.);
+p[right] = neumann (0.);
+uext.n[right] = dirichlet (0.);
+uext.t[right] = dirichlet (0.);
+pext[right] = neumann (0.);
+
+//u.n[bottom] = dirichlet (0.);
+//u.t[bottom] = dirichlet (0.);
+//p[bottom] = neumann (0.);
+//uext.n[bottom] = dirichlet (0.);
+//uext.t[bottom] = dirichlet (0.);
+//pext[bottom] = neumann (0.);
+//uf.n[bottom] = 0.;
+//uf.t[bottom] = 0.;
+
+u.n[top] = dirichlet (0.);
+u.t[top] = dirichlet (0.);
+p[top] = neumann (0.);
+uext.n[top] = dirichlet (0.);
+uext.t[top] = dirichlet (0.);
+pext[top] = neumann (0.);
+uf.n[top] = 0.;
+uf.t[top] = 0.;
+
+u.n[left] = neumann (0.);
+u.t[left] = neumann (0.);
+p[left] = dirichlet (0.);
+uext.n[left] = neumann (0.);
+uext.t[left] = neumann (0.);
+pext[left] = dirichlet (0.);
+# else
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
@@ -132,6 +165,7 @@ p[right] = dirichlet (0.);
 uext.n[right] = neumann (0.);
 uext.t[right] = neumann (0.);
 pext[right] = dirichlet (0.);
+# endif
 #endif
 
 /**
@@ -159,7 +193,7 @@ int main (void) {
 
   mu1 = 1.e-3; mu2 = 1.e-5;
   rho1 = 0.; rho2 = 0.;
-  Pref = 1*101325.;
+  Pref = 15*101325.;
 
   /**
   We change the dimension of the domain as a function
@@ -168,8 +202,8 @@ int main (void) {
   double RR = 7.986462e+01;
   L0 = 0.5*RR*D0;
 
-#ifdef GRAVIY
-  double df = 0.1*D0;
+#ifdef GRAVITY
+  double df = 0.15*D0;
   X0 = -0.5*L0;
   Y0 = 0.5*df;
   pinning.ap = 0.5*D0;
@@ -206,7 +240,7 @@ double mLiq0 = 0.;
 event init (i = 0) {
   refine (circle (x, y, 2.*D0) > 0. && level < maxlevel);
   fraction (f, circle (x, y, 0.5*D0));
-#ifdef GRAVIY
+#ifdef GRAVITY
   effective_radius0 = pow(3./2.*statsf(f).sum, 1./3.);
 #else
   effective_radius0 = pow(3.*statsf(f).sum, 1./3.);
@@ -289,7 +323,7 @@ event adapt (i++) {
 We add the gravity contribution if the suspended droplet
 configuration is considered. */
 
-#ifdef GRAVIY
+#ifdef GRAVITY
 event acceleration (i++) {
   face vector av = a;
   foreach_face(x)
@@ -340,7 +374,7 @@ event output_data (i++) {
   scalar YInt_c7 = YGIntList[0];
   scalar Y_c7 = YList[0];
 
-#ifdef GRAVIY
+#ifdef GRAVITY
   double effective_radius = pow(3./2.*statsf(f).sum, 1./3.);
 #else
   double effective_radius = pow(3.*statsf(f).sum, 1./3.);
@@ -371,7 +405,11 @@ and the temperature field. */
 event movie (t += 0.01; t <= 10) {
   clear();
   box();
+#ifdef GRAVITY
+  view (ty = -0.5);
+#else
   view (tx = -0.5, ty = -0.5);
+#endif
   draw_vof ("f");
   squares ("T", min = TL0, max = statsf(T).max, linear = true);
   save ("movie.mp4");
