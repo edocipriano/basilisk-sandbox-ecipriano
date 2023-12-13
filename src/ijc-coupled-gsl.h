@@ -410,7 +410,6 @@ void ijc_CoupledNls ()
 #ifdef SOLVE_TEMPERATURE
 
 
-
 double divq_rad_int (double TInti, double Tbulk = 300., double alphacorr = 1.) {
   return alphacorr*5.669e-8*(pow(Tbulk, 4.) - pow(TInti, 4.));
 }
@@ -468,9 +467,9 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
   }
 
   fdata[0] = vapheat
-//#ifdef RADIATION
-//      - divq_rad_int (TInti, TG0, 0.93)
-//#endif
+#ifdef RADIATION
+      - divq_rad_int (TInti, TG0, 0.93)
+#endif
 #ifdef VARPROP
        + lambda1v[]*ltrgrad
        + lambda2v[]*gtrgrad

@@ -47,6 +47,7 @@ and assume it is constant during each sweep. This seems to work
 fine. */
 
 extern scalar * interfaces;
+extern scalar f;
 
 event init (i = 0) {
   for (scalar c in {f})

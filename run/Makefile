@@ -1,7 +1,7 @@
 include $(BASILISK)/Makefile.defs
 
 # the default CFLAGS are set in $(BASILISK)/config
-CFLAGS += -O2 -events -disable-dimensions -I../src -I$(BASILISKWIKI) -I$(BREW_INCLUDE_PATHS) -L$(BREW_LIBRARY_PATHS) -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build
+CFLAGS += -O2 -disable-dimensions -I../src -I$(BASILISKWIKI) -I$(BREW_INCLUDE_PATHS) -L$(BREW_LIBRARY_PATHS) -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build
 
 dropdilation.tst: CFLAGS += -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build
 bubblethermalexpansion.tst: CFLAGS += -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build

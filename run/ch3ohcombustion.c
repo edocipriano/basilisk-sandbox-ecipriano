@@ -34,8 +34,8 @@ this test case. */
 #define NGS 3
 #define NLS 1
 
-char* gas_species[NGS] = {"CH3OH", "N2", "O2"};
-char* liq_species[NLS] = {"CH3OH"};
+char* gas_species[NGS] = {"NC7H16", "N2", "O2"};
+char* liq_species[NLS] = {"NC7H16"};
 char* inert_species[1] = {"N2"};
 double gas_start[NGS] = {0., 0.7670907862, 0.2329092138};
 double liq_start[NLS] = {1.};
@@ -53,12 +53,12 @@ double cp2 = 0.;
 #define USE_GSL 0
 #define USE_ANTOINE_OPENSMOKE
 #define FICK_CORRECTED
-#define MOLAR_DIFFUSION
+//#define MOLAR_DIFFUSION
 #define VARPROP
 #define MASS_DIFFUSION_ENTHALPY
 #define GRAVITY
+#define RADIATION
 //#define CHEMISTRY
-//#define RADIATION
 
 /**
 ## Simulation Setup
@@ -74,10 +74,10 @@ change mechanism. */
 #include "navier-stokes/centered-evaporation.h"
 #include "navier-stokes/centered-doubled.h"
 #include "opensmoke-properties.h"
-#include "two-phase-varprop.h"
 #ifdef GRAVITY
 # include "pinning.h"
 #endif
+#include "two-phase-varprop.h"
 #include "tension.h"
 #include "evaporation-varprop.h"
 #include "multicomponent.h"
@@ -94,7 +94,7 @@ field. The equilibrium constant *inKeq* is ignored when
 *USE_ANTOINE* or *USE_CLAPEYRON* is used. */
 
 double TL0 = 300.;
-double TG0 = 2000.;
+double TG0 = 973.;
 
 /**
 ### Boundary conditions
@@ -120,12 +120,16 @@ ps[top] = dirichlet (0.);
 pg[top] = dirichlet (0.);
 #else
 # ifdef GRAVITY
-u.n[right] = dirichlet (0.);
-u.t[right] = dirichlet (0.);
-p[right] = neumann (0.);
-uext.n[right] = dirichlet (0.);
-uext.t[right] = dirichlet (0.);
-pext[right] = neumann (0.);
+//u.n[right] = dirichlet (0.);
+//u.t[right] = dirichlet (0.);
+//p[right] = neumann (0.);
+//uext.n[right] = dirichlet (0.);
+//uext.t[right] = dirichlet (0.);
+//pext[right] = neumann (0.);
+//uf.n[right] = 0.;
+//uf.t[right] = 0.;
+//ufext.n[right] = 0.;
+//ufext.t[right] = 0.;
 
 //u.n[bottom] = dirichlet (0.);
 //u.t[bottom] = dirichlet (0.);
@@ -176,14 +180,17 @@ the initial radius and diameter, and the radius from the
 numerical simulation. */
 
 int maxlevel, minlevel = 2;
-double D0 = 0.56e-3, effective_radius0, d_over_d02 = 1.;
+//double D0 = 0.56e-3, effective_radius0, d_over_d02 = 1.;
+//double D0 = 1.1e-3, effective_radius0, d_over_d02 = 1.;
+double D0 = 1.2e-3, effective_radius0, d_over_d02 = 1.;
 double volumecorr = 0., volume0 = 0.;
 
 int main (void) {
   //kinfolder = "skeletal/methanol";
-  kinfolder = "evaporation/methanol-in-air";
+  //kinfolder = "evaporation/methanol-in-air";
   //kinfolder = "evaporation/ethanol-in-air";
-  //kinfolder = "evaporation/n-heptane-in-air";
+  kinfolder = "evaporation/n-heptane-in-air";
+  //kinfolder = "evaporation/n-hexadecane-in-air";
   //kinfolder = "evaporation/n-decane-in-air";
 
   /**
@@ -193,7 +200,8 @@ int main (void) {
 
   mu1 = 1.e-3; mu2 = 1.e-5;
   rho1 = 0.; rho2 = 0.;
-  Pref = 15*101325.;
+  Pref = 10*101325.;
+  //Pref = 2.e+6;
 
   /**
   We change the dimension of the domain as a function
@@ -203,10 +211,13 @@ int main (void) {
   L0 = 0.5*RR*D0;
 
 #ifdef GRAVITY
+  //double df = 0.15*D0;
   double df = 0.15*D0;
+  //double df = 125e-6;
   X0 = -0.5*L0;
   Y0 = 0.5*df;
-  pinning.ap = 0.5*D0;
+  //pinning.ap = 0.5*D0;
+  pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
   pinning.ac = pinning.ap - 0.05*D0;
 #endif
 
@@ -215,7 +226,6 @@ int main (void) {
   decrease the tolerance of the Poisson solver. */
 
   f.sigma = 0.0227;
-  TOLERANCE = 1.e-4;
   init_fields = true;
 
   /**
@@ -290,23 +300,23 @@ event init (i = 0) {
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-//event bcs (i = 0) {
-//  scalar CH3OH = YGList[OpenSMOKE_IndexOfSpecies ("CH3OH")];
-//  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
-//  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
-//
-//  CH3OH[top] = dirichlet (0.);
-//  CH3OH[right] = dirichlet (0.);
-//
-//  N2[top] = dirichlet (0.7670907862);
-//  N2[right] = dirichlet (0.7670907862);
-//
-//  O2[top] = dirichlet (0.2329092138);
-//  O2[right] = dirichlet (0.2329092138);
-//
-//  TG[top] = dirichlet (TG0);
-//  TG[right] = dirichlet (TG0);
-//}
+event bcs (i = 0) {
+  scalar NC7H16 = YGList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
+  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
+  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
+
+  NC7H16[top] = dirichlet (0.);
+  NC7H16[right] = dirichlet (0.);
+
+  N2[top] = dirichlet (0.7670907862);
+  N2[right] = dirichlet (0.7670907862);
+
+  O2[top] = dirichlet (0.2329092138);
+  O2[right] = dirichlet (0.2329092138);
+
+  TG[top] = dirichlet (TG0);
+  TG[right] = dirichlet (TG0);
+}
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -314,9 +324,9 @@ mass fraction of n-heptane, the temperature, and the
 velocity field. */
 
 event adapt (i++) {
-  scalar CH3OH = YList[OpenSMOKE_IndexOfSpecies ("CH3OH")];
-  adapt_wavelet_leave_interface ({CH3OH,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.e0,1.e-3,1.e-3}, maxlevel, minlevel, 1);
+  scalar NC7H16 = YList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
+  adapt_wavelet_leave_interface ({NC7H16,T,u.x,u.y}, {f},
+      (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
 }
 
 /**
@@ -413,6 +423,12 @@ event movie (t += 0.01; t <= 10) {
   draw_vof ("f");
   squares ("T", min = TL0, max = statsf(T).max, linear = true);
   save ("movie.mp4");
+}
+
+event ppm (t += 0.005) {
+  scalar Fuel = YList[0];
+  output_ppm (Fuel, file = "f.mp4", min = 0., max = 1.,
+      linear = true, box = {{-6.*D0,Y0}, {2.*D0,3*D0}});
 }
 
 event stop (i++) {
