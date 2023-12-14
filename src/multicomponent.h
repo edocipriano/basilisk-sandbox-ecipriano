@@ -43,7 +43,6 @@ for the equilibrium at the gas-liquid interface.
 #include "intgrad.h"
 #include "fracface.h"
 #include "diffusion.h"
-#include "diffusion-explicit.h"
 #include "thermodynamics.h"
 
 /**
