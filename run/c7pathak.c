@@ -36,6 +36,7 @@ this test case. */
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE
+#define FSOLVE_ABSTOL 1.e-3
 
 /**
 ## Simulation Setup
