@@ -132,8 +132,6 @@ int main (void) {
   decrease the tolerance of the Poisson solver. */
 
   f.sigma = 0.01;
-  TOLERANCE = 1.e-6;
-  DT = 1.e-3;
 
   /**
   We run the simulation at different maximum
@@ -198,7 +196,7 @@ velocity field. */
 event adapt (i++) {
   scalar C7 = YList[0];
   adapt_wavelet_leave_interface ({C7,T,u.x,u.y}, {f},
-      (double[]){1.e-3,1.e-2,1.e-3,1.e-3,1.e-3}, maxlevel, minlevel, 1);
+      (double[]){1.e-4,1.e-2,1.e-2,1.e-2}, maxlevel, minlevel, 1);
 }
 
 /**
