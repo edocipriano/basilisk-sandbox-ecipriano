@@ -41,6 +41,7 @@ for the equilibrium at the gas-liquid interface.
 */
 
 #include "intgrad.h"
+#include "intgradexp.h"
 #include "fracface.h"
 #include "diffusion.h"
 #include "thermodynamics.h"
@@ -847,7 +848,65 @@ event phasechange (i++)
 #ifdef USE_GSL
 
 # ifdef SOLVE_TEMPERATURE
-  ijc_CoupledTemperature();
+  //ijc_CoupledTemperature();  // Uncomment if you use fsolve
+  foreach() {
+    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+      intgrad gtrgrad = ebmgradig (point, TG, fL, fG, fsL, fsG, true, TInt[], &success);
+      intgrad ltrgrad = ebmgradig (point, TL, fL, fG, fsL, fsG, false, TInt[], &success);
+#if PRINTALL
+      fprintf (stdout, "\n");
+      fprintf (stdout, "gtrgrad.v  = %g\n", gtrgrad.v);
+      fprintf (stdout, "gtrgrad.v0 = %g\n", gtrgrad.v0);
+      fprintf (stdout, "gtrgrad.v1 = %g\n", gtrgrad.v1);
+      fprintf (stdout, "gtrgrad.d0 = %g\n", gtrgrad.d0);
+      fprintf (stdout, "gtrgrad.d1 = %g\n", gtrgrad.d1);
+      fprintf (stdout, "\n");
+      fprintf (stdout, "ltrgrad.v  = %g\n", ltrgrad.v);
+      fprintf (stdout, "ltrgrad.v0 = %g\n", ltrgrad.v0);
+      fprintf (stdout, "ltrgrad.v1 = %g\n", ltrgrad.v1);
+      fprintf (stdout, "ltrgrad.d0 = %g\n", ltrgrad.d0);
+      fprintf (stdout, "ltrgrad.d1 = %g\n", ltrgrad.d1);
+      fflush (stdout);
+#endif
+
+      double vapheat = 0.;
+      for (int jj=0; jj<NLS; jj++) {
+        scalar mEvap = mEvapList[jj];
+        vapheat += mEvap[]*dhev;
+      }
+
+      double TInthere = 0.;
+      if (gtrgrad.type == 0 || ltrgrad.type == 0.) {
+        // degenerate case
+        TInthere = TInt[];
+      }
+      else if (gtrgrad.type == 3  || ltrgrad.type == 3) {
+        // NotImplemented third order case
+        TInthere = TInt[];
+      }
+      else if (gtrgrad.type == 3  || ltrgrad.type == 3) {
+        // NotImplemented second order case
+        TInthere = TInt[];
+      }
+      else {
+        double rhs = vapheat +
+          (lambda1*fL[]*ltrgrad.v0)/(Delta*ltrgrad.d0) +
+          (lambda1*(1. - fL[])*ltrgrad.v1)/(Delta*ltrgrad.d1) +
+          (lambda2*fG[]*gtrgrad.v0)/(Delta*gtrgrad.d0) +
+          (lambda2*(1. - fG[])*gtrgrad.v1)/(Delta*gtrgrad.d1);
+
+        double lhs = lambda1*((fL[]/Delta/ltrgrad.d0) + ((1. - fL[])/Delta/ltrgrad.d1))
+                   + lambda2*((fG[]/Delta/gtrgrad.d0) + ((1. - fG[])/Delta/gtrgrad.d1));
+        TInthere = (lhs > 0.) ? rhs/lhs : 0.;
+        TInt[] = TInthere;  // Comment if you use fsolve
+      }
+#if PRINTALL
+      fprintf (stdout, "\n");
+      fprintf (stdout, "TIntanal  = %g\n", TInthere);
+      fprintf (stdout, "TInt[]    = %g\n", TInt[]);
+#endif
+    }
+  }
 # endif
 
   /**
