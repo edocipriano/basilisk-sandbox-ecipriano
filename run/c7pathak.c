@@ -196,7 +196,7 @@ velocity field. */
 event adapt (i++) {
   scalar C7 = YList[0];
   adapt_wavelet_leave_interface ({C7,T,u.x,u.y}, {f},
-      (double[]){1.e-4,1.e-2,1.e-2,1.e-2}, maxlevel, minlevel, 1);
+      (double[]){1.e-2,1.e-1,1.e-2,1.e-2}, maxlevel, minlevel, 1);
 }
 
 /**
