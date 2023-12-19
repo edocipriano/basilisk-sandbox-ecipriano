@@ -57,7 +57,7 @@ double cp2 = 0.;
 #define VARPROP
 #define MASS_DIFFUSION_ENTHALPY
 #define GRAVITY
-#define RADIATION_INTERFACE 0.8
+//#define RADIATION_INTERFACE 0.8
 #define FSOLVE_ABSTOL 1.e-3
 //#define CHEMISTRY
 
@@ -214,7 +214,7 @@ int main (void) {
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 9; maxlevel <= 11; maxlevel++) {
+  for (maxlevel = 8; maxlevel <= 11; maxlevel++) {
     init_grid (1 << (maxlevel - 2));
     run();
   }
@@ -232,6 +232,7 @@ double mLiq0 = 0.;
 
 event init (i = 0) {
   refine (circle (x, y, 2.*D0) > 0. && level < maxlevel);
+  fraction (f, circle (x, y, 0.5*D0));
 #ifdef GRAVITY
   volumecorr = 2.*pi*statsf(f).sum - (4./3.*pi*pow (0.5*D0, 3.));
   //effective_radius0 = pow(3./2.*statsf(f).sum, 1./3.);
@@ -302,19 +303,18 @@ We use the same boundary conditions used by
 //  TG[right] = dirichlet (TG0);
 //}
 
-event pinning (i++) {
-}
-
 /**
 We adapt the grid according to the mass fractions of the
 mass fraction of n-heptane, the temperature, and the
 velocity field. */
 
+#if TREE
 event adapt (i++) {
   scalar NC7H16 = YList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
   adapt_wavelet_leave_interface ({NC7H16,T,u.x,u.y}, {f},
       (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
 }
+#endif
 
 /**
 We add the gravity contribution if the suspended droplet
