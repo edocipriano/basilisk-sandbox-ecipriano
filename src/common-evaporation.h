@@ -25,7 +25,31 @@ We define a custom for that simplifies
 loops over the chemical species. */
 
 #define foreach_elem(list, index) \
-for (int index=0; index<list_len (list); index++)
+  for (int index=0; index<list_len (list); index++)
+
+/**
+We define the ghost index which is useful for loops over
+boundaries. */
+
+double get_ghost (Point point, scalar f, int bid) {
+  switch (bid) {
+    case 0: return f[1,0];  break;
+    case 1: return f[-1,0]; break;
+    case 2: return f[0,1];  break;
+    case 3: return f[0,-1]; break;
+    default: return 0;
+  }
+}
+
+void set_ghost (Point point, scalar f, int bid, double val) {
+  switch (bid) {
+    case 0: f[1,0]  = 2.*val - f[]; break;
+    case 1: f[-1,0] = 2.*val - f[]; break;
+    case 2: f[0,1]  = 2.*val - f[]; break;
+    case 3: f[0,-1] = 2.*val - f[]; break;
+    default:;
+  }
+}
 
 /**
 We define a macro describing a radial

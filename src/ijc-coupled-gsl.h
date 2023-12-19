@@ -409,6 +409,9 @@ void ijc_CoupledNls ()
 
 #ifdef SOLVE_TEMPERATURE
 
+#ifndef RADIATION_INTERFACE
+# define RADIATION_INTERFACE 0.
+#endif
 
 double divq_rad_int (double TInti, double Tbulk = 300., double alphacorr = 1.) {
   return alphacorr*5.669e-8*(pow(Tbulk, 4.) - pow(TInti, 4.));
@@ -459,7 +462,6 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
     scalar mEvap = mEvapList[LSI[jj]];
 #ifdef VARPROP
     scalar dhevjj = dhevList[jj];
-    //dhevjj[] = tp1.dhev (&ts1h, jj);
     vapheat -= mEvap[]*dhevjj[];
 #else
     vapheat -= mEvap[]*dhev;
@@ -467,14 +469,10 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
   }
 
   fdata[0] = vapheat
-#ifdef RADIATION
-      - divq_rad_int (TInti, TG0, 0.93)
-#endif
+      - divq_rad_int (TInti, TG0, RADIATION_INTERFACE)
 #ifdef VARPROP
        + lambda1v[]*ltrgrad
        + lambda2v[]*gtrgrad
-       //+ tp1.lambdav (&ts1h)*ltrgrad
-       //+ tp2.lambdav (&ts2h)*gtrgrad
 #else
        + lambda1*ltrgrad
        + lambda2*gtrgrad

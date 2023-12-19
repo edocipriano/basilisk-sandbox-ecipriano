@@ -56,6 +56,13 @@ void update_properties_constant (void) {
       Cp2v[] = cp2;
     }
   }
+  boundary ({rho1v,rho1v0,rho1vInt,mu1v,cp1v,lambda1v,
+      rho2v, rho2v0, mu2v, cp2v, lambda2v});
+  boundary (dhevList);
+  boundary (Dmix1List);
+  boundary (Cp1List);
+  boundary (Dmix2List);
+  boundary (Cp2List);
 }
 
 void update_properties_initial (void) {
@@ -100,6 +107,13 @@ void update_properties_initial (void) {
       Cp2v[] = tp2.cps (&ts2h, jj);
     }
   }
+  boundary ({rho1v,rho1v0,rho1vInt,mu1v,cp1v,lambda1v,
+      rho2v, rho2v0, mu2v, cp2v, lambda2v});
+  boundary (dhevList);
+  boundary (Dmix1List);
+  boundary (Cp1List);
+  boundary (Dmix2List);
+  boundary (Cp2List);
 }
 
 extern double mLiq0;
@@ -370,6 +384,13 @@ void update_properties (void)
       }
     }
   }
+  boundary ({rho1v,rho1v0,rho1vInt,mu1v,cp1v,lambda1v,
+      rho2v, rho2v0, mu2v, cp2v, lambda2v});
+  boundary (dhevList);
+  boundary (Dmix1List);
+  boundary (Cp1List);
+  boundary (Dmix2List);
+  boundary (Cp2List);
 }
 
 void update_divergence (void) {
@@ -518,10 +539,9 @@ void update_divergence (void) {
     //drho2dt += ((1. - f[]) > F_ERR) ? -laplYtot : 0.;
     drho2dt += (f[] == 0.) ? -laplYtot : 0.;
 
-    drho2dt *= (1. - f[]);
-
-    drhodt[] = drho1dt + drho2dt;
+    drhodt[] = drho1dt*f[] + drho2dt*(1. - f[]);
     drhodtext[] = drho1dt;
   }
+  boundary ({drhodt, drhodtext});
 }
 

@@ -57,7 +57,8 @@ double cp2 = 0.;
 #define VARPROP
 #define MASS_DIFFUSION_ENTHALPY
 #define GRAVITY
-#define RADIATION
+#define RADIATION_INTERFACE 0.8
+#define FSOLVE_ABSTOL 1.e-3
 //#define CHEMISTRY
 
 /**
@@ -70,7 +71,6 @@ evaporation model together with the multiomponent phase
 change mechanism. */
 
 #include "axi.h"
-//#include "navier-stokes/velocity-jump.h"
 #include "navier-stokes/centered-evaporation.h"
 #include "navier-stokes/centered-doubled.h"
 #include "opensmoke-properties.h"
@@ -81,8 +81,10 @@ change mechanism. */
 #include "tension.h"
 #include "evaporation-varprop.h"
 #include "multicomponent.h"
-//#include "spark.h"
-//#include "chemistry.h"
+#ifdef CHEMISTRY
+# include "spark.h"
+# include "chemistry.h"
+#endif
 #include "view.h"
 
 /**
@@ -102,34 +104,17 @@ double TG0 = 973.;
 Outflow boundary conditions are set at the top and right
 sides of the domain. */
 
-#ifdef VELOCITY_JUMP
-u1.n[right] = neumann (0.);
-u1.t[right] = neumann (0.);
-u2.n[right] = neumann (0.);
-u2.t[right] = neumann (0.);
-p[right] = dirichlet (0.);
-ps[right] = dirichlet (0.);
-pg[right] = dirichlet (0.);
-
-u1.n[top] = neumann (0.);
-u1.t[top] = neumann (0.);
-u2.n[top] = neumann (0.);
-u2.t[top] = neumann (0.);
-p[top] = dirichlet (0.);
-ps[top] = dirichlet (0.);
-pg[top] = dirichlet (0.);
-#else
-# ifdef GRAVITY
-//u.n[right] = dirichlet (0.);
-//u.t[right] = dirichlet (0.);
-//p[right] = neumann (0.);
-//uext.n[right] = dirichlet (0.);
-//uext.t[right] = dirichlet (0.);
-//pext[right] = neumann (0.);
-//uf.n[right] = 0.;
-//uf.t[right] = 0.;
-//ufext.n[right] = 0.;
-//ufext.t[right] = 0.;
+#ifdef GRAVITY
+u.n[right] = dirichlet (0.);
+u.t[right] = dirichlet (0.);
+p[right] = neumann (0.);
+uext.n[right] = dirichlet (0.);
+uext.t[right] = dirichlet (0.);
+pext[right] = neumann (0.);
+uf.n[right] = 0.;
+uf.t[right] = 0.;
+ufext.n[right] = 0.;
+ufext.t[right] = 0.;
 
 //u.n[bottom] = dirichlet (0.);
 //u.t[bottom] = dirichlet (0.);
@@ -155,7 +140,7 @@ p[left] = dirichlet (0.);
 uext.n[left] = neumann (0.);
 uext.t[left] = neumann (0.);
 pext[left] = dirichlet (0.);
-# else
+#else
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
@@ -169,7 +154,6 @@ p[right] = dirichlet (0.);
 uext.n[right] = neumann (0.);
 uext.t[right] = neumann (0.);
 pext[right] = dirichlet (0.);
-# endif
 #endif
 
 /**
@@ -200,23 +184,20 @@ int main (void) {
 
   mu1 = 1.e-3; mu2 = 1.e-5;
   rho1 = 0.; rho2 = 0.;
-  Pref = 10*101325.;
-  //Pref = 2.e+6;
+  Pref = 5*101325.;
 
   /**
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
   double RR = 7.986462e+01;
-  L0 = 0.5*RR*D0;
+  //L0 = 0.5*RR*D0;
+  L0 = 10.*D0;
 
 #ifdef GRAVITY
-  //double df = 0.15*D0;
   double df = 0.15*D0;
-  //double df = 125e-6;
   X0 = -0.5*L0;
   Y0 = 0.5*df;
-  //pinning.ap = 0.5*D0;
   pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
   pinning.ac = pinning.ap - 0.05*D0;
 #endif
@@ -225,16 +206,18 @@ int main (void) {
   We change the surface tension coefficient. and we
   decrease the tolerance of the Poisson solver. */
 
-  f.sigma = 0.0227;
+  //f.sigma = 0.0227;
+  f.sigma = 0.03;
   init_fields = true;
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  maxlevel = 10;
-  init_grid (1 << (maxlevel - 2));
-  run();
+  for (maxlevel = 9; maxlevel <= 11; maxlevel++) {
+    init_grid (1 << (maxlevel - 2));
+    run();
+  }
 }
 
 #define circle(x,y,R)(sq(R) - sq(x) - sq(y))
@@ -249,9 +232,10 @@ double mLiq0 = 0.;
 
 event init (i = 0) {
   refine (circle (x, y, 2.*D0) > 0. && level < maxlevel);
-  fraction (f, circle (x, y, 0.5*D0));
 #ifdef GRAVITY
-  effective_radius0 = pow(3./2.*statsf(f).sum, 1./3.);
+  volumecorr = 2.*pi*statsf(f).sum - (4./3.*pi*pow (0.5*D0, 3.));
+  //effective_radius0 = pow(3./2.*statsf(f).sum, 1./3.);
+  effective_radius0 = pow(3./4./pi*(2.*pi*statsf(f).sum + volumecorr), 1./3.);
 #else
   effective_radius0 = pow(3.*statsf(f).sum, 1./3.);
 #endif
@@ -300,22 +284,25 @@ event init (i = 0) {
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-event bcs (i = 0) {
-  scalar NC7H16 = YGList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
-  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
-  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
+//event bcs (i = 0) {
+//  scalar NC7H16 = YGList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
+//  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
+//  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
+//
+//  NC7H16[top] = dirichlet (0.);
+//  NC7H16[right] = dirichlet (0.);
+//
+//  N2[top] = dirichlet (0.7670907862);
+//  N2[right] = dirichlet (0.7670907862);
+//
+//  O2[top] = dirichlet (0.2329092138);
+//  O2[right] = dirichlet (0.2329092138);
+//
+//  TG[top] = dirichlet (TG0);
+//  TG[right] = dirichlet (TG0);
+//}
 
-  NC7H16[top] = dirichlet (0.);
-  NC7H16[right] = dirichlet (0.);
-
-  N2[top] = dirichlet (0.7670907862);
-  N2[right] = dirichlet (0.7670907862);
-
-  O2[top] = dirichlet (0.2329092138);
-  O2[right] = dirichlet (0.2329092138);
-
-  TG[top] = dirichlet (TG0);
-  TG[right] = dirichlet (TG0);
+event pinning (i++) {
 }
 
 /**
@@ -385,7 +372,8 @@ event output_data (i++) {
   scalar Y_c7 = YList[0];
 
 #ifdef GRAVITY
-  double effective_radius = pow(3./2.*statsf(f).sum, 1./3.);
+  //double effective_radius = pow(3./2.*statsf(f).sum, 1./3.);
+  double effective_radius = pow(3./4./pi*(2.*pi*statsf(f).sum + volumecorr), 1./3.);
 #else
   double effective_radius = pow(3.*statsf(f).sum, 1./3.);
 #endif
@@ -422,13 +410,18 @@ event movie (t += 0.01; t <= 10) {
 #endif
   draw_vof ("f");
   squares ("T", min = TL0, max = statsf(T).max, linear = true);
-  save ("movie.mp4");
-}
+  save ("temperature.mp4");
 
-event ppm (t += 0.005) {
-  scalar Fuel = YList[0];
-  output_ppm (Fuel, file = "f.mp4", min = 0., max = 1.,
-      linear = true, box = {{-6.*D0,Y0}, {2.*D0,3*D0}});
+  clear();
+  box();
+#ifdef GRAVITY
+  view (ty = -0.5);
+#else
+  view (tx = -0.5, ty = -0.5);
+#endif
+  draw_vof ("f");
+  squares ("NC7H16", min = 0., max = 1., linear = true);
+  save ("heptane.mp4");
 }
 
 event stop (i++) {
