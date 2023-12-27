@@ -56,7 +56,7 @@ double cp2 = 0.;
 //#define MOLAR_DIFFUSION
 #define VARPROP
 #define MASS_DIFFUSION_ENTHALPY
-#define GRAVITY
+//#define GRAVITY
 //#define RADIATION_INTERFACE 0.8
 #define FSOLVE_ABSTOL 1.e-3
 //#define CHEMISTRY
@@ -116,14 +116,14 @@ uf.t[right] = 0.;
 ufext.n[right] = 0.;
 ufext.t[right] = 0.;
 
-//u.n[bottom] = dirichlet (0.);
-//u.t[bottom] = dirichlet (0.);
-//p[bottom] = neumann (0.);
-//uext.n[bottom] = dirichlet (0.);
-//uext.t[bottom] = dirichlet (0.);
-//pext[bottom] = neumann (0.);
-//uf.n[bottom] = 0.;
-//uf.t[bottom] = 0.;
+u.n[bottom] = dirichlet (0.);
+u.t[bottom] = dirichlet (0.);
+p[bottom] = neumann (0.);
+uext.n[bottom] = dirichlet (0.);
+uext.t[bottom] = dirichlet (0.);
+pext[bottom] = neumann (0.);
+uf.n[bottom] = 0.;
+uf.t[bottom] = 0.;
 
 u.n[top] = dirichlet (0.);
 u.t[top] = dirichlet (0.);
@@ -182,9 +182,9 @@ int main (void) {
   properties correspond to the n-heptane/nitrogen system
   at 28.6 bar. */
 
-  mu1 = 1.e-3; mu2 = 1.e-5;
+  mu1 = 0.; mu2 = 0.;
   rho1 = 0.; rho2 = 0.;
-  Pref = 5*101325.;
+  Pref = 10*101325.;
 
   /**
   We change the dimension of the domain as a function
@@ -208,13 +208,12 @@ int main (void) {
 
   //f.sigma = 0.0227;
   f.sigma = 0.03;
-  init_fields = true;
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 8; maxlevel <= 11; maxlevel++) {
+  for (maxlevel = 8; maxlevel <= 10; maxlevel++) {
     init_grid (1 << (maxlevel - 2));
     run();
   }
@@ -285,23 +284,26 @@ event init (i = 0) {
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-//event bcs (i = 0) {
-//  scalar NC7H16 = YGList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
-//  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
-//  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
-//
-//  NC7H16[top] = dirichlet (0.);
-//  NC7H16[right] = dirichlet (0.);
-//
-//  N2[top] = dirichlet (0.7670907862);
-//  N2[right] = dirichlet (0.7670907862);
-//
-//  O2[top] = dirichlet (0.2329092138);
-//  O2[right] = dirichlet (0.2329092138);
-//
-//  TG[top] = dirichlet (TG0);
-//  TG[right] = dirichlet (TG0);
-//}
+#ifdef GRAVITY
+#else
+event bcs (i = 0) {
+  scalar NC7H16 = YGList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
+  scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
+  scalar O2    = YGList[OpenSMOKE_IndexOfSpecies ("O2")];
+
+  NC7H16[top] = dirichlet (0.);
+  NC7H16[right] = dirichlet (0.);
+
+  N2[top] = dirichlet (0.7670907862);
+  N2[right] = dirichlet (0.7670907862);
+
+  O2[top] = dirichlet (0.2329092138);
+  O2[right] = dirichlet (0.2329092138);
+
+  TG[top] = dirichlet (TG0);
+  TG[right] = dirichlet (TG0);
+}
+#endif
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -312,7 +314,7 @@ velocity field. */
 event adapt (i++) {
   scalar NC7H16 = YList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
   adapt_wavelet_leave_interface ({NC7H16,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+      (double[]){1.e-2,1.e-1,1.e-1,1.e-1}, maxlevel, minlevel, 1);
 }
 #endif
 
