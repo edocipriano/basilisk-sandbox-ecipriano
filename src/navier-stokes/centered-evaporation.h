@@ -1,7 +1,7 @@
 /**
 # Incompressible Navier--Stokes solver with divergence source term (centered formulation)
 
-This extension of the [centered.h](navier-stokes/centered.h)
+This extension of the [centered.h](/src/navier-stokes/centered.h)
 Navier--Stokes equations solver considers situations where the
 velocity divergence is not null. Examples are phase change simulations,
 or Low Mach systems with variable physical properties.
@@ -94,7 +94,7 @@ mgstats project_sf (face vector uf, scalar p,
 }
 
 /**
-We overwrite the function `project` in [centered.h](navier-stokes/centered.h)
+We overwrite the function `project` in [centered.h](/src/navier-stokes/centered.h)
 in order to call `project_sf` instead, accounting for the divergcence
 source terms. */
 
