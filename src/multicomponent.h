@@ -1346,8 +1346,8 @@ event phasechange (i++)
         scalar Dmix2v = Dmix2List[jj];
         double inDmix2vhr = 0.5*(Dmix2v[1] + Dmix2v[]);
         double inDmix2vhl = 0.5*(Dmix2v[] + Dmix2v[-1]);
-        double MW2mixr = 0.5*(MW2mix[1] + MW2mix[]);
-        double MW2mixl = 0.5*(MW2mix[] + MW2mix[-1]);
+        //double MW2mixr = 0.5*(MW2mix[1] + MW2mix[]);
+        //double MW2mixl = 0.5*(MW2mix[] + MW2mix[-1]);
 
         JG[] -= (rho2vhr*inDmix2vhr*face_gradient_x (YG, 1)*fsG.x[1]*fm.x[1] -
             rho2vhl*inDmix2vhl*face_gradient_x (YG, 0)*fsG.x[]*fm.x[])/Delta;
