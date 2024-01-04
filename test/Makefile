@@ -8,10 +8,14 @@ opensmoke-properties.tst: CFLAGS += -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSM
 batchreactor.tst: CFLAGS += -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build
 fsolve-gsl.tst: CFLAGS += -I/opt/homebrew/include -L/opt/homebrew/lib
 boilingtemperature.tst: CFLAGS += -I/opt/homebrew/include -L/opt/homebrew/lib
+capwave.tst: CFLAGS += -DGFM=1
+spurious.tst: CFLAGS += -DGFM=1
+oscillation.tst: CFLAGS += -DGFM=1
 
 # New targets
 quick: aslam.tst aslamvof.tst fsolve-gsl.tst interfaceregression.tst \
   mapregion.tst radiation.tst spark.tst fickcorrected.tst \
   boilingtemperature.tst
 slow: icentripetal.tst centripetal.tst
-all: quick slow
+gfm:capwave.tst spurious.tst oscillation.tst
+all: quick slow gfm
