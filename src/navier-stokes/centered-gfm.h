@@ -276,13 +276,17 @@ mgstats project_ghost (face vector uf, scalar p,
     pjump.x[] = kappaf.x[];
 
   /**
-  We add the gravity contribution in the pressure jump. */
+  We add the gravity contribution in the pressure jump. The term `gfm.G.x` must
+  be multiplied by the density jump at the interface outside this module, in
+  order to avoid problems with the variables `rho1` and `rho2` which are
+  defined in [two-phase.h](/src/two-phase.h) and not always included. */
 
   foreach_face() {
     double Gdist = 0.;
     foreach_dimension()
-      Gdist += gfm.G.x*absdist.x[];
-    pjump.x[] -= fm.x[]/alpha.x[]*Gdist;
+      Gdist += gfm.G.x * absdist.x[];
+    //pjump.x[] -= fm.x[]*Gdist*(rho1 - rho2);
+    pjump.x[] -= fm.x[]*Gdist;
   }
 
   /**

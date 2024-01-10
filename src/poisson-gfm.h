@@ -114,7 +114,6 @@ void reldist_vof (scalar f) {
 
 void reldist_ls (scalar d) {
   foreach_face()
-    //reldist.x[] = (intface.x[] == 1.) ? d[-1]/(d[] + d[-1]) : 0.;
     reldist.x[] = (intface.x[] == 1.) ? fabs(d[-1])/(fabs(d[]) + fabs(d[-1])) : 0.;
 }
 
@@ -128,13 +127,19 @@ $$
 */
 
 void absdist_vof (scalar f) {
+  vector xp[];
+  foreach() {
+    coord o = {x,y,z};
+    foreach_dimension()
+      xp.x[] = o.x;
+  }
+
   foreach_face()
-    absdist.x[] = (x - 0.5*Delta) + reldist.x[]*Delta;
+    absdist.x[] = xp.x[-1] + reldist.x[]*Delta;
 }
 
 void absdist_ls (scalar d) {
-  foreach_face()
-    absdist.x[] = (x - 0.5*Delta) + reldist.x[]*Delta;
+  absdist_vof (d);
 }
 
 /**
