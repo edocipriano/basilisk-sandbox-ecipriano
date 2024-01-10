@@ -621,12 +621,15 @@ event defaults (i = 0)
 #else
   fu.tracers = list_append (fu.tracers, TG);
 #endif
+
+# if TREE
   TL.refine  = refine_linear;
   TL.restriction = restriction_volume_average;
   TL.dirty = true; // boundary conditions need to be updated
   TG.refine  = refine_linear;
   TG.restriction = restriction_volume_average;
   TG.dirty = true; // boundary conditions need to be updated
+# endif
 #endif
 
   /**
@@ -972,7 +975,11 @@ event phasechange (i++)
   foreach() {
     TInt[] = 0.;
     if (f[] > F_ERR && f[] < 1.-F_ERR)
+#ifdef FIXED_INTERFACE_TEMPERATURE
+      TInt[] = FIXED_INTERFACE_TEMPERATURE;
+#else
       TInt[] = avg_neighbor (point, TL, f);
+#endif
   }
 #endif
 
