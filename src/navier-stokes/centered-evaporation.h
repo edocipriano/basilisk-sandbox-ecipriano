@@ -93,12 +93,51 @@ mgstats project_sf (face vector uf, scalar p,
   return mgp;
 }
 
+#include "utils.h"
+#include "bcg.h"
+
+void advection_div (scalar * tracers, face vector u, double dt,
+		scalar * src = NULL)
+{
+  /**
+  If *src* is not provided we set all the source terms to zero. */
+  
+  scalar * psrc = src;
+  if (!src)
+    for (scalar s in tracers) {
+      const scalar zero[] = 0.;
+      src = list_append (src, zero);
+    }
+  assert (list_len (tracers) == list_len (src));
+
+  scalar f, source;
+  for (f,source in tracers,src) {
+    face vector flux[];
+    tracer_fluxes (f, u, flux, dt, source);
+#if !EMBED
+    foreach() {
+      double fold = f[];
+      foreach_dimension()
+        f[] += dt*(flux.x[] - flux.x[1] + fold*(u.x[1] - u.x[]))/(Delta*cm[]);
+        //f[] += dt*(flux.x[] - flux.x[1])/(Delta*cm[]);
+    }
+#else // EMBED
+    update_tracer (f, u, flux, dt);
+#endif // EMBED
+  }
+
+  if (!psrc)
+    free (src);
+}
+
 /**
 We overwrite the function `project` in [centered.h](/src/navier-stokes/centered.h)
 in order to call `project_sf` instead, accounting for the divergcence
 source terms. */
 
 #define project(...) project_sf(__VA_ARGS__)
+#define advection(...) advection_div(__VA_ARGS__)
 #include "navier-stokes/centered.h"
+#undef advection
 #undef project
 

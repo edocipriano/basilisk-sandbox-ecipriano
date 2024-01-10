@@ -372,7 +372,9 @@ event advection_term (i++,last)
   if (!stokes) {
     prediction_ext();
     mgpf = project_sfext (ufext, pfext, alpha, dt/2., mgpf_ext.nrelax);
+#define advection(...) advection_div(__VA_ARGS__)
     advection ((scalar *){uext}, ufext, dt, (scalar *){gext});
+#undef advection
   }
 }
 
