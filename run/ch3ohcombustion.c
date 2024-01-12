@@ -56,7 +56,7 @@ double cp2 = 0.;
 //#define MOLAR_DIFFUSION
 #define VARPROP
 #define MASS_DIFFUSION_ENTHALPY
-//#define GRAVITY
+#define GRAVITY
 //#define RADIATION_INTERFACE 0.8
 #define FSOLVE_ABSTOL 1.e-3
 //#define CHEMISTRY
@@ -78,6 +78,9 @@ change mechanism. */
 # include "pinning.h"
 #endif
 #include "two-phase-varprop.h"
+#ifdef GRAVITY
+# include "gravity.h"
+#endif
 #include "tension.h"
 #include "evaporation-varprop.h"
 #include "multicomponent.h"
@@ -105,25 +108,17 @@ Outflow boundary conditions are set at the top and right
 sides of the domain. */
 
 #ifdef GRAVITY
-u.n[right] = dirichlet (0.);
-u.t[right] = dirichlet (0.);
-p[right] = neumann (0.);
-uext.n[right] = dirichlet (0.);
-uext.t[right] = dirichlet (0.);
-pext[right] = neumann (0.);
-uf.n[right] = 0.;
-uf.t[right] = 0.;
-ufext.n[right] = 0.;
-ufext.t[right] = 0.;
-
 u.n[bottom] = dirichlet (0.);
 u.t[bottom] = dirichlet (0.);
 p[bottom] = neumann (0.);
+uf.n[bottom] = 0.;
+uf.t[bottom] = 0.;
+
 uext.n[bottom] = dirichlet (0.);
 uext.t[bottom] = dirichlet (0.);
 pext[bottom] = neumann (0.);
-uf.n[bottom] = 0.;
-uf.t[bottom] = 0.;
+ufext.n[bottom] = 0.;
+ufext.t[bottom] = 0.;
 
 u.n[top] = dirichlet (0.);
 u.t[top] = dirichlet (0.);
@@ -131,8 +126,6 @@ p[top] = neumann (0.);
 uext.n[top] = dirichlet (0.);
 uext.t[top] = dirichlet (0.);
 pext[top] = neumann (0.);
-uf.n[top] = 0.;
-uf.t[top] = 0.;
 
 u.n[left] = neumann (0.);
 u.t[left] = neumann (0.);
@@ -140,20 +133,63 @@ p[left] = dirichlet (0.);
 uext.n[left] = neumann (0.);
 uext.t[left] = neumann (0.);
 pext[left] = dirichlet (0.);
-#else
-u.n[top] = neumann (0.);
-u.t[top] = neumann (0.);
-p[top] = dirichlet (0.);
-uext.n[top] = neumann (0.);
-uext.t[top] = neumann (0.);
-pext[top] = dirichlet (0.);
 
-u.n[right] = neumann (0.);
-u.t[right] = neumann (0.);
-p[right] = dirichlet (0.);
-uext.n[right] = neumann (0.);
-uext.t[right] = neumann (0.);
-pext[right] = dirichlet (0.);
+//u.n[right] = dirichlet (0.);
+//u.t[right] = dirichlet (0.);
+//p[right] = neumann (0.);
+//uext.n[right] = dirichlet (0.);
+//uext.t[right] = dirichlet (0.);
+//pext[right] = neumann (0.);
+
+//u.n[right] = dirichlet (0.);
+//u.t[right] = dirichlet (0.);
+//p[right] = neumann (0.);
+//uext.n[right] = dirichlet (0.);
+//uext.t[right] = dirichlet (0.);
+//pext[right] = neumann (0.);
+//uf.n[right] = 0.;
+//uf.t[right] = 0.;
+//ufext.n[right] = 0.;
+//ufext.t[right] = 0.;
+//
+//u.n[bottom] = dirichlet (0.);
+//u.t[bottom] = dirichlet (0.);
+//p[bottom] = neumann (0.);
+//uext.n[bottom] = dirichlet (0.);
+//uext.t[bottom] = dirichlet (0.);
+//pext[bottom] = neumann (0.);
+//uf.n[bottom] = 0.;
+//uf.t[bottom] = 0.;
+//
+//u.n[top] = dirichlet (0.);
+//u.t[top] = dirichlet (0.);
+//p[top] = neumann (0.);
+//uext.n[top] = dirichlet (0.);
+//uext.t[top] = dirichlet (0.);
+//pext[top] = neumann (0.);
+//uf.n[top] = 0.;
+//uf.t[top] = 0.;
+//
+//u.n[left] = neumann (0.);
+//u.t[left] = neumann (0.);
+//p[left] = dirichlet (0.);
+//uext.n[left] = neumann (0.);
+//uext.t[left] = neumann (0.);
+//pext[left] = dirichlet (0.);
+//#else
+//u.n[top] = neumann (0.);
+//u.t[top] = neumann (0.);
+//p[top] = dirichlet (0.);
+//uext.n[top] = neumann (0.);
+//uext.t[top] = neumann (0.);
+//pext[top] = dirichlet (0.);
+//
+//u.n[right] = neumann (0.);
+//u.t[right] = neumann (0.);
+//p[right] = dirichlet (0.);
+//uext.n[right] = neumann (0.);
+//uext.t[right] = neumann (0.);
+//pext[right] = dirichlet (0.);
 #endif
 
 /**
@@ -184,18 +220,18 @@ int main (void) {
 
   mu1 = 0.; mu2 = 0.;
   rho1 = 0.; rho2 = 0.;
-  Pref = 10*101325.;
+  Pref = 1*101325.;
 
   /**
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
   double RR = 7.986462e+01;
-  //L0 = 0.5*RR*D0;
-  L0 = 10.*D0;
+  L0 = 0.5*RR*D0;
+  //L0 = 10.*D0;
 
 #ifdef GRAVITY
-  double df = 0.15*D0;
+  double df = 0.1*D0;
   X0 = -0.5*L0;
   Y0 = 0.5*df;
   pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
@@ -206,14 +242,14 @@ int main (void) {
   We change the surface tension coefficient. and we
   decrease the tolerance of the Poisson solver. */
 
-  //f.sigma = 0.0227;
   f.sigma = 0.03;
+  G.x = -9.81;
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 8; maxlevel <= 10; maxlevel++) {
+  for (maxlevel = 10; maxlevel <= 10; maxlevel++) {
     init_grid (1 << (maxlevel - 2));
     run();
   }
@@ -284,8 +320,6 @@ event init (i = 0) {
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-#ifdef GRAVITY
-#else
 event bcs (i = 0) {
   scalar NC7H16 = YGList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
   scalar N2    = YGList[OpenSMOKE_IndexOfSpecies ("N2")];
@@ -302,8 +336,14 @@ event bcs (i = 0) {
 
   TG[top] = dirichlet (TG0);
   TG[right] = dirichlet (TG0);
-}
+
+#ifdef GRAVITY
+  NC7H16[left] = dirichlet (0.);
+  N2[left] = dirichlet (0.7670907862);
+  O2[left] = dirichlet (0.2329092138);
+  TG[left] = dirichlet (TG0);
 #endif
+}
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -314,7 +354,7 @@ velocity field. */
 event adapt (i++) {
   scalar NC7H16 = YList[OpenSMOKE_IndexOfSpecies ("NC7H16")];
   adapt_wavelet_leave_interface ({NC7H16,T,u.x,u.y}, {f},
-      (double[]){1.e-2,1.e-1,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+      (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
 }
 #endif
 
@@ -322,13 +362,13 @@ event adapt (i++) {
 We add the gravity contribution if the suspended droplet
 configuration is considered. */
 
-#ifdef GRAVITY
-event acceleration (i++) {
-  face vector av = a;
-  foreach_face(x)
-    av.x[] -= 9.81;
-}
-#endif
+//#ifdef GRAVITY
+//event acceleration (i++) {
+//  face vector av = a;
+//  foreach_face(x)
+//    av.x[] -= 9.81;
+//}
+//#endif
 
 /**
 ## Post-Processing
