@@ -20,8 +20,8 @@ $\mathbf{D}=[\nabla\mathbf{u} + (\nabla\mathbf{u})^T]/2$.
 
 The difference with respect to the classic centered formulation is that the
 surface tension is not added as an acceleration term in the momentum equation,
-but it is directly accounted for in the discretization of the Poisson equation
-for the projection step.
+but it is directly included in the discretization of the Poisson equation
+at the projection step.
 */
 
 /**
@@ -30,7 +30,13 @@ for the projection step.
 We declare a structure containing properties which are useful for the GFM, such
 as the surface tension coefficient `sigma`, the volume fraction `f`, and
 possibly gravity `G`, which can be accounted for in the pressure jump of the
-GFM formulation.
+GFM formulation. The gravity `G` must be provided multiplied by the density jump,
+due to the order of inclusions of the headers:
+$$
+  \mathbf{G} = \mathbf{g}[\rho] = \mathbf{g}(\rho_1 - \rho_2)
+$$
+A constant curvature can be imposed simply providing a value for the attribute
+`kappa` of the following structure.
 */
 
 struct GhostFluidMethod {
@@ -258,8 +264,7 @@ mgstats project_ghost (face vector uf, scalar p,
 
   /**
   And we interpolate the curvature on the faces based on the relative position
-  of the interface. Other interpolation methods can also be tested, but this
-  seems to be the best approach among the following ones. */
+  of the interface. Other interpolation methods can also be tested. */
 
   face vector kappaf[];
   foreach_face() {
@@ -285,7 +290,6 @@ mgstats project_ghost (face vector uf, scalar p,
     double Gdist = 0.;
     foreach_dimension()
       Gdist += gfm.G.x * absdist.x[];
-    //pjump.x[] -= fm.x[]*Gdist*(rho1 - rho2);
     pjump.x[] -= fm.x[]*Gdist;
   }
 

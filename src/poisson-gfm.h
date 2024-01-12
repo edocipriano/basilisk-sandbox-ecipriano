@@ -30,10 +30,8 @@ $$
     - \beta_{i-1/2}\left(\dfrac{p_{i} - p_{i-1}}{\Delta}\right)
 \right]\dfrac{1}{\Delta}
 =
-f_i + \dfrac{\beta_{i-1/2}a_\Gamma}{\Delta^2}
-    - \dfrac{\beta_{i+1/2}a_\Gamma}{\Delta^2}
-    - \dfrac{\beta_{i-1/2}b_\Gamma\theta}{\beta^+ \Delta}
-    + \dfrac{\beta_{i-1/2}b_\Gamma\theta}{\beta^- \Delta}
+f_i + \sum_f \dfrac{\beta_f a_{\Gamma, f}}{\Delta^2}
+    + \sum_f \dfrac{\beta_f b_{\Gamma, f}\theta_f}{\beta^+ \Delta}
 $$
 
 Where the sign of the interface jumps changes depending on the side of the
@@ -72,11 +70,6 @@ void intface_vof (scalar f) {
     intface.x[] = ((f[] - 0.5)*(f[-1] - 0.5) < 0.) ? 1. : 0.;
 }
 
-void intface_ls (scalar d) {
-  foreach_face()
-    intface.x[] = (d[]*d[-1] < 0.) ? 1. : 0.;
-}
-
 /**
 Using VOF, we distinguish the side of the interface as:
 
@@ -93,11 +86,6 @@ void intside_vof (scalar f) {
     intside.x[] = (f[-1] >= 0.5) ? 1. : -1.;
 }
 
-void intside_ls (scalar d) {
-  foreach_face()
-    intside.x[] = (d[-1] > 0.) ? 1. : -1.;
-}
-
 /**
 Using VOF, we define the relative position of the interface on the current
 face as:
@@ -112,17 +100,12 @@ void reldist_vof (scalar f) {
     reldist.x[] = (intface.x[] == 1.) ? (f[-1] - 0.5)/(f[-1] - f[]) : 0.;
 }
 
-void reldist_ls (scalar d) {
-  foreach_face()
-    reldist.x[] = (intface.x[] == 1.) ? fabs(d[-1])/(fabs(d[]) + fabs(d[-1])) : 0.;
-}
-
 /**
 Using VOF, we define the absolute position of the interface on the current
 face as:
 
 $$
-  x_\Gamma = x + \lambda \Delta
+  \mathbf{x}_\Gamma = \mathbf{x}[-1] + \lambda \Delta
 $$
 */
 
@@ -136,6 +119,24 @@ void absdist_vof (scalar f) {
 
   foreach_face()
     absdist.x[] = xp.x[-1] + reldist.x[]*Delta;
+}
+
+/**
+Similar functions can be defined for a Level Set approach. */
+
+void intface_ls (scalar d) {
+  foreach_face()
+    intface.x[] = (d[]*d[-1] < 0.) ? 1. : 0.;
+}
+
+void intside_ls (scalar d) {
+  foreach_face()
+    intside.x[] = (d[-1] > 0.) ? 1. : -1.;
+}
+
+void reldist_ls (scalar d) {
+  foreach_face()
+    reldist.x[] = (intface.x[] == 1.) ? fabs(d[-1])/(fabs(d[]) + fabs(d[-1])) : 0.;
 }
 
 void absdist_ls (scalar d) {
@@ -157,7 +158,7 @@ The same arguments used by *poisson()* must be provided, together with the
 following additional inputs:
 
 * *ajump*: jump in the variable being solved: $\left[a\right]_\Gamma$
-* *bjump*: jump in the derivative of the variable being solved: $\left[\alpha\nabla a\cdot \mathbf{n}_\Gamma\right]_\Gamma / \alpha_k$
+* *bjump*: jump in the derivative of the variable being solved: $\left[\beta\nabla a\cdot \mathbf{n}_\Gamma\right]_\Gamma / \beta_k$
 */
 
 mgstats poisson_ghost (scalar a, scalar b,
@@ -190,8 +191,8 @@ mgstats poisson_ghost (scalar a, scalar b,
   }
 
   /**
-  We compute the interfacial cells, the relative and absolute interface
-  position using the global function pointers. */
+  We compute the face vectors with the interfacial faces, the side of the
+  interface, the relative and absolute distances of the interface. */
 
   intfacefun (f);
   intsidefun (f);
@@ -220,7 +221,7 @@ mgstats poisson_ghost (scalar a, scalar b,
       if (intside.x[] > 0.)
         bj.x[] = alpha.x[]*bjump.x[]*reldist.x[]/Delta;
       else
-        bj.x[] = alpha.x[]*bjump.x[]*(1. - reldist.x[])/Delta;
+        bj.x[] = alpha.x[]*bjump.x[]*reldist.x[]/Delta;
     }
     else
       bj.x[] = 0.;
@@ -245,6 +246,16 @@ mgstats poisson_ghost (scalar a, scalar b,
 }
 
 /**
+## Notes and Improvements
+
+1. The derivative jump `bjump` must be provided by the user already divided by
+$\beta^+$ or $\beta^-$ for variable coefficient $\beta$ simulations, depending
+on the side of the interface.
+
+2. The mechanism to include the derivative jump should be reviewed. However, it
+is not necessary for applications to surface tension.
+
+
 ## References
 
 ~~~bib
