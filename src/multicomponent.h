@@ -794,6 +794,13 @@ event cleanup (t = end)
   delete (JLList), free (JLList), JLList = NULL;
   delete (JGList), free (JGList), JGList = NULL;
 #endif
+#ifdef VARPROP
+  delete (Dmix1List), free (Dmix1List), Dmix1List = NULL;
+  delete (Dmix2List), free (Dmix2List), Dmix2List = NULL;
+  delete (dhevList), free (dhevList), dhevList = NULL;
+  delete (Cp1List), free (Cp1List), Cp1List = NULL;
+  delete (Cp2List), free (Cp2List), Cp2List = NULL;
+#endif
 #ifdef MOLAR_DIFFUSION
   delete (XLList), free (XLList), XLList = NULL;
   delete (XGList), free (XGList), XGList = NULL;
