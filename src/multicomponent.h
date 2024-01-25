@@ -963,9 +963,13 @@ event phasechange (i++)
 #ifdef MOLAR_DIFFUSION
   update_mw_moles();
 #endif
+
+  /**
+  The thermodynamic and transport properties are updated at the
+  beginning of the each time-step. */
+
 #ifdef VARPROP
   update_properties();
-  //update_divergence();
 #endif
 
   /**
@@ -1599,10 +1603,13 @@ event phasechange (i++)
   }
 #endif
 
-//#ifdef VARPROP
-//  update_properties();
-//  update_divergence();
-//#endif
+  /**
+  The divergence of the velocity field is computed after the calculation
+  of source terms for species and temperature. */
+
+#ifdef VARPROP
+  update_divergence();
+#endif
 
   /**
   We restore the tracer form of the liquid and gas-phase
