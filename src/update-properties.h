@@ -16,14 +16,6 @@ scalar rho1vInt[], rho2vInt[];
 
 void update_properties_constant (void) {
   foreach() {
-    ThermoState ts1h, ts2h;
-    ts1h.T = TL0;
-    ts2h.T = TG0;
-    ts1h.P = Pref;
-    ts2h.P = Pref;
-    ts1h.x = liq_start;
-    ts2h.x = gas_start;
-
     rho1v[] = rho1;
     rho1v0[] = rho1;
     rho1vInt[] = rho1;
@@ -411,7 +403,7 @@ void update_properties (void)
       set_ghost (point, MW1mix, b, MW1mixf);
 
       // gas phase
-      double x2[NGS], y2[NLS];
+      double x2[NGS], y2[NGS];
       foreach_elem (YGList, jj) {
         scalar YG = YGList[jj];
         double YGf = 0.5*(YG[] + get_ghost (point, YG, b));
