@@ -827,11 +827,80 @@ void update_mw_moles (void) {
   foreach_elem (YGList, jj)
     MW2[jj] = inMW[jj];
 
+  for (scalar s in XLList)
+    s.dirty = false;
+  for (scalar s in XGList)
+    s.dirty = false;
+
 #ifdef MOLAR_DIFFUSION
   reset (XLList, 0.);
   reset (XGList, 0.);
   reset ({MW1mix,MW2mix}, 0.);
 #endif
+
+  foreach() {
+    double x1[NLS], y1[NLS];
+    for (int jj=0; jj<NLS; jj++) {
+      scalar YL = YLList[jj];
+      y1[jj] = (NLS == 1.) ? 1. : YL[];
+    }
+    correctfrac (y1, NLS);
+    mass2molefrac (x1, y1, MW1, NLS);
+    MW1mix[] = mass2mw (y1, MW1, NLS);
+#ifdef MOLAR_DIFFUSION
+    for (int jj=0; jj<NLS; jj++) {
+      scalar XL = XLList[jj];
+      XL[] = x1[jj];
+    }
+#endif
+
+    double x2[NGS], y2[NGS];
+    for (int jj=0; jj<NGS; jj++) {
+      scalar YG = YGList[jj];
+      y2[jj] = (NGS == 1.) ? 1. : YG[];
+    }
+    correctfrac (y2, NGS);
+    mass2molefrac (x2, y2, MW2, NGS);
+    MW2mix[] = mass2mw (y2, MW2, NGS);
+#ifdef MOLAR_DIFFUSION
+    for (int jj=0; jj<NGS; jj++) {
+      scalar XG = XGList[jj];
+      XG[] = x2[jj];
+    }
+#endif
+  }
+
+  double MW_TOL = 0.1;
+
+  foreach() {
+    if (f[] <= MW_TOL) {
+      double MW1mixvgh = 0.;
+
+      int counter = 0;
+      foreach_neighbor(1) {
+        if (f[] > MW_TOL) {
+          counter++;
+          MW1mixvgh += MW1mix[];
+        }
+      }
+      MW1mix[] = (counter != 0.) ? MW1mixvgh/counter : 0.;
+    }
+  }
+
+  foreach() {
+    if ((1. - f[]) <= MW_TOL) {
+      double MW2mixvgh = 0.;
+
+      int counter = 0;
+      foreach_neighbor(1) {
+        if ((1. - f[]) > MW_TOL) {
+          counter++;
+          MW2mixvgh += MW2mix[];
+        }
+      }
+      MW2mix[] = (counter != 0.) ? MW2mixvgh/counter : 0.;
+    }
+  }
 
   foreach() {
     if (f[] > F_ERR) {

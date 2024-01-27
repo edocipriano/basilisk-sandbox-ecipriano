@@ -142,8 +142,8 @@ void update_properties (void)
     MW2[jj] = inMW[jj];
 
   foreach() {
-    MW1mix[] = 0.;
-    MW2mix[] = 0.;
+    //MW1mix[] = 0.;
+    //MW2mix[] = 0.;
 
     if (f[] > T_PROP) {
       double x1[NLS], y1[NLS];
@@ -153,7 +153,7 @@ void update_properties (void)
       }
       correctfrac (y1, NLS);
       mass2molefrac (x1, y1, MW1, NLS);
-      MW1mix[] = mass2mw (y1, MW1, NLS);
+      //MW1mix[] = mass2mw (y1, MW1, NLS);
 
       ThermoState ts1h;
       ts1h.T = TL[];
@@ -207,7 +207,7 @@ void update_properties (void)
       }
       correctfrac (y2, NGS);
       mass2molefrac (x2, y2, MW2, NGS);
-      MW2mix[] = mass2mw (y2, MW2, NGS);
+      //MW2mix[] = mass2mw (y2, MW2, NGS);
 
       ThermoState ts2h;
       ts2h.T = TG[];
@@ -427,6 +427,63 @@ void update_divergence (void) {
   restriction (YLList);
   restriction (YGList);
 
+  scalar dYdt[];
+  foreach()
+    dYdt[] = 0.;
+
+  face vector phicGtot[];
+  foreach_face() {
+    phicGtot.x[] = 0.;
+    for (int jj=0; jj<NGS; jj++) {
+      scalar Dmix2v = Dmix2List[jj];
+      double rho2f = 0.5*(rho2v[] + rho2v[-1]);
+      double Dmix2f = 0.5*(Dmix2v[] + Dmix2v[-1]);
+#ifdef FICK_CORRECTED
+# ifdef MOLAR_DIFFUSION
+      scalar XG = XGList[jj];
+      double MW2mixf = 0.5*(MW2mix[] + MW2mix[-1]);
+      phicGtot.x[] += (MW2mixf > 0.) ?
+        rho2f*Dmix2f*inMW[jj]/MW2mixf*face_gradient_x (XG, 0)*fsG.x[]*fm.x[] : 0.;
+# else
+      scalar YG = YGList[jj];
+      phicGtot.x[] += rho2f*Dmix2f*face_gradient_x (YG, 0)*fsG.x[]*fm.x[];
+#endif  // MOLAR_DIFFUSION
+#else
+      phicGtot.x[] = 0.;
+#endif  // FICK_CORRECTED
+    }
+  }
+
+  for (int jj=0; jj<NGS; jj++) {
+    face vector phicGjj[];
+    scalar YG = YGList[jj];
+    scalar Dmix2v = Dmix2List[jj];
+    foreach_face() {
+      double rho2f = 0.5*(rho2v[] + rho2v[-1]);
+      double Dmix2f = 0.5*(Dmix2v[] + Dmix2v[-1]);
+#ifdef MOLAR_DIFFUSION
+      scalar XG = XGList[jj];
+      double MW2mixf = 0.5*(MW2mix[] + MW2mix[-1]);
+      phicGjj.x[] = rho2f*Dmix2f*inMW[jj]/MW2mixf*face_gradient_x (XG, 0)*fsG.x[]*fm.x[];
+#else
+      phicGjj.x[] = rho2f*Dmix2f*face_gradient_x (YG, 0)*fsG.x[]*fm.x[];
+#endif  // MOLAR_DIFFUSION
+
+      double YGf = 0.5*(YG[] + YG[-1]);
+      phicGjj.x[] -= YGf*phicGtot.x[];
+    }
+
+    scalar sgexp = sgexpList[jj];
+    scalar sgimp = sgimpList[jj];
+
+    foreach() {
+      foreach_dimension()
+        dYdt[] += (phicGjj.x[1] - phicGjj.x[])/Delta;
+      dYdt[] += (sgexp[] + sgimp[]*YG[]);
+      dYdt[] *= 1./inMW[jj];
+    }
+  }
+
   foreach() {
 
 #ifdef CHEMISTRY
@@ -466,39 +523,41 @@ void update_divergence (void) {
     }
 #endif
 
-    // Compute chemical species contributions
-    double laplYtot = 0.;
-    foreach_elem (YGList, jj) {
-      scalar YG = YGList[jj];
-      scalar Dmix2v = Dmix2List[jj];
-      double laplYjj = 0.;
-      foreach_dimension() {
-        double Dmixfr = 0.5*(Dmix2v[1] + Dmix2v[]);
-        double Dmixfl = 0.5*(Dmix2v[] + Dmix2v[-1]);
-        double rhofr  = 0.5*(rho2v[1] + rho2v[]);
-        double rhofl  = 0.5*(rho2v[] + rho2v[-1]);
-        laplYjj += (fm.x[1]*fsG.x[]*rhofr*Dmixfr*face_gradient_x (YG, 1) -
-            fm.x[]*fsG.x[]*rhofl*Dmixfl*face_gradient_x (YG, 0));
-      }
-      laplYjj /= Delta;
+//    // Compute chemical species contributions
+//    double laplYtot = 0.;
+//    foreach_elem (YGList, jj) {
+//      scalar YG = YGList[jj];
+//      scalar Dmix2v = Dmix2List[jj];
+//      double laplYjj = 0.;
+//      foreach_dimension() {
+//        double Dmixfr = 0.5*(Dmix2v[1] + Dmix2v[]);
+//        double Dmixfl = 0.5*(Dmix2v[] + Dmix2v[-1]);
+//        double rhofr  = 0.5*(rho2v[1] + rho2v[]);
+//        double rhofl  = 0.5*(rho2v[] + rho2v[-1]);
+//        laplYjj += (fm.x[1]*fsG.x[]*rhofr*Dmixfr*face_gradient_x (YG, 1) -
+//            fm.x[]*fsG.x[]*rhofl*Dmixfl*face_gradient_x (YG, 0));
+//      }
+//      laplYjj /= Delta;
+//
+//      // Add interfacial contribution
+//      scalar sgexp = sgexpList[jj];
+//      scalar sgimp = sgimpList[jj];
+//      laplYjj += sgexp[];
+//      laplYjj += sgimp[]*YG[];
+//
+//      // Add chemical reactions contribution
+//#ifdef CHEMISTRY
+//        //laplYjj += OpenSMOKE_MW(jj)*ri[jj]*cm[]*(1. - f[]);
+//        laplYjj += OpenSMOKE_MW(jj)*ri[jj]*(1. - f[]);
+//#endif
+//
+//      // Multiply by the species molecular weight
+//      //laplYtot += 1./(inMW[jj]*Delta)*laplYjj;
+//      laplYtot += 1./inMW[jj]*laplYjj;
+//    }
+//    laplYtot *= MW2mix[]/rho2v[];
 
-      // Add interfacial contribution
-      scalar sgexp = sgexpList[jj];
-      scalar sgimp = sgimpList[jj];
-      laplYjj += sgexp[];
-      laplYjj += sgimp[]*YG[];
-
-      // Add chemical reactions contribution
-#ifdef CHEMISTRY
-        //laplYjj += OpenSMOKE_MW(jj)*ri[jj]*cm[]*(1. - f[]);
-        laplYjj += OpenSMOKE_MW(jj)*ri[jj]*(1. - f[]);
-#endif
-
-      // Multiply by the species molecular weight
-      //laplYtot += 1./(inMW[jj]*Delta)*laplYjj;
-      laplYtot += 1./inMW[jj]*laplYjj;
-    }
-    laplYtot *= MW2mix[]/rho2v[];
+    double laplYtot = (rho2v[] > 0.) ? MW2mix[]/rho2v[]*dYdt[] : 0.;
 
     // Compute temperature contribution
     double laplT1 = 0.;
