@@ -464,7 +464,8 @@ void update_divergence (void) {
 #ifdef MOLAR_DIFFUSION
       scalar XG = XGList[jj];
       double MW2mixf = 0.5*(MW2mix[] + MW2mix[-1]);
-      phicGjj.x[] = rho2f*Dmix2f*inMW[jj]/MW2mixf*face_gradient_x (XG, 0)*fsG.x[]*fm.x[];
+      phicGjj.x[] = (MW2mixf > 0.) ?
+        rho2f*Dmix2f*inMW[jj]/MW2mixf*face_gradient_x (XG, 0)*fsG.x[]*fm.x[] : 0.;
 #else
       phicGjj.x[] = rho2f*Dmix2f*face_gradient_x (YG, 0)*fsG.x[]*fm.x[];
 #endif  // MOLAR_DIFFUSION
