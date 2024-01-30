@@ -182,7 +182,7 @@ int main (void) {
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 10; maxlevel <= 12; maxlevel++) {
+  for (maxlevel = 10; maxlevel <= 10; maxlevel++) {
     init_grid (1 << 9);
     run();
   }
@@ -215,10 +215,8 @@ event init (i = 0) {
   We set the molecular weights of the chemial species
   involved in the simulation (by default inMW=1). */
 
-  foreach_elem (YGList, jj) {
+  foreach_elem (YGList, jj)
     inMW[jj] = OpenSMOKE_MW (jj);
-    fprintf (stdout, "inMW[%d] = %g\n", jj, inMW[jj]);
-  }
 }
 
 /**

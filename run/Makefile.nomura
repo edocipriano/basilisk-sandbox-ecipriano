@@ -4,7 +4,7 @@ include $(BASILISK)/Makefile.defs
 CFLAGS += -O2 -disable-dimensions -I$(BASILISKSANDBOX) -I$(OPENSMOKE_INTERFACE)/src -I$(GSL_LIBRARY_PATH)/include -L$(GSL_LIBRARY_PATH)/lib
 
 # Common settings for Nomura et. al, 1996
-CFLAGS += -DKINFOLDER=evaporation/n-heptane-in-nitrogen -DDIAMETER=0.7e-3 -DFUEL=NC7H16 -DINERT=N2
+CFLAGS += -DKINFOLDER=evaporation/n-heptane-in-nitrogen -DDIAMETER=0.7e-3 -DFUEL=NC7H16 -DINERT=N2 -DMOVIE=1
 
 # -- Fig. 5 (a)
 
