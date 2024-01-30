@@ -827,15 +827,11 @@ void update_mw_moles (void) {
   foreach_elem (YGList, jj)
     MW2[jj] = inMW[jj];
 
+#ifdef MOLAR_DIFFUSION
   for (scalar s in XLList)
     s.dirty = false;
   for (scalar s in XGList)
     s.dirty = false;
-
-#ifdef MOLAR_DIFFUSION
-  reset (XLList, 0.);
-  reset (XGList, 0.);
-  reset ({MW1mix,MW2mix}, 0.);
 #endif
 
   foreach() {
@@ -1789,7 +1785,7 @@ event tracer_diffusion (i++)
   face vector phicGtot[];
   foreach_face() {
     phicGtot.x[] = 0.;
-    //double rho2f = 0.5*(rho2v[] + rho2v[-1]);
+    double rho2f = 0.5*(rho2v[] + rho2v[-1]);
     for (int jj=0; jj<NGS; jj++) {
       scalar Dmix2 = Dmix2List[jj];
       double Dmix2f = 0.5*(Dmix2[] + Dmix2[-1]);
@@ -1799,10 +1795,10 @@ event tracer_diffusion (i++)
       scalar XG = XGList[jj];
       double MW2mixf = 0.5*(MW2mix[] + MW2mix[-1]);
       phicGtot.x[] += (MW2mixf > 0.) ?
-        Dmix2f*inMW[jj]/MW2mixf*face_gradient_x (XG, 0) : 0.;
+        rho2f*Dmix2f*inMW[jj]/MW2mixf*face_gradient_x (XG, 0) : 0.;
 # else
       scalar YG = YGList[jj];
-      phicGtot.x[] += Dmix2f*face_gradient_x (YG, 0);
+      phicGtot.x[] += rho2f*Dmix2f*face_gradient_x (YG, 0);
 # endif // MOLAR_DIFFUSION
 #else
       phicGtot.x[] = 0.;
@@ -1818,17 +1814,23 @@ event tracer_diffusion (i++)
 #ifdef MOLAR_DIFFUSION
       scalar Dmix2 = Dmix2List[jj];
       double Dmix2f = 0.5*(Dmix2[] + Dmix2[-1]);
+      double rho2f = 0.5*(rho2v[] + rho2v[-1]);
       double MW2mixf = 0.5*(MW2mix[] + MW2mix[-1]);
 
       phicjj.x[] -= (MW2mixf > 0.) ?
-        Dmix2f/MW2mixf*face_gradient_x (MW2mix, 0)*fsG.x[]*fm.x[] : 0.;
+        rho2f*Dmix2f/MW2mixf*face_gradient_x (MW2mix, 0)*fsG.x[]*fm.x[] : 0.;
 #endif  // MOLAR_DIFFUSION
     }
     scalar YG = YGList[jj];
     double (* gradient_backup)(double,double,double) = YG.gradient;
     YG.gradient = zero;
-    advection ({YG}, phicjj, dt);
+    face vector flux[];
+    tracer_fluxes (YG, phicjj, flux, dt, zeroc);
     YG.gradient = gradient_backup;
+
+    foreach()
+      foreach_dimension()
+        YG[] += (rho2v[] > 0.) ? dt/(rho2v[])*(flux.x[] - flux.x[1])/(Delta*cm[]) : 0.;
   }
 
   /**
