@@ -46,11 +46,11 @@ normalgravity-C7-T973K-P5atm.c: normalgravity.c
 normalgravity-C7-T973K-P5atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=5 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
 normalgravity-C7-T973K-P5atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=5 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
 
-# Case T = 973 K, P = 10 atm
-normalgravity-C7-T973K-P10atm.c: normalgravity.c
-	ln -s normalgravity.c normalgravity-C7-T973K-P10atm.c
-normalgravity-C7-T973K-P10atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
-normalgravity-C7-T973K-P10atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+## Case T = 973 K, P = 10 atm # DUPLICATE
+#normalgravity-C7-T973K-P10atm.c: normalgravity.c
+#	ln -s normalgravity.c normalgravity-C7-T973K-P10atm.c
+#normalgravity-C7-T973K-P10atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+#normalgravity-C7-T973K-P10atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
 
 # Case T = 973 K, P = 15 atm
 normalgravity-C7-T973K-P15atm.c: normalgravity.c
