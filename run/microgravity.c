@@ -46,6 +46,10 @@ different simulations in parallel. */
 # define KINFOLDER evaporation/n-heptane-in-nitrogen
 #endif
 
+#ifndef RADIATION_INTERFACE
+# define RADIATION_INTERFACE 0.98
+#endif
+
 /**
 ## Phase Change Setup
 
@@ -93,7 +97,6 @@ phase temperature value. */
 #define FICK_CORRECTED
 #define MOLAR_DIFFUSION
 #define MASS_DIFFUSION_ENTHALPY
-#define RADIATION_INTERFACE 0.93
 
 /**
 ## Simulation Setup
@@ -316,7 +319,7 @@ event pictures (t = {0.1, 1., 2.}) {
 }
 
 #if MOVIE
-event movie (t += 0.01; t <= 10.) {
+event movie (t += 0.01) {
   clear();
   box();
   view (fov = 3, samples = 2);
@@ -355,6 +358,8 @@ event stop (i++) {
   if (d_over_d02 <= 0.05)
     return 1;
 }
+
+event end (t = 50.);
 
 /**
 ## Results

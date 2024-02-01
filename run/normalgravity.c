@@ -46,6 +46,14 @@ different simulations in parallel. */
 # define KINFOLDER evaporation/n-heptane-in-nitrogen
 #endif
 
+#ifndef RADIATION_INTERFACE
+# define RADIATION_INTERFACE 0.98
+#endif
+
+#ifndef GRAVITY
+# define GRAVITY -9.81
+#endif
+
 /**
 ## Phase Change Setup
 
@@ -93,7 +101,6 @@ phase temperature value. */
 #define FICK_CORRECTED
 #define MOLAR_DIFFUSION
 #define MASS_DIFFUSION_ENTHALPY
-#define RADIATION_INTERFACE 0.8
 
 /**
 ## Simulation Setup
@@ -166,10 +173,11 @@ the initial radius and diameter, and the radius from the
 numerical simulation, and additional data for post-processing. */
 
 int maxlevel, minlevel = 2;
-double D0 = DIAMETER, effective_radius0, d_over_d02 = 1., tad = 0.;
-double volumecorr = 0.;
+double D0 = DIAMETER, effective_radius0, effective_radius, d_over_d02 = 1., tad = 0.;
+double volumecorr = 0., trmin = 0., trmax = 0.;
 
 vector ur[];
+scalar tr[];
 
 int main (void) {
   /**
@@ -193,7 +201,7 @@ int main (void) {
   double RR = 7.986462e+01;
   L0 = 0.5*RR*D0;
 
-  G.x = -9.81;
+  G.x = GRAVITY;
   double df = 0.1*D0;
   X0 = -0.5*L0, Y0 = 0.5*df;
 
@@ -204,6 +212,7 @@ int main (void) {
   We change the surface tension coefficient. */
 
   f.sigma = 0.03;
+  f.tracers = {tr};
 
   /**
   We run the simulation at different maximum
@@ -233,7 +242,7 @@ event init (i = 0) {
   We compute initial variables useful for post-processing. */
 
   volumecorr = 2.*pi*statsf(f).sum - (4./3.*pi*pow (0.5*D0, 3.));
-  effective_radius0 = pow(3./4./pi*(2.*pi*statsf(f).sum + volumecorr), 1./3.);
+  effective_radius0 = pow(3./4./pi*(2.*pi*statsf(f).sum - volumecorr), 1./3.);
 
   foreach (reduction(+:mLiq0))
     mLiq0 += rho1v[]*f[]*dv();
@@ -244,6 +253,16 @@ event init (i = 0) {
 
   foreach_elem (YGList, jj)
     inMW[jj] = OpenSMOKE_MW (jj);
+
+  /**
+  We introduce a scalar tracer to quantify the internal
+  mixing in liquid phase. */
+
+  foreach()
+    tr[] = x*f[];
+
+  trmin = statsf(tr).min;
+  trmax = statsf(tr).max;
 }
 
 /**
@@ -276,7 +295,7 @@ velocity field. */
 event adapt (i++) {
   scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
   adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
-      (double[]){1.e-2,1.e-1,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+      (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
 }
 #endif
 
@@ -284,6 +303,37 @@ event adapt (i++) {
 ## Post-Processing
 
 The following lines of code are for post-processing purposes. */
+
+/**
+### Grashof Number
+
+We compute the Grashof number to quantify the importance of the
+natural convective fluxes. */
+
+struct Grashof {
+  double rhob, rhos;
+  double r, g, nu;
+  double value;
+};
+
+struct Grashof Gr;
+
+event grashof (i++) {
+  if (i == 0) {
+    ThermoState tsg;
+    tsg.T = TG0;
+    tsg.P = Pref;
+    tsg.x = gas_start;
+
+    Gr.rhob = tp2.rhov (&tsg);
+    Gr.nu = tp2.muv (&tsg)/tp2.rhov (&tsg);
+    effective_radius = effective_radius0;
+  }
+  Gr.r = effective_radius;
+  Gr.g = fabs (GRAVITY);
+  Gr.rhos = avg_interface (rho2v, f, tol=0.1);
+  Gr.value = (Gr.rhos - Gr.rhob)*pow (Gr.r, 3.)*Gr.g/(Gr.rhob*sq(Gr.nu));
+}
 
 /**
 ### Output Files
@@ -296,7 +346,7 @@ event output_data (i++) {
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
 
-  double effective_radius = pow(3./4./pi*(2.*pi*statsf(f).sum + volumecorr), 1./3.);
+  effective_radius = pow(3./4./pi*(2.*pi*statsf(f).sum - volumecorr), 1./3.);
   double d_over_d02_old = d_over_d02;
   double tad_old = tad;
 
@@ -315,8 +365,25 @@ event output_data (i++) {
   foreach(reduction(+:mLiq))
     mLiq += rho1v[]*f[]*dv();
 
-  fprintf (fp, "%g %g %g %g %g %g\n", t, tad, effective_radius,
-      d_over_d02, mLiq/mLiq0, kv);
+  /**
+  We compute and print additional useful average quantities. */
+
+  scalar YGIntFuel = YGIntList[0];
+  double TIntAvg = avg_interface (TInt, f, tol=0.1);
+  double YIntAvg = avg_interface (YGIntFuel, f, tol=0.1);
+
+  int counter = 0;
+  double TDropAvg = 0.;
+  foreach(reduction(+:TDropAvg) reduction(+:counter)) {
+    if (f[] > 1.-F_ERR) {
+      counter++;
+      TDropAvg += TL[];
+    }
+  }
+  TDropAvg = (counter > 0.) ? TDropAvg/counter : 0.;
+
+  fprintf (fp, "%g %g %g %g %g %g %g %g %g %g\n", t, tad, effective_radius,
+      d_over_d02, mLiq/mLiq0, kv, Gr.value, TIntAvg, YIntAvg, TDropAvg);
 }
 
 /**
@@ -346,7 +413,7 @@ event pictures (t = {0.1, 1., 2.}) {
 }
 
 #if MOVIE
-event movie (t += 0.01; t <= 10.) {
+event movie (t += 0.01) {
   clear();
   box();
   view (tx = 0.025, fov = 3.5, samples = 2);
@@ -360,6 +427,13 @@ event movie (t += 0.01; t <= 10.) {
   draw_vof ("f", lw = 1.5);
   squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
   save ("fuel.mp4");
+
+  //clear();
+  //box();
+  //view (fov = 1, samples = 2);
+  //draw_vof ("f", filled = -1, fc = {1.,1.,1.});
+  //squares ("tr", min = trmin, max = trmax, linear = true);
+  //save ("tracer.mp4");
 }
 #endif
 
@@ -385,6 +459,8 @@ event stop (i++) {
   if (d_over_d02 <= 0.05)
     return 1;
 }
+
+event end (t = 50.);
 
 /**
 ## Results
