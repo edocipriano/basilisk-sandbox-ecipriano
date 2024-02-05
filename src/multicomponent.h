@@ -820,6 +820,10 @@ event cleanup (t = end)
 We define a function which is used to update the mixture molecular
 weight and the mole fractions (if needed). */
 
+#ifdef VARPROP
+# include "update-properties.h"
+#endif
+
 void update_mw_moles (void) {
   double MW1[NLS], MW2[NGS];
   foreach_elem (YLList, jj)
@@ -866,7 +870,7 @@ void update_mw_moles (void) {
 #endif
   }
 
-  double MW_TOL = 0.1;
+  double MW_TOL = T_PROP;
 
   foreach() {
     if (f[] <= MW_TOL) {
@@ -977,10 +981,6 @@ void update_mw_moles (void) {
     }
   }
 }
-
-#ifdef VARPROP
-# include "update-properties.h"
-#endif
 
 /**
 ## Phase Change
