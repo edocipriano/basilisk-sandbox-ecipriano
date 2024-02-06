@@ -72,7 +72,7 @@ char* inert_species[1] = {TOSTRING(INERT)};
 double gas_start[NGS] = {0., 1.};
 double liq_start[NLS] = {1.};
 double inDmix1[NLS] = {0.};
-double inDmix2[NGS] = {0., 0.};
+double inDmix2[NGS] = {0.};
 double inKeq[NLS] = {0.};
 
 double lambda1 = 0.;
@@ -173,7 +173,8 @@ the initial radius and diameter, and the radius from the
 numerical simulation, and additional data for post-processing. */
 
 int maxlevel, minlevel = 2;
-double D0 = DIAMETER, effective_radius0, effective_radius, d_over_d02 = 1., tad = 0.;
+double D0 = DIAMETER, effective_radius0;
+double effective_radius = 0.5*DIAMETER, d_over_d02 = 1., tad = 0.;
 double volumecorr = 0., trmin = 0., trmax = 0.;
 
 vector ur[];
@@ -205,9 +206,6 @@ int main (void) {
   double df = 0.1*D0;
   X0 = -0.5*L0, Y0 = 0.5*df;
 
-  pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
-  pinning.ac = pinning.ap - 0.05*D0;
-
   /**
   We change the surface tension coefficient. */
 
@@ -219,6 +217,10 @@ int main (void) {
   levels of refinement. */
 
   for (maxlevel = 10; maxlevel <= 10; maxlevel++) {
+
+    pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
+    pinning.ac = pinning.ap - 2.*L0/(1 << maxlevel);
+
     init_grid (1 << 9);
     run();
   }
@@ -243,6 +245,7 @@ event init (i = 0) {
 
   volumecorr = 2.*pi*statsf(f).sum - (4./3.*pi*pow (0.5*D0, 3.));
   effective_radius0 = pow(3./4./pi*(2.*pi*statsf(f).sum - volumecorr), 1./3.);
+  effective_radius = effective_radius0;
 
   foreach (reduction(+:mLiq0))
     mLiq0 += rho1v[]*f[]*dv();
@@ -332,6 +335,25 @@ event grashof (i++) {
   Gr.r = effective_radius;
   Gr.g = fabs (GRAVITY);
   Gr.rhos = avg_interface (rho2v, f, tol=0.1);
+
+  scalar YGIntFuel = YGIntList[0];
+  scalar YGIntInert = YGIntList[1];
+
+  double TIntAvg = avg_interface (TInt, f, tol=0.1);
+  double YIntAvgFuel = avg_interface (YGIntFuel, f, tol=0.1);
+  double YIntAvgInert = avg_interface (YGIntInert, f, tol=0.1);
+
+  double YIntAvg[] = {YIntAvgFuel, YIntAvgInert};
+  double XIntAvg[NGS];
+
+  correctfrac (YIntAvg, NGS);
+  mass2molefrac (XIntAvg, YIntAvg, inMW, NGS);
+
+  ThermoState tsg;
+  tsg.T = TIntAvg;
+  tsg.P = Pref;
+  tsg.x = XIntAvg;
+
   Gr.value = (Gr.rhos - Gr.rhob)*pow (Gr.r, 3.)*Gr.g/(Gr.rhob*sq(Gr.nu));
 }
 
@@ -428,12 +450,12 @@ event movie (t += 0.01) {
   squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
   save ("fuel.mp4");
 
-  //clear();
-  //box();
-  //view (fov = 1, samples = 2);
-  //draw_vof ("f", filled = -1, fc = {1.,1.,1.});
-  //squares ("tr", min = trmin, max = trmax, linear = true);
-  //save ("tracer.mp4");
+  clear();
+  box();
+  view (fov = 1, samples = 2);
+  draw_vof ("f", filled = -1, fc = {1.,1.,1.});
+  squares ("tr", min = trmin, max = trmax, linear = true);
+  save ("tracer.mp4");
 }
 #endif
 

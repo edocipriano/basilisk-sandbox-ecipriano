@@ -68,7 +68,7 @@ char* inert_species[1] = {TOSTRING(INERT)};
 double gas_start[NGS] = {0., 1.};
 double liq_start[NLS] = {1.};
 double inDmix1[NLS] = {0.};
-double inDmix2[NGS] = {0., 0.};
+double inDmix2[NGS] = {0.};
 double inKeq[NLS] = {0.};
 
 double lambda1 = 0.;
@@ -288,8 +288,25 @@ event output_data (i++) {
   foreach(reduction(+:mLiq))
     mLiq += rho1v[]*f[]*dv();
 
-  fprintf (fp, "%g %g %g %g %g %g\n", t, tad, effective_radius,
-      d_over_d02, mLiq/mLiq0, kv);
+  /**
+  We compute and print additional useful average quantities. */
+
+  scalar YGIntFuel = YGIntList[0];
+  double TIntAvg = avg_interface (TInt, f, tol=0.1);
+  double YIntAvg = avg_interface (YGIntFuel, f, tol=0.1);
+
+  int counter = 0;
+  double TDropAvg = 0.;
+  foreach(reduction(+:TDropAvg) reduction(+:counter)) {
+    if (f[] > 1.-F_ERR) {
+      counter++;
+      TDropAvg += TL[];
+    }
+  }
+  TDropAvg = (counter > 0.) ? TDropAvg/counter : 0.;
+
+  fprintf (fp, "%g %g %g %g %g %g %g %g %g\n", t, tad, effective_radius,
+      d_over_d02, mLiq/mLiq0, kv, TIntAvg, YIntAvg, TDropAvg);
 }
 
 /**
