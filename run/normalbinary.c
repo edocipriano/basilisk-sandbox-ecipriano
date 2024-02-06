@@ -66,6 +66,10 @@ different simulations in parallel. */
 # define GRAVITY -9.81
 #endif
 
+#ifndef FIBER
+# define FIBER 0.1
+#endif
+
 /**
 ## Phase Change Setup
 
@@ -215,7 +219,7 @@ int main (void) {
   L0 = 0.5*RR*D0;
 
   G.x = GRAVITY;
-  double df = 0.13*D0;
+  double df = FIBER*D0;
   X0 = -0.5*L0, Y0 = 0.5*df;
 
   /**
