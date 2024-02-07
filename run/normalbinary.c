@@ -356,7 +356,6 @@ event grashof (i++) {
   }
   Gr.r = effective_radius;
   Gr.g = fabs (GRAVITY);
-  Gr.rhos = avg_interface (rho2v, f, tol=0.1);
 
   scalar YGIntFuel1 = YGIntList[0];
   scalar YGIntFuel2 = YGIntList[1];
@@ -377,6 +376,7 @@ event grashof (i++) {
   tsg.T = TIntAvg;
   tsg.P = Pref;
   tsg.x = XIntAvg;
+  Gr.rhos = tp2.rhov (&tsg);
 
   Gr.value = (Gr.rhos - Gr.rhob)*pow (Gr.r, 3.)*Gr.g/(Gr.rhob*sq(Gr.nu));
 }
