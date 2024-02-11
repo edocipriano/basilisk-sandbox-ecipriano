@@ -783,14 +783,48 @@ void prediction(vector u, face vector uf)
 We solve the advection equations for $\mathbf{u}_l$ and
 $\mathbf{u}_g$. */
 
+void advection_div (scalar * tracers, face vector u, double dt,
+		scalar * src = NULL)
+{
+  /**
+  If *src* is not provided we set all the source terms to zero. */
+  
+  scalar * psrc = src;
+  if (!src)
+    for (scalar s in tracers) {
+      const scalar zero[] = 0.;
+      src = list_append (src, zero);
+    }
+  assert (list_len (tracers) == list_len (src));
+
+  scalar f, source;
+  for (f,source in tracers,src) {
+    face vector flux[];
+    tracer_fluxes (f, u, flux, dt, source);
+#if !EMBED
+    foreach() {
+      double fold = f[];
+      foreach_dimension()
+        f[] += dt*(flux.x[] - flux.x[1] + fold*(u.x[1] - u.x[]))/(Delta*cm[]);
+        //f[] += dt*(flux.x[] - flux.x[1])/(Delta*cm[]);
+    }
+#else // EMBED
+    update_tracer (f, u, flux, dt);
+#endif // EMBED
+  }
+
+  if (!psrc)
+    free (src);
+}
+
 event advection_term (i++, last)
 {
   if (!stokes) {
     prediction (u1, uf1);
     prediction (u2, uf2);
     mgpf = project_sf_twofield (uf1, uf2, pf, alpha, dt/2., mgpf.nrelax);
-    advection ((scalar *){u1}, uf1, dt, (scalar *){g});
-    advection ((scalar *){u2}, uf2, dt, (scalar *){g});
+    advection_div ((scalar *){u1}, uf1, dt, (scalar *){g});
+    advection_div ((scalar *){u2}, uf2, dt, (scalar *){g});
   }
 }
 

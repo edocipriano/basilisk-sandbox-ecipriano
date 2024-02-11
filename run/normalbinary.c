@@ -132,8 +132,12 @@ step. The calculation of the extended velocity can be skipped, because no phase
 change is present. OpenSMOKE++ is used for the variable properties calculation. */
 
 #include "axi.h"
-#include "navier-stokes/centered-evaporation.h"
-#include "navier-stokes/centered-doubled.h"
+#if JUMP
+# include "navier-stokes/velocity-jump.h"
+#else
+# include "navier-stokes/centered-evaporation.h"
+# include "navier-stokes/centered-doubled.h"
+#endif
 #include "opensmoke-properties.h"
 #include "pinning.h"
 #include "two-phase-varprop.h"
@@ -149,6 +153,43 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 Outflow boundary conditions are set at the top and right
 sides of the domain. */
 
+#if JUMP
+u1.n[top] = neumann (0.);
+u1.t[top] = neumann (0.);
+u2.n[top] = neumann (0.);
+u2.t[top] = neumann (0.);
+p[top] = dirichlet (0.);
+ps[top] = dirichlet (0.);
+pg[top] = dirichlet (0.);
+
+u1.n[left] = neumann (0.);
+u1.t[left] = neumann (0.);
+u2.n[left] = neumann (0.);
+u2.t[left] = neumann (0.);
+p[left] = dirichlet (0.);
+ps[left] = dirichlet (0.);
+pg[left] = dirichlet (0.);
+
+u1.n[right] = neumann (0.);
+u1.t[right] = neumann (0.);
+u2.n[right] = neumann (0.);
+u2.t[right] = neumann (0.);
+p[right] = dirichlet (0.);
+ps[right] = dirichlet (0.);
+pg[right] = dirichlet (0.);
+
+u1.n[bottom] = dirichlet (0.);
+u1.t[bottom] = dirichlet (0.);
+u2.n[bottom] = dirichlet (0.);
+u2.t[bottom] = dirichlet (0.);
+p[bottom] = neumann (0.);
+ps[bottom] = neumann (0.);
+pg[bottom] = neumann (0.);
+uf1.n[bottom] = 0.;
+uf1.t[bottom] = 0.;
+uf2.n[bottom] = 0.;
+uf2.t[bottom] = 0.;
+#else
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
@@ -180,6 +221,7 @@ uf.n[bottom] = 0.;
 ufext.t[bottom] = 0.;
 ufext.n[bottom] = 0.;
 uf.t[bottom] = 0.;
+#endif
 
 /**
 ### Simulation Data
@@ -373,9 +415,15 @@ event grashof (i++) {
   mass2molefrac (XIntAvg, YIntAvg, inMW, NGS);
 
   ThermoState tsg;
-  tsg.T = TIntAvg;
   tsg.P = Pref;
-  tsg.x = XIntAvg;
+  if (i == 0) {
+    tsg.T = TL0;
+    tsg.x = gas_start;
+  }
+  else {
+    tsg.T = TIntAvg;
+    tsg.x = XIntAvg;
+  }
   Gr.rhos = tp2.rhov (&tsg);
 
   Gr.value = (Gr.rhos - Gr.rhob)*pow (Gr.r, 3.)*Gr.g/(Gr.rhob*sq(Gr.nu));

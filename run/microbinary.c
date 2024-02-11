@@ -124,8 +124,12 @@ step. The calculation of the extended velocity can be skipped, because no phase
 change is present. OpenSMOKE++ is used for the variable properties calculation. */
 
 #include "axi.h"
-#include "navier-stokes/centered-evaporation.h"
-#include "navier-stokes/centered-doubled.h"
+#if JUMP
+# include "navier-stokes/velocity-jump.h"
+#else
+# include "navier-stokes/centered-evaporation.h"
+# include "navier-stokes/centered-doubled.h"
+#endif
 #include "opensmoke-properties.h"
 #include "two-phase-varprop.h"
 #include "tension.h"
@@ -139,6 +143,23 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 Outflow boundary conditions are set at the top and right
 sides of the domain. */
 
+#if JUMP
+u1.n[top] = neumann (0.);
+u1.t[top] = neumann (0.);
+u2.n[top] = neumann (0.);
+u2.t[top] = neumann (0.);
+p[top] = dirichlet (0.);
+ps[top] = dirichlet (0.);
+pg[top] = dirichlet (0.);
+
+u1.n[right] = neumann (0.);
+u1.t[right] = neumann (0.);
+u2.n[right] = neumann (0.);
+u2.t[right] = neumann (0.);
+p[right] = dirichlet (0.);
+ps[right] = dirichlet (0.);
+pg[right] = dirichlet (0.);
+#else
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
@@ -152,6 +173,7 @@ p[right] = dirichlet (0.);
 uext.n[right] = neumann (0.);
 uext.t[right] = neumann (0.);
 pext[right] = dirichlet (0.);
+#endif
 
 /**
 ### Simulation Data
