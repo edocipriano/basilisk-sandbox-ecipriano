@@ -1,0 +1,22 @@
+include $(BASILISK)/Makefile.defs
+
+# the default CFLAGS are set in $(BASILISK)/config
+CFLAGS += -O2 -disable-dimensions -I$(BASILISKSANDBOX) -I$(OPENSMOKE_INTERFACE)/src -I$(BREW_INCLUDE_PATHS) -L$(BREW_LIBRARY_PATHS) -rpath $(OPENSMOKE_INTERFACE)/build
+
+# Common properties
+CFLAGS += -DTEMPERATURE=300 -DPRESSURE=1 -DINERT=N2 -DFIBER=0.11 -DRADIATION_INTERFACE=0 -DMOVIE=1 -DJUMP=1 -DCOIL=1 -DDUMP=1
+
+# Evaporation of acetic acid
+aceticacid.c: normalgravity.c
+	ln -s normalgravity.c aceticacid.c
+aceticacid.s: CFLAGS += -DDIAMETER=0.959e-3 -DFUEL=CH3CO2H -DKINFOLDER=evaporation/acetic-acid-in-nitrogen -DLIQFOLDER=LiquidPropertiesFPBO
+aceticacid.tst: CFLAGS += -DDIAMETER=0.959e-3 -DFUEL=CH3CO2H -DKINFOLDER=evaporation/acetic-acid-in-nitrogen -DLIQFOLDER=LiquidPropertiesFPBO
+
+#-- Settings specific to combustion simulations
+CFLAGS += -DCOMBUSTION=1 -DMASSFRAC_OXIDIZER=0.2329092138 -DMASSFRAC_INERT=0.7670907862
+
+# Combustion of acetic acid
+aceticacidcomb.c: normalgravity.c
+	ln -s normalgravity.c aceticacidcomb.c
+aceticacidcomb.s: CFLAGS += -DDIAMETER=0.959e-3 -DFUEL=CH3CO2H -DKINFOLDER=skeletal/acetic-acid -DLIQFOLDER=LiquidPropertiesFPBO -DNGS=40
+aceticacidcomb.tst: CFLAGS += -DDIAMETER=0.959e-3 -DFUEL=CH3CO2H -DKINFOLDER=skeletal/acetic-acid -DLIQFOLDER=LiquidPropertiesFPBO -DNGS=40

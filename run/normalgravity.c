@@ -26,8 +26,12 @@ different simulations in parallel. */
 # define TEMPERATURE 773.
 #endif
 
+#ifndef TEMPERATURE_DROPLET
+# define TEMPERATURE_DROPLET 300.
+#endif
+
 #ifndef PRESSURE
-# define PRESSURE 10.
+# define PRESSURE 1.
 #endif
 
 #ifndef DIAMETER
@@ -42,8 +46,16 @@ different simulations in parallel. */
 # define INERT N2
 #endif
 
+#ifndef OXIDIZER
+# define OXIDIZER O2
+#endif
+
 #ifndef KINFOLDER
 # define KINFOLDER evaporation/n-heptane-in-nitrogen
+#endif
+
+#ifndef LIQFOLDER
+# define LIQFOLDER LiquidProperties
 #endif
 
 #ifndef RADIATION_INTERFACE
@@ -67,11 +79,29 @@ change model. The properties are set to null values because they are
 overwritten by the variable properties formulation, which computes all the
 physical properties as a function of the thermodynamic state of the mixture. */
 
-#define NGS 2
-#define NLS 1
+#ifndef NGS
+# define NGS 2
+#endif
 
+#ifndef NLS
+# define NLS 1
+#endif
+
+#ifndef MASSFRAC_INERT
+# define MASSFRAC_INERT 1.
+#endif
+
+#ifndef MASSFRAC_OXIDIZER
+# define MASSFRAC_OXIDIZER 0.
+#endif
+
+#if COMBUSTION
+char* gas_species[NGS];
+char* liq_species[NLS];
+#else
 char* gas_species[NGS] = {TOSTRING(FUEL), TOSTRING(INERT)};
 char* liq_species[NLS] = {TOSTRING(FUEL)};
+#endif
 char* inert_species[1] = {TOSTRING(INERT)};
 double gas_start[NGS] = {0., 1.};
 double liq_start[NLS] = {1.};
@@ -88,7 +118,7 @@ double cp2 = 0.;
 /**
 We set the initial temperature of the liquid and of the gas phase. */
 
-double TL0 = 300.;
+double TL0 = TEMPERATURE_DROPLET;
 double TG0 = TEMPERATURE;
 
 /**
@@ -133,6 +163,9 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 #include "gravity.h"
 #include "evaporation-varprop.h"
 #include "multicomponent.h"
+#if COMBUSTION
+# include "chemistry.h"
+#endif
 #include "view.h"
 
 /**
@@ -233,6 +266,7 @@ int main (void) {
   calculation of the thermodynamic and transport properties. */
 
   kinfolder = TOSTRING(KINFOLDER);
+  liqfolder = TOSTRING(LIQFOLDER);
 
   /**
   We set additional data for the simulation. */
@@ -312,7 +346,74 @@ event init (i = 0) {
 
   trmin = statsf(tr).min;
   trmax = statsf(tr).max;
+
+#ifdef RADIATION
+  divq_rad = optically_thin;
+#endif
 }
+
+#if COMBUSTION
+event defaults (i = 0) {
+
+  /**
+  Initialize OpenSMOKE pointers. */
+
+  char kinfolder_root[120];
+  sprintf (kinfolder_root, "%s/kinetics/%s/kinetics",
+      getenv ("OPENSMOKE_INTERFACE"), kinfolder);
+
+  char liqfolder_root[120];
+  sprintf (liqfolder_root, "%s/kinetics/LiquidProperties/%s",
+      getenv ("OPENSMOKE_INTERFACE"), liqfolder);
+
+  OpenSMOKE_Init();
+  OpenSMOKE_ReadKinetics (kinfolder_root);
+  OpenSMOKE_ReadLiquidKinetics (kinfolder_root);
+  OpenSMOKE_ReadLiquidProperties (liqfolder_root);
+
+  /**
+  Reset species name using OpenSMOKE data. */
+
+  for (int jj=0; jj<NGS; jj++) {
+    gas_species[jj] = strdup (OpenSMOKE_NamesOfSpecies (jj));
+    fprintf (stdout, "gas_species[%d] = %s\n", jj, gas_species[jj]);
+  }
+
+  for (int jj=0; jj<NLS; jj++) {
+    const char * species = OpenSMOKE_NamesOfLiquidSpecies (jj);
+    int len = strlen (species);
+    char corrname[len+1];
+    strcpy (corrname, species);
+    corrname[3 <= len ? len-3 : 0] = '\0';
+    liq_species[jj] = strdup (corrname);
+    fprintf (stdout, "liq_species[%d] = %s\n", jj, liq_species[jj]);
+  }
+
+  /**
+  Reset initial composition according to the new species. */
+
+  gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))] = MASSFRAC_OXIDIZER;
+  gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))] = MASSFRAC_INERT;
+
+  /**
+  Clean OpenSMOKE pointers to avoid conflicts with successive
+  events. */
+
+  OpenSMOKE_Clean();
+}
+
+event cleanup (t = end) {
+  for (int jj=0; jj<NGS; jj++) {
+    free (gas_species[jj]);
+    gas_species[jj] = NULL;
+  }
+
+  for (int jj=0; jj<NLS; jj++) {
+    free (liq_species[jj]);
+    liq_species[jj] = NULL;
+  }
+}
+#endif
 
 /**
 We use the same boundary conditions used by
@@ -326,14 +427,60 @@ event bcs (i = 0) {
   fuel[left] = dirichlet (0.);
   fuel[right] = dirichlet (0.);
 
-  inert[top] = dirichlet (1.);
-  inert[left] = dirichlet (1.);
-  inert[right] = dirichlet (1.);
+  inert[top] = dirichlet (MASSFRAC_INERT);
+  inert[left] = dirichlet (MASSFRAC_INERT);
+  inert[right] = dirichlet (MASSFRAC_INERT);
+
+#if COMBUSTION
+  scalar oxidizer = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))];
+
+  oxidizer[top] = dirichlet (MASSFRAC_OXIDIZER);
+  oxidizer[left] = dirichlet (MASSFRAC_OXIDIZER);
+  oxidizer[right] = dirichlet (MASSFRAC_OXIDIZER);
+#endif
 
   TG[top] = dirichlet (TG0);
   TG[left] = dirichlet (TG0);
   TG[right] = dirichlet (TG0);
 }
+
+#if COIL
+#include "coilprofile.h"
+#define coilcircle(x,y,x0,y0,R)(sq(R) - sq(x - x0) - sq(y - y0))
+
+/**
+We introduce additional heating from the coil. */
+
+scalar coilb[];
+
+event coil_init (i = 0) {
+  double coilxc[] = {-4.4e-3, -4.4e-3, -4.4e-3, -4.4e-3};
+  double coilyc[] = {0.35e-3, 1.05e-3, 1.75e-3, 2.45e-3};   // 0.7e-3
+  double coild = 0.2e-3;
+
+  scalar fcoil1[], fcoil2[], fcoil3[], fcoil4[];
+  fraction (fcoil1, coilcircle (x, y, coilxc[0], coilyc[0], 0.5*coild));
+  fraction (fcoil2, coilcircle (x, y, coilxc[1], coilyc[1], 0.5*coild));
+  fraction (fcoil3, coilcircle (x, y, coilxc[2], coilyc[2], 0.5*coild));
+  fraction (fcoil4, coilcircle (x, y, coilxc[3], coilyc[3], 0.5*coild));
+
+  foreach()
+    coilb[] = fcoil1[] + fcoil2[] + fcoil3[] + fcoil4[];
+}
+
+event coil (i++) {
+  int jj;
+  for (jj=0; jj<NPCOIL && coilprofile[jj][0] <= t; jj++)
+    ;
+  double coiltemp = (jj == NPCOIL-1) ? coilprofile[jj][1] :
+    (coilprofile[jj][1] +
+    (coilprofile[jj+1][1] - coilprofile[jj][1])*
+    (t - coilprofile[jj][0])/(coilprofile[jj+1][0] - coilprofile[jj][0]));
+  foreach()
+    TG[] = coiltemp*coilb[] + TG[]*(1. - coilb[]);
+}
+
+#endif
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -342,9 +489,19 @@ velocity field. */
 
 #if TREE
 event adapt (i++) {
+# if COIL
+  scalar coila[];
+  foreach()
+    coila[] = noise()*coilb[];
+
+  scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
+  adapt_wavelet_leave_interface ({fuel,T,u.x,u.y,coila}, {f},
+      (double[]){1.e-1,1.e0,1.e-1,1.e-1,1.e-3}, maxlevel, minlevel, 1);
+# else
   scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
   adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
       (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+# endif
 }
 #endif
 
@@ -368,6 +525,9 @@ struct Grashof {
 struct Grashof Gr;
 
 event grashof (i++) {
+#if COMBUSTION
+  Gr.value = 1.;
+#else
   if (i == 0) {
     ThermoState tsg;
     tsg.T = TG0;
@@ -407,6 +567,7 @@ event grashof (i++) {
   Gr.rhos = tp2.rhov (&tsg);
 
   Gr.value = (Gr.rhos - Gr.rhob)*pow (Gr.r, 3.)*Gr.g/(Gr.rhob*sq(Gr.nu));
+#endif
 }
 
 /**
@@ -477,17 +638,24 @@ We write the animation with the evolution of the
 n-heptane mass fraction, the interface position
 and the temperature field. */
 
-event pictures (t = {0.1, 1., 2.}) {
-  char name[80];
-  sprintf (name, "picturefields-%.1f", t);
-
-  FILE * fp = fopen (name, "w");
-  output_field ({f,T,u.x,u.y}, fp, linear = true);
-  fclose (fp);
-}
-
 #if MOVIE
 event movie (t += 0.01) {
+# if COIL
+  clear();
+  box();
+  view (tx = 0.025, fov = 5.5, samples = 2);
+  draw_vof ("coilb", filled = 1, fc = {1.,1.,1.});
+  draw_vof ("f", lw = 1.5);
+  squares ("T", min = TL0, max = statsf(T).max, linear = true);
+  save ("temperature.mp4");
+
+  clear();
+  box();
+  view (tx = 0.025, fov = 3.5, samples = 2);
+  draw_vof ("f", lw = 1.5);
+  squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
+  save ("fuel.mp4");
+# else
   clear();
   box();
   view (tx = 0.025, fov = 3.5, samples = 2);
@@ -501,13 +669,7 @@ event movie (t += 0.01) {
   draw_vof ("f", lw = 1.5);
   squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
   save ("fuel.mp4");
-
-  clear();
-  box();
-  view (fov = 1, samples = 2);
-  draw_vof ("f", filled = -1, fc = {1.,1.,1.});
-  squares ("tr", min = trmin, max = trmax, linear = true);
-  save ("tracer.mp4");
+# endif
 }
 #endif
 

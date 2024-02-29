@@ -4,7 +4,8 @@ include $(BASILISK)/Makefile.defs
 CFLAGS += -O2 -disable-dimensions -I$(BASILISKSANDBOX) -I$(OPENSMOKE_INTERFACE)/src -I$(GSL_LIBRARY_PATH)/include -L$(GSL_LIBRARY_PATH)/lib
 
 # Common settings for Murakami et. al, 2021
-CFLAGS += -DKINFOLDER=evaporation/n-decane-in-nitrogen -DDIAMETER=1.2e-3 -DFUEL=NC10H22 -DINERT=N2 -DFIBER=0.1 -DMOVIE=0
+CFLAGS += -DKINFOLDER=evaporation/n-decane-in-nitrogen -DFUEL=NC10H22 -DINERT=N2 -DFIBER=0.12 -DRADIATION_INTERFACE=0 -DTEMPERATURE_DROPLET=328 -DMOVIE=1
+CFLAGS += -DJUMP=1
 
 # Fig. 4a - Case T = 773 K, P = 1 atm, D = 0.4 mm
 microgravity-04-T773K-P1atm.c: microgravity.c
