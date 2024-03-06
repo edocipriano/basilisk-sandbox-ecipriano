@@ -178,17 +178,10 @@ void position_centripetal (scalar f, scalar pos, bool add = false)
         hp = sqrt (hp);
       }
 
-      double rho1vh = rho1;
-      double rho2vh = rho2;
-#ifdef VARPROP
-      rho1vh = rho1v[];
-      rho2vh = rho2v[];
-#endif
-
       if (add)
-        pos[] += 1./hp*sfm.eps*(rho2vh - rho1vh);
+        pos[] += 1./hp*sfm.eps*(rho2v[] - rho1v[]);
       else
-        pos[] = 1./hp*sfm.eps*(rho2vh - rho1vh);
+        pos[] = 1./hp*sfm.eps*(rho2v[] - rho1v[]);
     }
     else
       pos[] = nodata;

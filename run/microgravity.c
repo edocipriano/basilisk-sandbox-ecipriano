@@ -26,6 +26,10 @@ different simulations in parallel. */
 # define TEMPERATURE 773.
 #endif
 
+#ifndef TEMPERATURE_DROPLET
+# define TEMPERATURE_DROPLET 300.
+#endif
+
 #ifndef PRESSURE
 # define PRESSURE 10.
 #endif
@@ -42,8 +46,16 @@ different simulations in parallel. */
 # define INERT N2
 #endif
 
+#ifndef OXIDIZER
+# define OXIDIZER O2
+#endif
+
 #ifndef KINFOLDER
 # define KINFOLDER evaporation/n-heptane-in-nitrogen
+#endif
+
+#ifndef LIQFOLDER
+# define LIQFOLDER LiquidProperties
 #endif
 
 #ifndef RADIATION_INTERFACE
@@ -59,11 +71,29 @@ change model. The properties are set to null values because they are
 overwritten by the variable properties formulation, which computes all the
 physical properties as a function of the thermodynamic state of the mixture. */
 
-#define NGS 2
-#define NLS 1
+#ifndef NGS
+# define NGS 2
+#endif
 
+#ifndef NLS
+# define NLS 1
+#endif
+
+#ifndef MASSFRAC_INERT
+# define MASSFRAC_INERT 1.
+#endif
+
+#ifndef MASSFRAC_OXIDIZER
+# define MASSFRAC_OXIDIZER 0.
+#endif
+
+#if COMBUSTION
+char* gas_species[NGS];
+char* liq_species[NLS];
+#else
 char* gas_species[NGS] = {TOSTRING(FUEL), TOSTRING(INERT)};
 char* liq_species[NLS] = {TOSTRING(FUEL)};
+#endif
 char* inert_species[1] = {TOSTRING(INERT)};
 double gas_start[NGS] = {0., 1.};
 double liq_start[NLS] = {1.};
@@ -80,7 +110,7 @@ double cp2 = 0.;
 /**
 We set the initial temperature of the liquid and of the gas phase. */
 
-double TL0 = 300.;
+double TL0 = TEMPERATURE_DROPLET;
 double TG0 = TEMPERATURE;
 
 /**
@@ -90,7 +120,6 @@ temperature is not computed from the jump conditon, it is just set to the gas
 phase temperature value. */
 
 #define SOLVE_TEMPERATURE
-#define VARPROP
 #define USE_GSL 0
 #define FSOLVE_ABSTOL 1.e-3
 #define USE_ANTOINE_OPENSMOKE
@@ -119,10 +148,16 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 # include "navier-stokes/centered-doubled.h"
 #endif
 #include "opensmoke-properties.h"
-#include "two-phase-varprop.h"
+#include "two-phase.h"
 #include "tension.h"
-#include "evaporation-varprop.h"
-#include "multicomponent.h"
+#include "evaporation.h"
+#include "multicomponent-varprop.h"
+#if USE_SPARK
+# include "spark.h"
+#endif
+#if COMBUSTION
+# include "chemistry.h"
+#endif
 #include "view.h"
 
 /**
@@ -183,12 +218,13 @@ int main (void) {
   calculation of the thermodynamic and transport properties. */
 
   kinfolder = TOSTRING(KINFOLDER);
+  liqfolder = TOSTRING(LIQFOLDER);
 
   /**
   We set additional data for the simulation. */
 
-  rho1 = 0.; rho2 = 0.;
-  mu1 = 0.; mu2 = 0.;
+  rho1 = 1.; rho2 = 1.;
+  mu1 = 1.; mu2 = 1.;
   Pref = PRESSURE*101325.;
 
   /**
@@ -242,7 +278,84 @@ event init (i = 0) {
 
   foreach_elem (YGList, jj)
     inMW[jj] = OpenSMOKE_MW (jj);
+
+#ifdef RADIATION
+  divq_rad = optically_thin;
+#endif
+
+#ifdef USE_SPARK
+  spark.T = TG;
+  spark.position = (coord){0.75*D0, 0.75*D0};
+  spark.diameter = 0.2*D0;
+  //spark.time = 0.02;
+  spark.time = 0.;
+  spark.duration = 0.035;
+  spark.temperature = 2700.;
+#endif
 }
+
+#if COMBUSTION
+event defaults (i = 0) {
+
+  /**
+  Initialize OpenSMOKE pointers. */
+
+  char kinfolder_root[120];
+  sprintf (kinfolder_root, "%s/kinetics/%s/kinetics",
+      getenv ("OPENSMOKE_INTERFACE"), kinfolder);
+
+  char liqfolder_root[120];
+  sprintf (liqfolder_root, "%s/kinetics/LiquidProperties/%s",
+      getenv ("OPENSMOKE_INTERFACE"), liqfolder);
+
+  OpenSMOKE_Init();
+  OpenSMOKE_ReadKinetics (kinfolder_root);
+  OpenSMOKE_ReadLiquidKinetics (kinfolder_root);
+  OpenSMOKE_ReadLiquidProperties (liqfolder_root);
+
+  /**
+  Reset species name using OpenSMOKE data. */
+
+  for (int jj=0; jj<NGS; jj++) {
+    gas_species[jj] = strdup (OpenSMOKE_NamesOfSpecies (jj));
+    fprintf (stdout, "gas_species[%d] = %s\n", jj, gas_species[jj]);
+  }
+
+  for (int jj=0; jj<NLS; jj++) {
+    const char * species = OpenSMOKE_NamesOfLiquidSpecies (jj);
+    int len = strlen (species);
+    char corrname[len+1];
+    strcpy (corrname, species);
+    corrname[3 <= len ? len-3 : 0] = '\0';
+    liq_species[jj] = strdup (corrname);
+    fprintf (stdout, "liq_species[%d] = %s\n", jj, liq_species[jj]);
+  }
+
+  /**
+  Reset initial composition according to the new species. */
+
+  gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))] = MASSFRAC_OXIDIZER;
+  gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))] = MASSFRAC_INERT;
+
+  /**
+  Clean OpenSMOKE pointers to avoid conflicts with successive
+  events. */
+
+  OpenSMOKE_Clean();
+}
+
+event cleanup (t = end) {
+  for (int jj=0; jj<NGS; jj++) {
+    free (gas_species[jj]);
+    gas_species[jj] = NULL;
+  }
+
+  for (int jj=0; jj<NLS; jj++) {
+    free (liq_species[jj]);
+    liq_species[jj] = NULL;
+  }
+}
+#endif
 
 /**
 We use the same boundary conditions used by
@@ -255,8 +368,15 @@ event bcs (i = 0) {
   fuel[top] = dirichlet (0.);
   fuel[right] = dirichlet (0.);
 
-  inert[top] = dirichlet (1.);
-  inert[right] = dirichlet (1.);
+  inert[top] = dirichlet (MASSFRAC_INERT);
+  inert[right] = dirichlet (MASSFRAC_INERT);
+
+#if COMBUSTION
+  scalar oxidizer = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))];
+
+  oxidizer[top] = dirichlet (MASSFRAC_OXIDIZER);
+  oxidizer[right] = dirichlet (MASSFRAC_OXIDIZER);
+#endif
 
   TG[top] = dirichlet (TG0);
   TG[right] = dirichlet (TG0);
@@ -363,7 +483,11 @@ event movie (t += 0.01) {
   box();
   view (fov = 3, samples = 2);
   draw_vof ("f", lw = 1.5);
-  squares ("T", min = TL0, max = TG0, linear = true);
+# if COMBUSTION
+  squares ("T", min = TL0, max = statsf(T).max, linear = true);
+# else
+  squares ("T", min = TL0, max = statsf(T).max, linear = true);
+# endif
   save ("temperature.mp4");
 
   clear();

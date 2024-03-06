@@ -78,11 +78,7 @@ event acceleration (i++)
   scalar rhovar[];
   for (scalar f in {interfaces})
     foreach()
-#ifdef VARPROP
       rhovar[] = rho1v[]*f[] + rho2v[]*(1. - f[]);
-#else
-      rhovar[] = rho1*f[] + rho2*(1. - f[]);
-#endif
 
 #if TREE
   rhovar.prolongation = p.prolongation;

@@ -56,6 +56,57 @@ typedef struct {
 } ThermoProps;
 
 /**
+## Overwrite Two-Phase Properties
+
+We define macros used to overwrite the calculation of the variable density and
+viscosity fields in two-phase simulations using any method (VOF, LS, CLSVOF).
+*/
+
+#define aavg(f,v1,v2) (clamp(f,0.,1.)*(v1 - v2) + v2)
+#define havg(f,v1,v2) (1./(clamp(f,0,1)*(1./(v1) - 1./(v2)) + 1./(v2)))
+
+/**
+## Update One-Field Properties
+
+We overwrite the event `properties` to re-calculate the density and viscosity
+fields after the calculation in [two-phase.h](/src/two-phase-generic.h). */
+
+extern scalar f;
+extern face vector alphav;
+extern scalar rhov;
+#ifdef FILTERED
+extern scalar sf;
+#else
+# define sf f
+#endif
+
+event properties (i++) {
+  foreach_face() {
+    double ff = (sf[] + sf[-1])/2.;
+
+    double rho1vh = 0.5*(rho1v[] + rho1v[-1]);
+    double rho2vh = 0.5*(rho2v[] + rho2v[-1]);
+
+    alphav.x[] = fm.x[]/aavg (ff, rho1vh, rho2vh);
+
+    {
+      face vector muv = mu;
+      double mu1vh = 0.5*(mu1v[] + mu1v[-1]);
+      double mu2vh = 0.5*(mu2v[] + mu2v[-1]);
+
+      muv.x[] = fm.x[]*aavg (ff, mu1vh, mu2vh);
+    }
+  }
+
+  foreach() {
+    double rho1vh = rho1v[];
+    double rho2vh = rho2v[];
+
+    rhov[] = cm[]*aavg (sf[], rho1vh, rho2vh);
+  }
+}
+
+/**
 ## Useful functions
 
 We define functions that are useful for variable properties

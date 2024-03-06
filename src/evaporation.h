@@ -95,14 +95,21 @@ the vaporization rate of each chemical species).
 */
 
 extern scalar * mEvapList;
-extern double rho1, rho2;
 extern face vector ufext;
-extern scalar rho;
 
 /**
 We add a bool that allows the droplet volume changes to be disabled. */
 
 bool is_shrinking;
+
+/**
+## Set Variable-Properties fields for compatibility with constant-properties
+simulations. */
+
+#ifndef VARPROP
+(const) scalar rho1v = unity, rho2v = unity;
+(const) scalar mu1v = zeroc, mu2v = zeroc;
+#endif
 
 /**
 ## Init event
@@ -139,6 +146,14 @@ event init (i = 0)
     for (scalar t in tracers)
       t.depends = list_add (t.depends, c);
   }
+
+#ifndef VARPROP
+  const scalar rho1vv[] = rho1, rho2vv[] = rho2;
+  rho1v = rho1vv, rho2v = rho2vv;
+
+  const scalar mu1vv[] = mu1, mu2vv[] = mu2;
+  mu1v = mu1vv, mu2v = mu2vv;
+#endif
 }
 
 /**
@@ -203,9 +218,9 @@ event phasechange (i++)
       nf = normal (neighborp(-1), f);
     }
 #ifdef BYRHOGAS
-    vpc.x[] = fm.x[]*(-mEvapf/rho2)*nf.x;
+    vpc.x[] = (rho2v[] > 0.) ? fm.x[]*(-mEvapf/rho2v[])*nf.x : 0.;
 #else
-    vpc.x[] = fm.x[]*(-mEvapf/rho1)*nf.x;
+    vpc.x[] = (rho1v[] > 0.) ? fm.x[]*(-mEvapf/rho1v[])*nf.x : 0.;
 #endif
   }
 
@@ -224,9 +239,13 @@ event phasechange (i++)
       coord prel;
       segment = plane_area_center (m, alpha, &prel);
 #ifdef AXI
-      stefanflow[] = cm[]*mEvapTot[]*segment*(y + prel.y*Delta)*(1./rho2 - 1./rho1)/(Delta*y);
+      stefanflow[] = (rho1v[] > 0. && rho2v[] > 0.) ?
+        cm[]*mEvapTot[]*segment*(y + prel.y*Delta)*(1./rho2v[] - 1./rho1v[])/(Delta*y)
+        : 0.;
 #else
-      stefanflow[] = mEvapTot[]*segment*(1./rho2 - 1./rho1)/Delta*cm[];
+      stefanflow[] = (rho1v[] > 0. && rho2v[] > 0.) ?
+        mEvapTot[]*segment*(1./rho2v[] - 1./rho1v[])/Delta*cm[]
+        : 0.;
 #endif
     }
 #endif
@@ -237,22 +256,12 @@ event phasechange (i++)
 If *SHIFTING* is defined, we shift the expansion
 source term. */
 
-scalar stefanflowext[];
-
 #ifdef SHIFTING
 event shifting (i++) {
-# ifdef EXT_STEFANFLOW
-  foreach()
-    stefanflowext[] = stefanflow[];
-# endif
 # ifdef SHIFT_TO_LIQ
-  int dir = 1;
+  shift_field (stefanflow, f, 1);
 # else
-  int dir = 0;
-# endif
-  shift_field (stefanflow, f, dir);
-# ifdef EXT_STEFANFLOW
-  shift_field (stefanflowext, f, 0);
+  shift_field (stefanflow, f, 0);
 # endif
 }
 #endif

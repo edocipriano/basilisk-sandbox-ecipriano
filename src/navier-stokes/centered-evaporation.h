@@ -67,9 +67,7 @@ mgstats project_sf (face vector uf, scalar p,
 
   foreach() {
     div[] += stefanflow[]/dt;
-#ifdef VARPROP
     div[] += drhodt[]/dt;
-#endif
   }
 
   /**
@@ -129,6 +127,15 @@ void advection_div (scalar * tracers, face vector u, double dt,
   if (!psrc)
     free (src);
 }
+
+/**
+We set the default divergence source term to zero (for the liquid phase) */
+
+event defaults (i = 0) {
+  foreach()
+    drhodt[] = 0.;
+}
+
 
 /**
 We overwrite the function `project` in [centered.h](/src/navier-stokes/centered.h)

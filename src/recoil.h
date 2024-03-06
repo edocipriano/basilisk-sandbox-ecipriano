@@ -22,10 +22,6 @@ We need external fields that are defined in [two-phase.h](/src/two-phase.h) and
 in [evaporation.h](evaporation.h). */
 
 extern scalar mEvapTot;
-extern double rho1, rho2;
-#ifdef VARPROP
-extern scalar rho1v, rho2v;
-#endif
 
 /**
 The function *recoil_potential()* fills the interfacial potential $\phi$
@@ -36,12 +32,8 @@ void recoil_potential (scalar f, scalar phi, bool add = false)
   foreach() {
     double hp = 0.;
     if (interfacial (point, f)) {
-#ifdef VARPROP
       hp = (rho2v[] > 0. && rho1v[] > 0.) ?
         -sq(mEvapTot[])*(1./rho2v[] - 1./rho1v[]) : 0.;
-#else
-      hp = -sq(mEvapTot[])*(1./rho2 - 1./rho1);
-#endif
       if (add)
         phi[] += hp;
       else

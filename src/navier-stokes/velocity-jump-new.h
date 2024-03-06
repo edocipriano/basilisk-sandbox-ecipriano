@@ -92,12 +92,8 @@ scalar ps[];
 face vector nf[];
 
 extern scalar f;
-extern vector u;
 extern scalar mEvapTot;
-extern double rho1, rho2, mu1, mu2;
-#ifdef VARPROP
 extern scalar rho1v, rho2v;
-#endif
 
 /**
 In the case of variable density, the user will need to define both the
@@ -130,9 +126,7 @@ The volume expansion term is declared in
 [evaporation.h](/sandbox/ecipriano/src/evaporation.h). */
 
 extern scalar stefanflow;
-#ifdef VARPROP
 scalar drhodt[], drhodtext[];
-#endif
 
 /**
 ## Helper functions
@@ -161,10 +155,8 @@ mgstats project_sf_ghost (face vector uf, face vector ufg, scalar p,
     div[] /= dt*Delta;
   }
 
-#ifdef VARPROP
   foreach()
     div[] += drhodtext[]/dt;
-#endif
 
   /**
   We solve the Poisson problem. The tolerance (set with *TOLERANCE*) is
@@ -207,10 +199,8 @@ mgstats project_extended (face vector uf, face vector ufs, scalar p,
     div[] /= dt*Delta;
   }
 
-#ifdef VARPROP
   foreach()
     div[] += drhodtext[]/dt;
-#endif
 
   /**
   We solve the Poisson problem. The tolerance (set with *TOLERANCE*) is
@@ -260,10 +250,8 @@ mgstats project_sf_twofield (face vector uf1, face vector uf2, scalar p,
   /**
   We add the density lagrangian derivative. */
 
-#ifdef VARPROP
   foreach()
     div[] += drhodt[]/dt;
-#endif
 
   /**
   We solve the Poisson problem. The tolerance (set with *TOLERANCE*) is
@@ -455,6 +443,14 @@ event init (i = 0)
 
   dtmax = DT;
   event ("stability");
+
+  /**
+  We set the default divergence source term to zero (for the liquid phase) */
+
+  foreach() {
+    drhodt[] = 0.;
+    drhodtext[] = 0.;
+  }
 }
 
 /**
@@ -532,46 +528,13 @@ void extrapolations (void)
   without changing its values. */
 
 #ifndef DIFFUSIVE
-  foreach() {
+  foreach()
     mEvapTotE[] = mEvapTot[];
-
-    //mEvapTot1[] = mEvapTot[]*(1./rho2 - 1./rho1);
-    //mEvapTot2[] = mEvapTot[]*(1./rho2 - 1./rho1);
-    double rho1vh = rho1, rho2vh = rho2;
-#ifdef VARPROP
-    rho1vh = rho1v[], rho2vh = rho2v[];
-#endif
-    double rhojump = (rho1vh > 0. && rho2vh > 0.) ?
-      (1./rho2vh - 1./rho1vh) : 0.;
-    mEvapTot1[] = (f[] > F_ERR && f[] < 1.-F_ERR) ?
-      mEvapTot[]*rhojump : 0.;
-    mEvapTot2[] = (f[] > F_ERR && f[] < 1.-F_ERR) ?
-      mEvapTot[]*rhojump : 0.;
-
-    mEvapTotE[] = mEvapTot1[];
-  }
 
   constant_extrapolation (mEvapTotE, ls1, 0.5, 20, c=faslam1, nl=0,
       nointerface=true);
   constant_extrapolation (mEvapTotE, ls2, 0.5, 20, c=faslam2, nl=0,
       nointerface=true);
-  //constant_extrapolation (mEvapTot1, ls1, 0.5, 20, c=faslam1, nl=0,
-  //    nointerface=true);
-  //constant_extrapolation (mEvapTot2, ls2, 0.5, 20, c=faslam2, nl=0,
-  //    nointerface=true);
-
-//  foreach() {
-//    double rho1vh = rho1, rho2vh = rho2;
-//#ifdef VARPROP
-//    rho1vh = rho1v[], rho2vh = rho2v[];
-//#endif
-//    double rhojump = (rho1vh > 0. && rho2vh > 0.) ?
-//      (1./rho2vh - 1./rho1vh) : 0.;
-//    mEvapTot1[] = (f[] > F_ERR && f[] < 1.-F_ERR) ?
-//      mEvapTotE[]*rhojump : 0.;
-//    mEvapTot2[] = (f[] > F_ERR && f[] < 1.-F_ERR) ?
-//      mEvapTotE[]*rhojump : 0.;
-//  }
 #endif
 }
 

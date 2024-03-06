@@ -84,7 +84,6 @@ scalar stefanflow[];
 face vector vpc[];
 scalar fu[], fuext[];
 face vector uf_save[];
-scalar mDilation[];
 
 /**
 ## Extern fields
@@ -96,9 +95,9 @@ the vaporization rate of each chemical species).
 */
 
 extern scalar * mEvapList;
-extern double rho1, rho2;
+//extern double rho1, rho2;
 extern face vector ufext;
-extern scalar rho;
+//extern scalar rho;
 
 /**
 We add a bool that allows the droplet volume changes to be disabled. */

@@ -10,6 +10,8 @@ describe low Mach compressibility effects. */
 # define T_PROP 0.1
 #endif
 
+#ifdef VARPROP
+
 scalar Hcheck[];
 scalar betaexp1[], betaexp2[];
 scalar rho1vInt[], rho2vInt[];
@@ -487,42 +489,42 @@ void update_divergence (void) {
 
   foreach() {
 
-#ifdef CHEMISTRY
-    double Qr = 0.;
-    double massfracs[NGS], molefracs[NGS], ci[NGS], ri[NGS];
-    foreach_elem (YGList, jj) {
-      massfracs[jj] = 0.;
-      molefracs[jj] = 0.;
-      ci[jj] = 0.;
-      ri[jj] = 0.;
-    }
-
-    // Set up chemical reactions contribution
-    if ((1. - f[]) < F_ERR) {
-      OpenSMOKE_GasProp_SetTemperature (TG[]);
-      OpenSMOKE_GasProp_SetPressure (Pref);
-
-      foreach_elem (YGList, jj) {
-        scalar YG = YGList[jj];
-        massfracs[jj] = YG[];
-      }
-      correctfrac (massfracs, NGS);
-      mass2molefrac (molefracs, massfracs, inMW, NGS);
-
-      double ctot = (TG[] > 0.) ? Pref/(R_GAS*1000.)/TG[] : 0.;
-      foreach_elem (YGList, jj) {
-        ci[jj] = ctot*molefracs[jj];
-        ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
-        ri[jj] = 0.;
-      }
-
-      OpenSMOKE_GasProp_KineticConstants();
-      OpenSMOKE_GasProp_ReactionRates (ci);     // [kmol/m3]
-      OpenSMOKE_GasProp_FormationRates (ri);    // [kmol/m3/s]
-
-      Qr = OpenSMOKE_GasProp_HeatRelease (ri);
-    }
-#endif
+//#ifdef CHEMISTRY
+//    double Qr = 0.;
+//    double massfracs[NGS], molefracs[NGS], ci[NGS], ri[NGS];
+//    foreach_elem (YGList, jj) {
+//      massfracs[jj] = 0.;
+//      molefracs[jj] = 0.;
+//      ci[jj] = 0.;
+//      ri[jj] = 0.;
+//    }
+//
+//    // Set up chemical reactions contribution
+//    if ((1. - f[]) < F_ERR) {
+//      OpenSMOKE_GasProp_SetTemperature (TG[]);
+//      OpenSMOKE_GasProp_SetPressure (Pref);
+//
+//      foreach_elem (YGList, jj) {
+//        scalar YG = YGList[jj];
+//        massfracs[jj] = YG[];
+//      }
+//      correctfrac (massfracs, NGS);
+//      mass2molefrac (molefracs, massfracs, inMW, NGS);
+//
+//      double ctot = (TG[] > 0.) ? Pref/(R_GAS*1000.)/TG[] : 0.;
+//      foreach_elem (YGList, jj) {
+//        ci[jj] = ctot*molefracs[jj];
+//        ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
+//        ri[jj] = 0.;
+//      }
+//
+//      OpenSMOKE_GasProp_KineticConstants();
+//      OpenSMOKE_GasProp_ReactionRates (ci);     // [kmol/m3]
+//      OpenSMOKE_GasProp_FormationRates (ri);    // [kmol/m3/s]
+//
+//      Qr = OpenSMOKE_GasProp_HeatRelease (ri);
+//    }
+//#endif
 
 //    // Compute chemical species contributions
 //    double laplYtot = 0.;
@@ -579,10 +581,10 @@ void update_divergence (void) {
     }
     laplT2 /= Delta;
 
-#ifdef CHEMISTRY
-      //laplT2 += Qr*cm[]*(1. - f[]);
-      laplT2 += Qr*(1. - f[]);
-#endif
+//#ifdef CHEMISTRY
+//      //laplT2 += Qr*cm[]*(1. - f[]);
+//      laplT2 += Qr*(1. - f[]);
+//#endif
 
 //    // Add temperature interface contribution
 //    if (f[] > F_ERR && f[] < 1.-F_ERR) {
@@ -629,3 +631,4 @@ void update_divergence (void) {
   boundary ({drhodt, drhodtext});
 }
 
+#endif

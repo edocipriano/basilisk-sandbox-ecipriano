@@ -128,7 +128,6 @@ temperature is not computed from the jump conditon, it is just set to the gas
 phase temperature value. */
 
 #define SOLVE_TEMPERATURE
-#define VARPROP
 #define USE_GSL 0
 #define FSOLVE_ABSTOL 1.e-3
 #define USE_ANTOINE_OPENSMOKE
@@ -158,11 +157,14 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 #endif
 #include "opensmoke-properties.h"
 #include "pinning.h"
-#include "two-phase-varprop.h"
+#include "two-phase.h"
 #include "tension.h"
 #include "gravity.h"
-#include "evaporation-varprop.h"
-#include "multicomponent.h"
+#include "evaporation.h"
+#include "multicomponent-varprop.h"
+#if USE_SPARK
+# include "spark.h"
+#endif
 #if COMBUSTION
 # include "chemistry.h"
 #endif
@@ -271,8 +273,8 @@ int main (void) {
   /**
   We set additional data for the simulation. */
 
-  rho1 = 0.; rho2 = 0.;
-  mu1 = 0.; mu2 = 0.;
+  rho1 = 1.; rho2 = 1.;
+  mu1 = 1.; mu2 = 1.;   // can't use 0 or [two-phase.h] won't create muf
   Pref = PRESSURE*101325.;
 
   /**
@@ -349,6 +351,15 @@ event init (i = 0) {
 
 #ifdef RADIATION
   divq_rad = optically_thin;
+#endif
+
+#ifdef USE_SPARK
+  spark.T = TG;
+  spark.position = (coord){0., 0.8*D0};
+  spark.diameter = 0.2*D0;
+  spark.time = 0.02;
+  spark.duration = 0.05;
+  spark.temperature = 2700.;
 #endif
 }
 
@@ -652,6 +663,20 @@ event movie (t += 0.01) {
   clear();
   box();
   view (tx = 0.025, fov = 3.5, samples = 2);
+  draw_vof ("f", lw = 1.5);
+  squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
+  save ("fuel.mp4");
+# elif COMBUSTION
+  clear();
+  box();
+  view (tx = -0.025, fov = 5.5, samples = 2);
+  draw_vof ("f", lw = 1.5);
+  squares ("T", min = TL0, max = statsf(T).max, linear = true);
+  save ("temperature.mp4");
+
+  clear();
+  box();
+  view (tx = -0.025, fov = 5.5, samples = 2);
   draw_vof ("f", lw = 1.5);
   squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
   save ("fuel.mp4");
