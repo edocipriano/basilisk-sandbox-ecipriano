@@ -289,7 +289,7 @@ event init (i = 0) {
   spark.diameter = 0.2*D0;
   //spark.time = 0.02;
   spark.time = 0.;
-  spark.duration = 0.035;
+  spark.duration = 0.05;
   spark.temperature = 2700.;
 #endif
 }
