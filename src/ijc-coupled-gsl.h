@@ -414,7 +414,8 @@ void ijc_CoupledNls ()
 #endif
 
 double divq_rad_int (double TInti, double Tbulk = 300., double alphacorr = 1.) {
-  return alphacorr*5.669e-8*(pow(Tbulk, 4.) - pow(TInti, 4.));
+  //return alphacorr*5.669e-8*(pow(Tbulk, 4.) - pow(TInti, 4.));
+  return alphacorr*5.670373e-8*(pow(Tbulk, 4.) - pow(TInti, 4.));
 }
 
 void EqTemperature (const double * xdata, double * fdata, void * params) {
