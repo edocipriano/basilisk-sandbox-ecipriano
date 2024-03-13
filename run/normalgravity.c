@@ -167,6 +167,7 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 #endif
 #if COMBUSTION
 # include "chemistry.h"
+# include "flame.h"
 #endif
 #include "view.h"
 
@@ -359,7 +360,7 @@ event init (i = 0) {
   spark.diameter = 0.2*D0;
   spark.time = 0.02;
   spark.duration = 0.05;
-  spark.temperature = 2700.;
+  spark.temperature = 3200.;
 #endif
 }
 

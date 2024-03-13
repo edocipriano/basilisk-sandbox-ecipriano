@@ -287,10 +287,9 @@ event init (i = 0) {
   spark.T = TG;
   spark.position = (coord){0.75*D0, 0.75*D0};
   spark.diameter = 0.2*D0;
-  //spark.time = 0.02;
-  spark.time = 0.;
+  spark.time = 0.02;
   spark.duration = 0.05;
-  spark.temperature = 2700.;
+  spark.temperature = 3200.;
 #endif
 }
 
