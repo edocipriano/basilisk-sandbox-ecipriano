@@ -1,9 +1,12 @@
 
-#include "run.h"
-#include "utils.h"
+//#include "run.h"
+//#include "utils.h"
+#include "navier-stokes/centered.h"
 #include "opensmoke-properties.h"
+#include "two-phase.h"
 
 int main (void) {
+  mu1 = 1. , mu2 = 1.;
   kinfolder = "skeletal/methanol";
   run();
 }
