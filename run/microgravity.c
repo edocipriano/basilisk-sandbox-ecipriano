@@ -257,7 +257,7 @@ initial radius of the droplet. We don't use the value D0
 because for small errors of initialization the squared
 diameter decay would not start from 1. */
 
-double mLiq0 = 0.;
+scalar qspark[];
 
 event init (i = 0) {
   refine (circle (x, y, 4.*D0) > 0. && level < maxlevel);
@@ -284,12 +284,12 @@ event init (i = 0) {
 #endif
 
 #ifdef USE_SPARK
-  spark.T = TG;
+  spark.T = qspark;
   spark.position = (coord){0.75*D0, 0.75*D0};
   spark.diameter = 0.2*D0;
-  spark.time = 0.02;
-  spark.duration = 0.05;
-  spark.temperature = 3200.;
+  spark.time = 0.;
+  spark.duration = 0.01;
+  spark.temperature = 1e7;
 #endif
 }
 
