@@ -764,6 +764,36 @@ event cleanup (t = end)
 }
 
 /**
+## Reset Source Terms
+
+We set to zero phase change source terms, in order to add other
+source term contributions from outside this module. */
+
+event reset_sources (i++)
+{
+  foreach() {
+#ifdef SOLVE_TEMPERATURE
+    sgT[] = 0.;
+    slT[] = 0.;
+    sgTimp[] = 0.;
+    slTimp[] = 0.;
+#endif
+    for (int jj=0; jj<NLS; jj++) {
+      scalar slexp = slexpList[jj];
+      scalar slimp = slimpList[jj];
+      slexp[] = 0.;
+      slimp[] = 0.;
+    }
+    for (int jj=0; jj<NGS; jj++) {
+      scalar sgexp = sgexpList[jj];
+      scalar sgimp = sgimpList[jj];
+      sgexp[] = 0.;
+      sgimp[] = 0.;
+    }
+  }
+}
+
+/**
 ## Helper functions
 
 We define a function which is used to update the mixture molecular
@@ -1342,27 +1372,6 @@ event phasechange (i++)
 
   foreach() {
 
-    for (int jj=0; jj<NLS; jj++) {
-      scalar slexp = slexpList[jj];
-      scalar slimp = slimpList[jj];
-
-      slexp[] = 0.;
-      slimp[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar sgexp = sgexpList[jj];
-      scalar sgimp = sgimpList[jj];
-
-      sgexp[] = 0.;
-      sgimp[] = 0.;
-    }
-#ifdef SOLVE_TEMPERATURE
-    slT[] = 0.;
-    sgT[] = 0.;
-    sgTimp[] = 0.;
-    slTimp[] = 0.;
-#endif
-
     if (f[] > F_ERR && f[] < 1.-F_ERR) {
       coord n = facet_normal (point, fL, fsL), p;
       double alpha = plane_alpha (fL[], n);
@@ -1375,11 +1384,11 @@ event phasechange (i++)
         scalar mEvap = mEvapList[jj];
 
 #ifdef AXI
-        sgexp[] = -mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        sgimp[] = +mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        sgexp[] += -mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        sgimp[] += +mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        sgexp[] = -mEvap[]*area/Delta*cm[];
-        sgimp[] = +mEvapTot[]*area/Delta*cm[];
+        sgexp[] += -mEvap[]*area/Delta*cm[];
+        sgimp[] += +mEvapTot[]*area/Delta*cm[];
 #endif
       }
 
@@ -1389,13 +1398,14 @@ event phasechange (i++)
         scalar mEvap = mEvapList[LSI[jj]];
 
 #ifdef AXI
-        slexp[] = +mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        slimp[] = -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        slexp[] += +mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        slimp[] += -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        slexp[] = +mEvap[]*area/Delta*cm[];
-        slimp[] = -mEvapTot[]*area/Delta*cm[];
+        slexp[] += +mEvap[]*area/Delta*cm[];
+        slimp[] += -mEvapTot[]*area/Delta*cm[];
 #endif
       }
+
 #ifdef SOLVE_TEMPERATURE
       double bc = TInt[];
       double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
@@ -1416,11 +1426,11 @@ event phasechange (i++)
 # endif
 
 # ifdef AXI
-      slT[] = lheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgT[] = gheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      slT[] += lheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgT[] += gheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
 # else
-      slT[] = lheatflux*area/Delta*cm[];
-      sgT[] = gheatflux*area/Delta*cm[];
+      slT[] += lheatflux*area/Delta*cm[];
+      sgT[] += gheatflux*area/Delta*cm[];
 # endif
 #endif
     }

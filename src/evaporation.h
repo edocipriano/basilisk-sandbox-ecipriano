@@ -166,6 +166,22 @@ to a specific initial solution).
 event end_init (i = 0);
 
 /**
+## Reset Source Terms
+
+We impose the position of the even which resets the source terms
+for the governing equations solved in the specific phase change
+models. */
+
+event reset_sources (i++);
+
+/**
+## Chemical Reaction Step
+
+If combustion chemistry is present we solve it here. */
+
+event chemistry (i++);
+
+/**
 ## Phase Change event
 
 We computes the total vaporization rate per unit of surface

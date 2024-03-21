@@ -153,6 +153,22 @@ event cleanup (t = end)
 }
 
 /**
+## Reset Source Terms
+
+We set to zero phase change source terms, in order to add other
+source term contributions from outside this module. */
+
+event reset_sources (i++)
+{
+  foreach() {
+    sgS[] = 0.;
+    slS[] = 0.;
+    sgimp[] = 0.;
+    slimp[] = 0.;
+  }
+}
+
+/**
 ## Phase Change
 
 In the *phasechange* event, the vaporization rate is computed
@@ -209,8 +225,6 @@ event phasechange (i++)
   are computed here. */
 
   foreach() {
-    sgS[] = 0., slS[] = 0.;
-    sgimp[] = 0., slimp[] = 0.;
     if (f[] > F_ERR && f[] < 1.-F_ERR) {
       coord n = facet_normal (point, fL, fsL), p;
       double alpha = plane_alpha (fL[], n);
@@ -218,15 +232,15 @@ event phasechange (i++)
       normalize (&n);
 
 #ifdef AXI
-      sgS[] = -mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      slS[] =  mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgimp[] =  mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      slimp[] = -mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgS[] += -mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      slS[] +=  mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgimp[] +=  mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      slimp[] += -mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-      sgS[] = -mEvap[]/rho2*area/Delta*cm[];
-      slS[] =  mEvap[]/rho1*area/Delta*cm[];
-      sgimp[] =  mEvap[]/rho2*area/Delta*cm[];
-      slimp[] = -mEvap[]/rho1*area/Delta*cm[];
+      sgS[] += -mEvap[]/rho2*area/Delta*cm[];
+      slS[] +=  mEvap[]/rho1*area/Delta*cm[];
+      sgimp[] +=  mEvap[]/rho2*area/Delta*cm[];
+      slimp[] += -mEvap[]/rho1*area/Delta*cm[];
 #endif
     }
   }
@@ -295,10 +309,10 @@ event tracer_diffusion (i++)
   foreach() {
     thetacorr1[] = cm[]*max(fL[], F_ERR);
     thetacorr2[] = cm[]*max(fG[], F_ERR);
-    slS[] = (f[] > F_ERR) ? slS[] : 0.;
-    sgS[] = (f[] > F_ERR) ? sgS[] : 0.;
-    slimp[] = (f[] > F_ERR) ? slimp[] : 0.;
-    sgimp[] = (f[] > F_ERR) ? sgimp[] : 0.;
+    //slS[] = (f[] > F_ERR) ? slS[] : 0.;
+    //sgS[] = (f[] > F_ERR) ? sgS[] : 0.;
+    //slimp[] = (f[] > F_ERR) ? slimp[] : 0.;
+    //sgimp[] = (f[] > F_ERR) ? sgimp[] : 0.;
   }
 
 #ifndef SOLVE_LIQONLY

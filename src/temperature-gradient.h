@@ -166,6 +166,22 @@ event cleanup (t = end)
 }
 
 /**
+## Reset Source Terms
+
+We set to zero phase change source terms, in order to add other
+source term contributions from outside this module. */
+
+event reset_sources (i++)
+{
+  foreach() {
+    sgT[] = 0.;
+    slT[] = 0.;
+    sgTimp[] = 0.;
+    slTimp[] = 0.;
+  }
+}
+
+/**
 ## Phase Change
 
 In the *phasechange* event, the vaporization rate is computed
@@ -228,7 +244,6 @@ event phasechange (i++)
   diffusion equation of the temperature fields. */
 
   foreach() {
-    sgT[] = 0., slT[] = 0.;
     if (f[] > F_ERR && f[] < 1.-F_ERR) {
       coord n = facet_normal (point, fL, fsL), p;
       double alpha = plane_alpha (fL[], n);
@@ -242,11 +257,11 @@ event phasechange (i++)
       double gheatflux = lambda2*gtrgrad;
 
 #ifdef AXI
-      slT[] = lheatflux/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgT[] = gheatflux/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      slT[] += lheatflux/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgT[] += gheatflux/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-      slT[] = lheatflux/rho1/cp1*area/Delta*cm[];
-      sgT[] = gheatflux/rho2/cp2*area/Delta*cm[];
+      slT[] += lheatflux/rho1/cp1*area/Delta*cm[];
+      sgT[] += gheatflux/rho2/cp2*area/Delta*cm[];
 #endif
     }
   }
@@ -327,8 +342,8 @@ event tracer_diffusion (i++)
   foreach() {
     thetacorr1[] = cm[]*max(fL[], F_ERR);
     thetacorr2[] = cm[]*max(fG[], F_ERR);
-    slT[] = (f[] > F_ERR) ? slT[] : 0.;
-    sgT[] = (f[] > F_ERR) ? sgT[] : 0.;
+    //slT[] = (f[] > F_ERR) ? slT[] : 0.;
+    //sgT[] = (f[] > F_ERR) ? sgT[] : 0.;
   }
 
   diffusion (TG, dt, D=lambda2f, r=sgT, theta=thetacorr2);
