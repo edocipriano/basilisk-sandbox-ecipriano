@@ -40,6 +40,7 @@ typedef struct {
   double cp;
   double P;
   double T;
+  double * sources;
 } UserDataODE;
 
 /**
@@ -60,6 +61,7 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
   double rho = data.rho;
   double Pressure = data.P;
   double Temperature = data.T;
+  double * sources = data.sources;
 
   /**
   Set temperature and pressure of the system,
@@ -101,6 +103,7 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
 
   for (int jj=0; jj<OpenSMOKE_NumberOfSpecies(); jj++) {
     dy[jj] = OpenSMOKE_MW(jj)*ri[jj]/rho;
+    sources[jj] = dy[jj]*rho;
   }
 }
 
@@ -123,6 +126,7 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   double cp = data.cp;
   double Pressure = data.P;
   double Temperature = y[OpenSMOKE_NumberOfSpecies()];
+  double * sources = data.sources;
 
   /**
   Set temperature and pressure of the system,
@@ -184,8 +188,10 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   /**
   Equation for the chemical species. */
 
-  for (int jj=0; jj<OpenSMOKE_NumberOfSpecies(); jj++)
+  for (int jj=0; jj<OpenSMOKE_NumberOfSpecies(); jj++) {
     dy[jj] = OpenSMOKE_MW(jj)*ri[jj]/rho;
+    sources[jj] = dy[jj]*rho;
+  }
 
   /**
   Get the heat of reaction and compute the equation for the
@@ -194,6 +200,7 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
 
   double QR = OpenSMOKE_GasProp_HeatRelease (ri);
   dy[OpenSMOKE_NumberOfSpecies()] = (QR + divq_rad (&otp))/rho/cp;
+  sources[OpenSMOKE_NumberOfSpecies()] = dy[OpenSMOKE_NumberOfSpecies()]*rho*cp;
 }
 
 /**

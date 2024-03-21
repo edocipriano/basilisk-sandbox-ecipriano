@@ -12,6 +12,10 @@ describe low Mach compressibility effects. */
 
 #ifdef VARPROP
 
+scalar DTDt1[], DTDt2[];
+scalar * DYDt1 = NULL;    // [NLS]
+scalar * DYDt2 = NULL;    // [NGS]
+
 scalar Hcheck[];
 scalar betaexp1[], betaexp2[];
 scalar rho1vInt[], rho2vInt[];
@@ -110,9 +114,34 @@ void update_properties_initial (void) {
   boundary (Cp2List);
 }
 
-extern double mLiq0;
 
-event init (i = 0) {
+event defaults (i = 0)
+{
+  for (int jj=0; jj<NLS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "DYDt1_%s", liq_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    DYDt1 = list_append (DYDt1, a);
+  }
+
+  for (int jj=0; jj<NGS; jj++) {
+    scalar a = new scalar;
+    free (a.name);
+    char name[20];
+    sprintf (name, "DYDt2_%s", gas_species[jj]);
+    a.name = strdup (name);
+    a.nodump = true;
+    DYDt2 = list_append (DYDt2, a);
+  }
+}
+
+double mLiq0 = 0.;
+
+event init (i = 0)
+{
   update_properties_initial();
 
   mLiq0 = 0.;
@@ -133,6 +162,29 @@ event init (i = 0) {
     s.dirty = true; // boundary conditions need to be updated
   }
 #endif
+}
+
+event cleanup (t = end)
+{
+  delete (DYDt1), free (DYDt1), DYDt1 = NULL;
+  delete (DYDt2), free (DYDt2), DYDt2 = NULL;
+}
+
+event reset_sources (i++)
+{
+  foreach() {
+    DTDt1[] = 0.;
+    DTDt2[] = 0.;
+
+    for (int jj=0; jj<NLS; jj++) {
+      scalar DYDt1jj = DYDt1[jj];
+      DYDt1jj[] = 0.;
+    }
+    for (int jj=0; jj<NGS; jj++) {
+      scalar DYDt2jj = DYDt2[jj];
+      DYDt2jj[] = 0.;
+    }
+  }
 }
 
 void update_properties (void)
@@ -459,6 +511,7 @@ void update_divergence (void) {
   for (int jj=0; jj<NGS; jj++) {
     face vector phicGjj[];
     scalar YG = YGList[jj];
+    //scalar DYDt2jj = DYDt2[jj];
     scalar Dmix2v = Dmix2List[jj];
     foreach_face() {
       double rho2f = 0.5*(rho2v[] + rho2v[-1]);
@@ -489,78 +542,12 @@ void update_divergence (void) {
 
   foreach() {
 
-#ifdef CHEMISTRY
-    double Qr = 0.;
-    double massfracs[NGS], molefracs[NGS], ci[NGS], ri[NGS];
-    foreach_elem (YGList, jj) {
-      massfracs[jj] = 0.;
-      molefracs[jj] = 0.;
-      ci[jj] = 0.;
-      ri[jj] = 0.;
+    double DYDt2sum = dYdt[];
+    for (int jj=0; jj<NGS; jj++) {
+      scalar DYDt2jj = DYDt2[jj];
+      DYDt2sum += 1./inMW[jj]*DYDt2jj[];
     }
-
-    // Set up chemical reactions contribution
-    if ((1. - f[]) < F_ERR) {
-      OpenSMOKE_GasProp_SetTemperature (TG[]);
-      OpenSMOKE_GasProp_SetPressure (Pref);
-
-      foreach_elem (YGList, jj) {
-        scalar YG = YGList[jj];
-        massfracs[jj] = YG[];
-      }
-      correctfrac (massfracs, NGS);
-      mass2molefrac (molefracs, massfracs, inMW, NGS);
-
-      double ctot = (TG[] > 0.) ? Pref/(R_GAS*1000.)/TG[] : 0.;
-      foreach_elem (YGList, jj) {
-        ci[jj] = ctot*molefracs[jj];
-        ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
-        ri[jj] = 0.;
-      }
-
-      OpenSMOKE_GasProp_KineticConstants();
-      OpenSMOKE_GasProp_ReactionRates (ci);     // [kmol/m3]
-      OpenSMOKE_GasProp_FormationRates (ri);    // [kmol/m3/s]
-
-      Qr = OpenSMOKE_GasProp_HeatRelease (ri);
-    }
-#endif
-
-//    // Compute chemical species contributions
-//    double laplYtot = 0.;
-//    foreach_elem (YGList, jj) {
-//      scalar YG = YGList[jj];
-//      scalar Dmix2v = Dmix2List[jj];
-//      double laplYjj = 0.;
-//      foreach_dimension() {
-//        double Dmixfr = 0.5*(Dmix2v[1] + Dmix2v[]);
-//        double Dmixfl = 0.5*(Dmix2v[] + Dmix2v[-1]);
-//        double rhofr  = 0.5*(rho2v[1] + rho2v[]);
-//        double rhofl  = 0.5*(rho2v[] + rho2v[-1]);
-//        laplYjj += (fm.x[1]*fsG.x[]*rhofr*Dmixfr*face_gradient_x (YG, 1) -
-//            fm.x[]*fsG.x[]*rhofl*Dmixfl*face_gradient_x (YG, 0));
-//      }
-//      laplYjj /= Delta;
-//
-//      // Add interfacial contribution
-//      scalar sgexp = sgexpList[jj];
-//      scalar sgimp = sgimpList[jj];
-//      laplYjj += sgexp[];
-//      laplYjj += sgimp[]*YG[];
-//
-//      // Add chemical reactions contribution
-//#ifdef CHEMISTRY
-//        //laplYjj += OpenSMOKE_MW(jj)*ri[jj]*cm[]*(1. - f[]);
-//        laplYjj += OpenSMOKE_MW(jj)*ri[jj]*(1. - f[]);
-//#endif
-//
-//      // Multiply by the species molecular weight
-//      //laplYtot += 1./(inMW[jj]*Delta)*laplYjj;
-//      laplYtot += 1./inMW[jj]*laplYjj;
-//    }
-//    laplYtot *= MW2mix[]/rho2v[];
-
-    double laplYtot = (rho2v[] > 0.) ? MW2mix[]/rho2v[]*dYdt[] : 0.;
+    DYDt2sum *= (rho2v[] > 0.) ? MW2mix[]/rho2v[] : 0.;
 
     // Compute temperature contribution
     double laplT1 = 0.;
@@ -581,52 +568,25 @@ void update_divergence (void) {
     }
     laplT2 /= Delta;
 
-#ifdef CHEMISTRY
-      //laplT2 += Qr*cm[]*(1. - f[]);
-      laplT2 += Qr*(1. - f[]);
-#endif
+    DTDt1[] += (laplT1 + slT[]);
+    DTDt2[] += (laplT2 + sgT[]);
 
-//    // Add temperature interface contribution
-//    if (f[] > F_ERR && f[] < 1.-F_ERR) {
-//      coord n = facet_normal (point, f, fsL), p;
-//      double alpha = plane_alpha (f[], n);
-//      double area = plane_area_center (n, alpha, &p);
-//      normalize (&n);
-//
-//      double bc = TInt[];
-//      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
-//      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
-//
-//      double lheatflux = lambda1v[]*ltrgrad;
-//      double gheatflux = lambda2v[]*gtrgrad;
-//
-//#ifdef AXI
-//    laplT1 += lheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
-//    laplT2 += gheatflux*area*(y + p.y*Delta)/(Delta*y)*cm[];
-//#else
-//    laplT1 += lheatflux*area/Delta*cm[];
-//    laplT2 += gheatflux*area/Delta*cm[];
-//#endif
-//    }
-    laplT1 += slT[];
-    laplT2 += sgT[];
-
-    double drho1dt = 0.;
-    double drho2dt = 0.;
+    double DrhoDt1 = 0.;
+    double DrhoDt2 = 0.;
 
     // Add liquid compressibility due to temperature
-    drho1dt += (rho1v[]*cp1v[] > 0.) ?
-      -betaexp1[]/(rho1v[]*cp1v[])*laplT1 : 0.;
+    DrhoDt1 += (rho1v[]*cp1v[] > 0.) ?
+      -betaexp1[]/(rho1v[]*cp1v[])*DTDt1[] : 0.;
 
-    drho2dt += (TG[]*rho2v[]*cp2v[] > 0.) ?
-      -1./(TG[]*rho2v[]*cp2v[])*laplT2 : 0.;
+    DrhoDt2 += (TG[]*rho2v[]*cp2v[] > 0.) ?
+      -1./(TG[]*rho2v[]*cp2v[])*DTDt2[] : 0.;
 
     // Add gas compressibility due to composition
-    //drho2dt += ((1. - f[]) > F_ERR) ? -laplYtot : 0.;
-    drho2dt += (f[] == 0.) ? -laplYtot : 0.;
+    //DrhoDt2 += ((1. - f[]) > F_ERR) ? -DYDt2sum : 0.;
+    DrhoDt2 += (f[] == 0.) ? -DYDt2sum : 0.;
 
-    drhodt[] = drho1dt*f[] + drho2dt*(1. - f[]);
-    drhodtext[] = drho1dt;
+    drhodt[] = DrhoDt1*f[] + DrhoDt2*(1. - f[]);
+    drhodtext[] = DrhoDt1;
   }
   boundary ({drhodt, drhodtext});
 }
