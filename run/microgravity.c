@@ -150,6 +150,7 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 #include "opensmoke-properties.h"
 #include "two-phase.h"
 #include "tension.h"
+#include "recoil.h"
 #include "evaporation.h"
 #include "multicomponent-varprop.h"
 #if USE_SPARK
