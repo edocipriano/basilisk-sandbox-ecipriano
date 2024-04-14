@@ -107,8 +107,13 @@ bool is_shrinking;
 simulations. */
 
 #ifndef VARPROP
-(const) scalar rho1v = unity, rho2v = unity;
-(const) scalar mu1v = zeroc, mu2v = zeroc;
+//(const) scalar rho1v = unity, rho2v = unity;
+//(const) scalar mu1v = zeroc, mu2v = zeroc;
+
+// The (const) scalar approach gives problems when calling those variables
+// as external by modules included before evaporation.h
+scalar rho1v[], rho2v[];
+scalar mu1v[], mu2v[];
 #endif
 
 /**
@@ -148,11 +153,18 @@ event init (i = 0)
   }
 
 #ifndef VARPROP
-  const scalar rho1vv[] = rho1, rho2vv[] = rho2;
-  rho1v = rho1vv, rho2v = rho2vv;
+  //const scalar rho1vv[] = rho1, rho2vv[] = rho2;
+  //rho1v = rho1vv, rho2v = rho2vv;
 
-  const scalar mu1vv[] = mu1, mu2vv[] = mu2;
-  mu1v = mu1vv, mu2v = mu2vv;
+  //const scalar mu1vv[] = mu1, mu2vv[] = mu2;
+  //mu1v = mu1vv, mu2v = mu2vv;
+
+  foreach() {
+    rho1v[] = rho1;
+    rho2v[] = rho2;
+    mu1v[] = mu1;
+    mu2v[] = mu2;
+  }
 #endif
 }
 

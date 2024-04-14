@@ -134,6 +134,7 @@ phase temperature value. */
 #define FICK_CORRECTED
 #define MOLAR_DIFFUSION
 #define MASS_DIFFUSION_ENTHALPY
+#define NO_ADVECTION_DIV 1
 
 /**
 ## Simulation Setup

@@ -114,10 +114,15 @@ void advection_div (scalar * tracers, face vector u, double dt,
     tracer_fluxes (f, u, flux, dt, source);
 #if !EMBED
     foreach() {
+#if NO_ADVECTION_DIV
       double fold = f[];
+#endif
       foreach_dimension()
+#if NO_ADVECTION_DIV
         f[] += dt*(flux.x[] - flux.x[1] + fold*(u.x[1] - u.x[]))/(Delta*cm[]);
-        //f[] += dt*(flux.x[] - flux.x[1])/(Delta*cm[]);
+#else
+        f[] += dt*(flux.x[] - flux.x[1])/(Delta*cm[]);
+#endif
     }
 #else // EMBED
     update_tracer (f, u, flux, dt);
