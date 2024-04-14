@@ -328,7 +328,8 @@ event init (i = 0) {
   /**
   We compute initial variables useful for post-processing. */
 
-  volumecorr = 2.*pi*statsf(f).sum - (4./3.*pi*pow (0.5*D0, 3.));
+  //volumecorr = 2.*pi*statsf(f).sum - (4./3.*pi*pow (0.5*D0, 3.));
+  volumecorr = 0.;
   effective_radius0 = pow(3./4./pi*(2.*pi*statsf(f).sum - volumecorr), 1./3.);
   effective_radius = effective_radius0;
 
@@ -458,43 +459,43 @@ event bcs (i = 0) {
   TG[right] = dirichlet (TG0);
 }
 
-#if COIL
-#include "coilprofile.h"
-#define coilcircle(x,y,x0,y0,R)(sq(R) - sq(x - x0) - sq(y - y0))
-
-/**
-We introduce additional heating from the coil. */
-
-scalar coilb[];
-
-event coil_init (i = 0) {
-  double coilxc[] = {-4.4e-3, -4.4e-3, -4.4e-3, -4.4e-3};
-  double coilyc[] = {0.35e-3, 1.05e-3, 1.75e-3, 2.45e-3};   // 0.7e-3
-  double coild = 0.2e-3;
-
-  scalar fcoil1[], fcoil2[], fcoil3[], fcoil4[];
-  fraction (fcoil1, coilcircle (x, y, coilxc[0], coilyc[0], 0.5*coild));
-  fraction (fcoil2, coilcircle (x, y, coilxc[1], coilyc[1], 0.5*coild));
-  fraction (fcoil3, coilcircle (x, y, coilxc[2], coilyc[2], 0.5*coild));
-  fraction (fcoil4, coilcircle (x, y, coilxc[3], coilyc[3], 0.5*coild));
-
-  foreach()
-    coilb[] = fcoil1[] + fcoil2[] + fcoil3[] + fcoil4[];
-}
-
-event coil (i++) {
-  int jj;
-  for (jj=0; jj<NPCOIL && coilprofile[jj][0] <= t; jj++)
-    ;
-  double coiltemp = (jj == NPCOIL-1) ? coilprofile[jj][1] :
-    (coilprofile[jj][1] +
-    (coilprofile[jj+1][1] - coilprofile[jj][1])*
-    (t - coilprofile[jj][0])/(coilprofile[jj+1][0] - coilprofile[jj][0]));
-  foreach()
-    TG[] = coiltemp*coilb[] + TG[]*(1. - coilb[]);
-}
-
-#endif
+//#if COIL
+//#include "coilprofile.h"
+//#define coilcircle(x,y,x0,y0,R)(sq(R) - sq(x - x0) - sq(y - y0))
+//
+///**
+//We introduce additional heating from the coil. */
+//
+//scalar coilb[];
+//
+//event coil_init (i = 0) {
+//  double coilxc[] = {-4.4e-3, -4.4e-3, -4.4e-3, -4.4e-3};
+//  double coilyc[] = {0.35e-3, 1.05e-3, 1.75e-3, 2.45e-3};   // 0.7e-3
+//  double coild = 0.2e-3;
+//
+//  scalar fcoil1[], fcoil2[], fcoil3[], fcoil4[];
+//  fraction (fcoil1, coilcircle (x, y, coilxc[0], coilyc[0], 0.5*coild));
+//  fraction (fcoil2, coilcircle (x, y, coilxc[1], coilyc[1], 0.5*coild));
+//  fraction (fcoil3, coilcircle (x, y, coilxc[2], coilyc[2], 0.5*coild));
+//  fraction (fcoil4, coilcircle (x, y, coilxc[3], coilyc[3], 0.5*coild));
+//
+//  foreach()
+//    coilb[] = fcoil1[] + fcoil2[] + fcoil3[] + fcoil4[];
+//}
+//
+//event coil (i++) {
+//  int jj;
+//  for (jj=0; jj<NPCOIL && coilprofile[jj][0] <= t; jj++)
+//    ;
+//  double coiltemp = (jj == NPCOIL-1) ? coilprofile[jj][1] :
+//    (coilprofile[jj][1] +
+//    (coilprofile[jj+1][1] - coilprofile[jj][1])*
+//    (t - coilprofile[jj][0])/(coilprofile[jj+1][0] - coilprofile[jj][0]));
+//  foreach()
+//    TG[] = coiltemp*coilb[] + TG[]*(1. - coilb[]);
+//}
+//
+//#endif
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -503,19 +504,19 @@ velocity field. */
 
 #if TREE
 event adapt (i++) {
-# if COIL
-  scalar coila[];
-  foreach()
-    coila[] = noise()*coilb[];
-
-  scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
-  adapt_wavelet_leave_interface ({fuel,T,u.x,u.y,coila}, {f},
-      (double[]){1.e-1,1.e0,1.e-1,1.e-1,1.e-3}, maxlevel, minlevel, 1);
-# else
+//# if COIL
+//  scalar coila[];
+//  foreach()
+//    coila[] = noise()*coilb[];
+//
+//  scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
+//  adapt_wavelet_leave_interface ({fuel,T,u.x,u.y,coila}, {f},
+//      (double[]){1.e-1,1.e0,1.e-1,1.e-1,1.e-3}, maxlevel, minlevel, 1);
+//# else
   scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
   adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
       (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
-# endif
+//# endif
 }
 #endif
 
@@ -590,7 +591,7 @@ event grashof (i++) {
 We write on a file the squared diameter decay and the
 dimensionless time. */
 
-event output_data (i++) {
+event output_data (i += 50) {
   char name[80];
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
@@ -633,6 +634,7 @@ event output_data (i++) {
 
   fprintf (fp, "%g %g %g %g %g %g %g %g %g %g\n", t, tad, effective_radius,
       d_over_d02, mLiq/mLiq0, kv, Gr.value, TIntAvg, YIntAvg, TDropAvg);
+  fflush (fp);
 }
 
 /**
@@ -708,9 +710,11 @@ Output dump files for restore or post-processing. */
 
 #if DUMP
 event snapshots (t += 0.1) {
-  char name[80];
-  sprintf (name, "snapshots-%g", t);
-  dump (name);
+  if (i > 1) {
+    char name[80];
+    sprintf (name, "snapshots-%g", t);
+    dump (name);
+  }
 }
 #endif
 
