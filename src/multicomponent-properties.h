@@ -481,11 +481,9 @@ void update_divergence (void) {
   restriction (YLList);
   restriction (YGList);
 
-  scalar dYdt1[], dYdt[];
-  foreach() {
+  scalar dYdt[];
+  foreach()
     dYdt[] = 0.;
-    dYdt1[] = 0.;
-  }
 
   face vector phicGtot[];
   foreach_face() {
@@ -506,29 +504,6 @@ void update_divergence (void) {
 #endif  // MOLAR_DIFFUSION
 #else
       phicGtot.x[] = 0.;
-#endif  // FICK_CORRECTED
-    }
-  }
-
-  face vector phicLtot[];
-  foreach_face() {
-    phicLtot.x[] = 0.;
-    for (int jj=0; jj<NLS; jj++) {
-      scalar Dmix1v = Dmix1List[jj];
-      double rho1f = 0.5*(rho1v[] + rho1v[-1]);
-      double Dmix1f = 0.5*(Dmix1v[] + Dmix1v[-1]);
-#ifdef FICK_CORRECTED
-# ifdef MOLAR_DIFFUSION
-      scalar XL = XLList[jj];
-      double MW1mixf = 0.5*(MW1mix[] + MW1mix[-1]);
-      phicLtot.x[] += (MW1mixf > 0.) ?
-        rho1f*Dmix1f*inMW[LSI[jj]]/MW1mixf*face_gradient_x (XL, 0)*fsL.x[]*fm.x[] : 0.;
-# else
-      scalar YL = YLList[jj];
-      phicLtot.x[] += rho1f*Dmix1f*face_gradient_x (YL, 0)*fsL.x[]*fm.x[];
-#endif  // MOLAR_DIFFUSION
-#else
-      phicLtot.x[] = 0.;
 #endif  // FICK_CORRECTED
     }
   }
@@ -565,38 +540,6 @@ void update_divergence (void) {
     }
   }
 
-  for (int jj=0; jj<NLS; jj++) {
-    face vector phicLjj[];
-    scalar YL = YLList[jj];
-    //scalar DYDt1jj = DYDt1[jj];
-    scalar Dmix1v = Dmix1List[jj];
-    foreach_face() {
-      double rho1f = 0.5*(rho1v[] + rho1v[-1]);
-      double Dmix1f = 0.5*(Dmix1v[] + Dmix1v[-1]);
-#ifdef MOLAR_DIFFUSION
-      scalar XL = XLList[jj];
-      double MW1mixf = 0.5*(MW1mix[] + MW1mix[-1]);
-      phicLjj.x[] = (MW1mixf > 0.) ?
-        rho1f*Dmix1f*inMW[LSI[jj]]/MW1mixf*face_gradient_x (XL, 0)*fsL.x[]*fm.x[] : 0.;
-#else
-      phicLjj.x[] = rho1f*Dmix1f*face_gradient_x (YL, 0)*fsL.x[]*fm.x[];
-#endif  // MOLAR_DIFFUSION
-
-      double YLf = 0.5*(YL[] + YL[-1]);
-      phicLjj.x[] -= YLf*phicLtot.x[];
-    }
-
-    scalar slexp = slexpList[jj];
-    scalar slimp = slimpList[jj];
-
-    foreach() {
-      foreach_dimension()
-        dYdt1[] += (phicLjj.x[1] - phicLjj.x[])/Delta;
-      dYdt1[] += (slexp[] + slimp[]*YL[]);
-      dYdt1[] *= 1./inMW[LSI[jj]];
-    }
-  }
-
   foreach() {
 
     double DYDt2sum = dYdt[];
@@ -605,13 +548,6 @@ void update_divergence (void) {
       DYDt2sum += 1./inMW[jj]*DYDt2jj[];
     }
     DYDt2sum *= (rho2v[] > 0.) ? MW2mix[]/rho2v[] : 0.;
-
-    double DYDt1sum = dYdt1[];
-    for (int jj=0; jj<NLS; jj++) {
-      scalar DYDt1jj = DYDt1[jj];
-      DYDt1sum += 1./inMW[LSI[jj]]*DYDt1jj[];
-    }
-    DYDt1sum *= (rho1v[] > 0.) ? MW1mix[]/rho1v[] : 0.;
 
     // Compute temperature contribution
     double laplT1 = 0.;
@@ -647,7 +583,6 @@ void update_divergence (void) {
 
     // Add gas compressibility due to composition
     //DrhoDt2 += ((1. - f[]) > F_ERR) ? -DYDt2sum : 0.;
-    DrhoDt1 += -DYDt1sum;
     DrhoDt2 += (f[] == 0.) ? -DYDt2sum : 0.;
 
     drhodt[] = DrhoDt1*f[] + DrhoDt2*(1. - f[]);
