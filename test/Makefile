@@ -5,12 +5,6 @@ BASILISK_LIBS ?=
 
 CFLAGS += -O2 -disable-dimensions $(BASILISK_INCLUDES) $(BASILISK_LIBS)
 
-aslamvof.tst: CFLAGS += -I$(BASILISKWIKI)
-opensmoke.tst: CFLAGS += -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build
-opensmoke-properties.tst: CFLAGS += -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build
-batchreactor.tst: CFLAGS += -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build
-fsolve-gsl.tst: CFLAGS += -I/opt/homebrew/include -L/opt/homebrew/lib
-boilingtemperature.tst: CFLAGS += -I/opt/homebrew/include -L/opt/homebrew/lib
 poisson-gfm.tst: CFLAGS += -DGFM=1
 capwave.tst: CFLAGS += -DGFM=1
 spurious.tst: CFLAGS += -DGFM=1
