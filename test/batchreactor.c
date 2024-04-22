@@ -93,6 +93,9 @@ int main (void) {
   UserDataODE data;
   data.P = 101325.;
 
+  double sources[NEQ];
+  data.sources = sources;
+
   /**
   We set the number of integration time steps, the total
   integration time and the time-steps (The ODE solver may
