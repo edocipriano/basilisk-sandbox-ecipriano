@@ -1,6 +1,9 @@
 include $(BASILISK)/Makefile.defs
 
-CFLAGS += -O2 -I../src -disable-dimensions
+BASILISK_INCLUDES ?= -I../src
+BASILISK_LIBS ?= 
+
+CFLAGS += -O2 -disable-dimensions $(BASILISK_INCLUDES) $(BASILISK_LIBS)
 
 aslamvof.tst: CFLAGS += -I$(BASILISKWIKI)
 opensmoke.tst: CFLAGS += -I$(OPENSMOKE_INTERFACE)/src -rpath $(OPENSMOKE_INTERFACE)/build
