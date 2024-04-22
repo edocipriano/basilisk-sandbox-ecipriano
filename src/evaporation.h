@@ -15,6 +15,7 @@ This file must be used in combination with a phase change model (i.e.
 
 #include "common-evaporation.h"
 #include "fracface.h"
+#include "diffusion.h"
 
 /**
 ## Setup tracers advection
@@ -101,6 +102,7 @@ extern face vector ufext;
 We add a bool that allows the droplet volume changes to be disabled. */
 
 bool is_shrinking;
+double smoothing_expansion = 0.;
 
 /**
 ## Set Variable-Properties fields for compatibility with constant-properties
@@ -284,15 +286,41 @@ event phasechange (i++)
 If *SHIFTING* is defined, we shift the expansion
 source term. */
 
-#ifdef SHIFTING
 event shifting (i++) {
+
+  /**
+  We perform shifting operations of the expansion
+  term, in order to remove it from the interfacial
+  cells, but still keeping its effect on the velocity
+  field. */
+
+#ifdef SHIFTING
 # ifdef SHIFT_TO_LIQ
   shift_field (stefanflow, f, 1);
 # else
   shift_field (stefanflow, f, 0);
 # endif
-}
 #endif
+
+  /**
+  To avoid an expansion term localized on a single layer
+  of cells, we solve a diffusion equation which smoothen
+  the expansion, and we solve the Projection step using
+  this modified term. The volume integral of the expansion
+  during this step must remain constant. */
+
+  if (smoothing_expansion) {
+    face vector eps[];
+    foreach_face()
+      eps.x[] = smoothing_expansion*fm.x[];
+
+    scalar thetacorr[];
+    foreach()
+      thetacorr[] = cm[];
+
+    diffusion (stefanflow, dt, D=eps);
+  }
+}
 
 /**
 ## VOF event
@@ -301,8 +329,6 @@ We overload the vof event in order to include the phase-change
 velocity. Therefore, we perform the advection of the volume
 fraction and we restore the original velocity field.
 */
-
-static scalar * interfaces1 = NULL;
 
 event vof (i++)
 {
@@ -316,24 +342,6 @@ event vof (i++)
       uf.x[] -= vpc.x[];
 #endif
   }
-
-  // It can be useful to compute the stability
-  // conditions based on this modified velocity
-  event ("stability");
-
-  vof_advection ({f}, i);
-
-  /**
-  We restore the value of the $\mathbf{uf}$ velocity field. */
-
-  foreach_face()
-    uf.x[] = uf_save.x[];
-
-  /**
-  We set the list of interfaces to NULL so that the default *vof()*
-  event does nothing (otherwise we would transport $f$ twice). */
-
-  interfaces1 = interfaces, interfaces = NULL;
 }
 
 /**
@@ -348,6 +356,12 @@ respectively.
 
 event tracer_advection (i++)
 {
+  /**
+  We restore the value of the $\mathbf{uf}$ velocity field. */
+
+  foreach_face()
+    uf.x[] = uf_save.x[];
+
   /**
   If the phase tracers are not advected with the same velocity
   of the volume fraction field, the advection is performed
@@ -388,10 +402,5 @@ event tracer_advection (i++)
     uf.x[] = uf_save.x[];
 #endif
 
-  /**
-  We restore the original list of interfaces, which is
-  required by [tension.h](src/tension.h). */
-
-  interfaces = interfaces1;
 }
 

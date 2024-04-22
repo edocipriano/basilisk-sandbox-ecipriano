@@ -231,6 +231,7 @@ event defaults (i = 0)
     s.embed_gradient = pressure_embed_gradient_ext;
 #endif // EMBED
 #endif // TREE
+
 }
 
 /**
@@ -271,11 +272,11 @@ The timestep for this iteration is controlled by the CFL condition,
 applied to the face centered velocity field $\mathbf{u}_f$; and the
 timing of upcoming events. */
 
-event set_dtmax (i++,last) dtmax = DT;
+//event set_dtmax (i++,last) dtmax = DT;
 
-event stability (i++,last) {
-  dt = dtnext (stokes ? dtmax : timestep (uf, dtmax));
-}
+//event stability (i++,last) {
+//  dt = dtnext (stokes ? dtmax : timestep (uf, dtmax));
+//}
 
 /**
 If we are using VOF or diffuse tracers, we need to advance them (to

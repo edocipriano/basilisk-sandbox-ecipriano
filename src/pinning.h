@@ -6,7 +6,7 @@ pin the droplet a specific point of the domain. The method
 implemented here was extended from [sandbox/lopez/contact.c](/sandbox/lopez/contact.c).
 */
 
-#include "contact-evaporation.h"
+#include "contact.h"
 
 /**
 Known the position of the interface $a$ we compute the corresponding
@@ -55,6 +55,8 @@ h.t[bottom] = x > pinning.ac ? contact_line (pinning.ap) : neumann (0.);
 We must associate the height function field with the VOF tracer, so
 that it is used by the relevant functions (curvature calculation in
 particular). */
+
+extern scalar f;
 
 event defaults (i = 0) {
   f.height = h;

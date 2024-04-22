@@ -45,7 +45,7 @@ the solution of the temperature field. */
 #include "navier-stokes/centered-evaporation.h"
 #include "navier-stokes/centered-doubled.h"
 #include "two-phase.h"
-#include "contact-evaporation.h"
+#include "contact.h"
 #include "tension.h"
 #include "evaporation.h"
 #include "temperature-gradient.h"
