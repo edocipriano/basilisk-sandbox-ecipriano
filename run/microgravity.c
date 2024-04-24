@@ -335,6 +335,9 @@ event defaults (i = 0) {
   /**
   Reset initial composition according to the new species. */
 
+  for (int jj=0; jj<NGS; jj++)
+    gas_start[jj] = 0.;
+
   gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))] = MASSFRAC_OXIDIZER;
   gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))] = MASSFRAC_INERT;
 
