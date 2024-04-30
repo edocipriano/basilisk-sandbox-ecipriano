@@ -163,6 +163,20 @@ double opensmoke_liqprop_dhev (void * p, int i) {
 }
 
 /**
+### *opensmoke_liqprop_sigma()*: surface tension of the chemical species
+*/
+
+double opensmoke_liqprop_sigma (void * p, int i) {
+  ThermoState * ts = (ThermoState *)p;
+  const char* name = OpenSMOKE_NamesOfLiquidSpecies (i);
+  int len = strlen (name);
+  char corrname[len+1];
+  strcpy (corrname, name);
+  corrname[3 <= len ? len-3 : 0] = '\0';
+  return OpenSMOKE_LiqProp_Sigma (corrname, ts->T);
+}
+
+/**
 ### *opensmoke_liqprop_diff_pg()*: diffusion coefficient of a species in liquid phase (Perkins Geankopolis)
 */
 
@@ -239,6 +253,7 @@ event defaults (i = 0) {
   tp1.dhev    = opensmoke_liqprop_dhev;
   tp1.diff    = opensmoke_liqprop_diff_lc;
   tp1.cps     = opensmoke_liqprop_heatcapacity_species;
+  tp1.sigmas  = opensmoke_liqprop_sigma;
 
   tp2.rhov    = opensmoke_gasprop_density;
   tp2.muv     = opensmoke_gasprop_viscosity;

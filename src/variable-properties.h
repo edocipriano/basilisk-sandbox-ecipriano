@@ -53,6 +53,7 @@ typedef struct {
   double (* dhev) (void *, int);
   double (* diff) (void *, int);
   double (* cps)  (void *, int);
+  double (* sigmas) (void *, int);
 } ThermoProps;
 
 /**

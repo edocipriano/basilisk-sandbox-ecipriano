@@ -61,6 +61,8 @@ event properties (i++) {
         OpenSMOKE_NamesOfLiquidSpecies (i), tp1.pvap (&ts1, i));
     fprintf (stderr, "dhev[%s] = %f\n",
         OpenSMOKE_NamesOfLiquidSpecies (i), tp1.dhev (&ts1, i));
+    fprintf (stderr, "sigma[%s] = %f\n",
+        OpenSMOKE_NamesOfLiquidSpecies (i), tp1.sigmas (&ts1, i));
   }
 }
 

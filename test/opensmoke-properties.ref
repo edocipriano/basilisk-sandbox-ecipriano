@@ -31,6 +31,7 @@ lambda1 = 0.199406
 cp1 = 2544.900000
 pvap[CH3OH(L)] = 18482.866411
 dhev[CH3OH(L)] = 1171400.120998
+sigma[CH3OH(L)] = 0.020423
 Gas Properties
 rho2 = 1.171970
 mu2 = 0.000019
@@ -64,6 +65,7 @@ lambda1 = 0.199406
 cp1 = 2544.900000
 pvap[CH3OH(L)] = 18482.866411
 dhev[CH3OH(L)] = 1171400.120998
+sigma[CH3OH(L)] = 0.020423
 Gas Properties
 rho2 = 1.171970
 mu2 = 0.000019
@@ -97,3 +99,4 @@ lambda1 = 0.199406
 cp1 = 2544.900000
 pvap[CH3OH(L)] = 18482.866411
 dhev[CH3OH(L)] = 1171400.120998
+sigma[CH3OH(L)] = 0.020423
