@@ -34,18 +34,14 @@ event flame (i++) {
   }
 
   foreach() {
-    if (f[] < F_ERR) {
-      double z_frac_mix[NGS];
-      for (int jj=0; jj<NGS; jj++) {
-        scalar YG = YGList[jj];
-        z_frac_mix[jj] = YG[];
-      }
-      zmix[] = OpenSMOKE_GetMixtureFractionFromMassFractions (z_frac_mix,
-          z_frac_fuel, gas_start);
+    double z_frac_mix[NGS];
+    for (int jj=0; jj<NGS; jj++) {
+      scalar Y = YList[jj];
+      z_frac_mix[jj] = Y[];
     }
-    else {
-      zmix[] = 1.;
-    }
+    zmix[] = OpenSMOKE_GetMixtureFractionFromMassFractions (z_frac_mix,
+        z_frac_fuel, gas_start);
+
     zsto[] = OpenSMOKE_GetMixtureFractionFromMassFractions (z_frac_stoi,
         z_frac_fuel, gas_start);
   }
@@ -81,48 +77,45 @@ event flame (i++) {
   /**
   We compute the flame interface field. */
 
+  scalar zdiff[];
+  foreach()
+    zdiff[] = zmix[] - zsto[];
+
   face vector flameinterface[];
   foreach_face()
-    flameinterface.x[] = ((zmix[-1] - zsto[-1])*(zmix[] - zsto[]) < 0.) ? 1. : 0.;
+    flameinterface.x[] = (zdiff[]*zdiff[-1] < 0.) ? 1. : 0.;
 
   /**
-  We compute the distance of the flame to the interface. These definitions are
-  similar to those used in the context of the Ghost Fluid Method applied to
-  the VOF field. */
+  We compute the distance of the flame to the interface. The flame interface
+  is the zero level set of the `zdiff` field. Therefore, we calculate the
+  coordinates of the flame using definitions which are similar to those of
+  the level set method. */
 
   face vector flamelambda[];
-  foreach_face() {
-    if (flameinterface.x[])
-      flamelambda.x[] = (zmix[-1] - zsto[-1])/(zmix[-1] - zsto[]);
-    else
-      flamelambda.x[] = 0.;
-  }
+  foreach_face()
+    flamelambda.x[] = (flameinterface.x[] == 1.) ? (zdiff[-1] - 0.)/(zdiff[-1] - zdiff[]) : 0.;
 
   /**
   We compute the flame position using `flamelambda`. */
 
-  face vector flamepos[];
-  foreach_face() {
-    coord xc = {x, y, z};
-    double xo = xc.x - 0.5*Delta;
-    double xn = xc.x + 0.5*Delta;
-    flamepos.x[] = xo + flamelambda.x[]*(xn - xo);
+  vector xp[];
+  foreach() {
+    coord o = {x, y, z};
+    foreach_dimension()
+      xp.x[] = o.x;
   }
+
+  face vector flamepos[];
+  foreach_face()
+    flamepos.x[] = (flameinterface.x[] == 1.)? xp.x[-1] + flamelambda.x[]*Delta : 0.;
 
   /**
-  We calculate the horizontal flame diameter `hflame`, the lower flame diameter
-  `lflame` and the upper flame diameter `uflame`. */
+  We calculate the horizontal flame diameter `Dx`, the vertical flame
+  diameter `Dy`, and the effective diameter. */
 
-  double hflame = 0.;
-  foreach_face(y, reduction(max:hflame)) {
-    hflame = max (hflame, flamepos.y[]);
-  }
-
-  double lflame = HUGE, uflame = 0.;
-  foreach_face(x, reduction(min:lflame) reduction(max:uflame)) {
-    lflame = min (lflame, flamepos.x[]);
-    uflame = max (uflame, flamepos.x[]);
-  }
+  double Dx = 2.*statsf(flamepos.y).max;
+  double Dy = statsf(flamepos.x).max - statsf(flamepos.x).min;
+  double De = 0.5*(Dx + Dy);
 
   /**
   Update flame temperature. */
@@ -142,9 +135,11 @@ event flame (i++) {
 
   foreach() {
     int ind = 0;
-    foreach_dimension()
-      ind = (flameinterface.x[1] || flameinterface.x[]) ? ind+1 : 0.;
-    flameind[] = (ind) ? chi[] : 0.;
+    foreach_dimension() {
+      if (flameinterface.x[1] || flameinterface.x[])
+        ind++;
+    }
+    flameind[] = (ind) ? 1. : 0.;
   }
 
   /**
@@ -154,8 +149,8 @@ event flame (i++) {
   double diam = sqrt (d_over_d02)*2.*D0;
 
   fprintf (fpflame, "%g %g %g %g %g %g %g %g %g\n",
-      t, t/sq(D0*1e3), hflame, lflame, uflame,
-      hflame/diam, lflame/diam, uflame/diam, Tflame);
+      t, t/sq(D0*1e3), Dx, Dy, De,
+      Dx/diam, Dy/diam, De/diam, Tflame);
 
 }
 

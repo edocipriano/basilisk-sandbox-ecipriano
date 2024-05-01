@@ -95,6 +95,14 @@ physical properties as a function of the thermodynamic state of the mixture. */
 # define MASSFRAC_OXIDIZER 0.
 #endif
 
+#ifndef SPARK_TIME
+# define SPARK_TIME 0.008
+#endif
+
+#ifndef SPARK_VALUE
+# define SPARK_VALUE 1e7
+#endif
+
 #if COMBUSTION
 char* gas_species[NGS];
 char* liq_species[NLS];
@@ -362,8 +370,8 @@ event init (i = 0) {
   spark.position = (coord){0., 0.8*D0};
   spark.diameter = 0.2*D0;
   spark.time = 0.;
-  spark.duration = 0.008;
-  spark.temperature = 1e7;
+  spark.duration = SPARK_TIME;
+  spark.temperature = SPARK_VALUE;
 #endif
 }
 

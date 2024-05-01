@@ -1,0 +1,74 @@
+include $(BASILISK)/Makefile.defs
+
+# the default CFLAGS are set in $(BASILISK)/config
+# CFLAGS += -O2 -disable-dimensions -I$(BASILISKSANDBOX) -I$(OPENSMOKE_INTERFACE)/src -I$(GSL_LIBRARY_PATH)/include -L$(GSL_LIBRARY_PATH)/lib
+
+CFLAGS += -DCOMBUSTION=1 \
+	-DUSE_SPARK=1 \
+	-DDIAMETER=0.65e-3 \
+	-DFIBER=0.12 \
+	-DTEMPERATURE=300 \
+	-DFUEL=CH3OH \
+	-DKINFOLDER=two-step/methanol \
+	-DMASSFRAC_INERT=0.79 \
+	-DMASSFRAC_OXIDIZER=0.21 \
+	-DNGS=6 \
+	-DJUMP=0 \
+	-DDUMP=1 \
+	-DMOVIE=1
+
+# Normal gravity at D0 = 0.65 mm and P = 1 atm
+normalgravity-1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-1atm.c
+normalgravity-1atm.s: CFLAGS += -DPRESSURE=1 -DGRAVITY=-9.81 -DSPARK_VALUE=1e8
+normalgravity-1atm.tst: CFLAGS += -DPRESSURE=1 -DGRAVITY=-9.81 -DSPARK_VALUE=1e8
+
+# Normal gravity at D0 = 0.56 mm and P = 5 atm
+normalgravity-5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-5atm.c
+normalgravity-5atm.s: CFLAGS += -DPRESSURE=5 -DGRAVITY=-9.81
+normalgravity-5atm.tst: CFLAGS += -DPRESSURE=5 -DGRAVITY=-9.81
+
+# Normal gravity at D0 = 0.88 mm and P = 10 atm
+normalgravity-10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-10atm.c
+normalgravity-10atm.s: CFLAGS += -DPRESSURE=10 -DGRAVITY=-9.81
+normalgravity-10atm.tst: CFLAGS += -DPRESSURE=10 -DGRAVITY=-9.81
+
+# Normal gravity at D0 = 0.64 mm and P = 15 atm
+normalgravity-15atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-15atm.c
+normalgravity-15atm.s: CFLAGS += -DPRESSURE=15 -DGRAVITY=-9.81
+normalgravity-15atm.tst: CFLAGS += -DPRESSURE=15 -DGRAVITY=-9.81
+
+
+# Microgravity at D0 = 0.65 mm and P = 1 atm
+microgravity-1atm.c: microgravity.c
+	ln -s microgravity.c microgravity-1atm.c
+microgravity-1atm.s: CFLAGS += -DPRESSURE=1 -DGRAVITY=0
+microgravity-1atm.tst: CFLAGS += -DPRESSURE=1 -DGRAVITY=0
+
+# Microgravity at D0 = 0.56 mm and P =5 atm
+microgravity-5atm.c: microgravity.c
+	ln -s microgravity.c microgravity-5atm.c
+microgravity-5atm.s: CFLAGS += -DPRESSURE=5 -DGRAVITY=0
+microgravity-5atm.tst: CFLAGS += -DPRESSURE=5 -DGRAVITY=0
+
+# Microgravity at D0 = 0.88 mm and P = 10 atm
+microgravity-10atm.c: microgravity.c
+	ln -s microgravity.c microgravity-10atm.c
+microgravity-10atm.s: CFLAGS += -DPRESSURE=10 -DGRAVITY=0
+microgravity-10atm.tst: CFLAGS += -DPRESSURE=10 -DGRAVITY=0
+
+# Microgravity at D0 = 0.64 mm and P = 15 atm
+microgravity-15atm.c: microgravity.c
+	ln -s microgravity.c microgravity-15atm.c
+microgravity-15atm.s: CFLAGS += -DPRESSURE=15 -DGRAVITY=0
+microgravity-15atm.tst: CFLAGS += -DPRESSURE=15 -DGRAVITY=0
+
+normalgravity-all.tst: normalgravity-1atm.tst normalgravity-5atm.tst normalgravity-10atm.tst normalgravity-15atm.tst
+microgravity-all.tst: microgravity-1atm.tst  microgravity-5atm.tst  microgravity-10atm.tst  microgravity-15atm.tst 
+combustion-all.tst: normalgravity-all.tst microgravity-all.tst
+
+
+
