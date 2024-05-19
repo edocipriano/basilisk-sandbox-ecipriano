@@ -23,5 +23,6 @@ quick: aslam.tst aslamvof.tst fsolve-gsl.tst interfaceregression.tst \
   mapregion.tst radiation.tst spark.tst fickcorrected.tst \
   boilingtemperature.tst $(GFM)
 gfm: $(GFM)
-slow: icentripetal.tst centripetal.tst pinning.tst
-all: quick slow
+slow: pinning.tst
+opensmoke-all: opensmoke.tst opensmoke-properties.tst batchreactor.tst
+all: quick slow opensmoke-all

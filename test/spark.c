@@ -8,7 +8,6 @@ simulations.
 #include "grid/multigrid.h"
 #include "run.h"
 #include "common.h"
-#include "spark.h"
 #include "view.h"
 
 /**
@@ -16,6 +15,8 @@ The spark must be applied on a temperature field.
 */
 
 scalar T[];
+scalar sgT[], rho2v[], cp2v[];
+#include "spark.h"
 
 int main (void) {
 
@@ -27,6 +28,7 @@ int main (void) {
   maximum temperature. 
   */
 
+  spark.policy = 2; // SPARK_RAMP
   spark.T = T;
   spark.position = (coord){0.25, 0.25};
   spark.diameter = 4.*L0/(1 << 7);

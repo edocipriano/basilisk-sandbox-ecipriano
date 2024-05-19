@@ -308,7 +308,6 @@ plot "../pinning-axi/out" i 0  w l t "sigma = 0.016", \
      "../pinning-axi/out" i 4  w l t "sigma = 0.032", \
      "../pinning-axi/out" i 7  w l t "sigma = 0.044" , \
      "../pinning-axi/out" i 10 w l t "sigma = 0.056"
-}
 ~~~
 */
 
