@@ -467,44 +467,6 @@ event bcs (i = 0) {
   TG[right] = dirichlet (TG0);
 }
 
-//#if COIL
-//#include "coilprofile.h"
-//#define coilcircle(x,y,x0,y0,R)(sq(R) - sq(x - x0) - sq(y - y0))
-//
-///**
-//We introduce additional heating from the coil. */
-//
-//scalar coilb[];
-//
-//event coil_init (i = 0) {
-//  double coilxc[] = {-4.4e-3, -4.4e-3, -4.4e-3, -4.4e-3};
-//  double coilyc[] = {0.35e-3, 1.05e-3, 1.75e-3, 2.45e-3};   // 0.7e-3
-//  double coild = 0.2e-3;
-//
-//  scalar fcoil1[], fcoil2[], fcoil3[], fcoil4[];
-//  fraction (fcoil1, coilcircle (x, y, coilxc[0], coilyc[0], 0.5*coild));
-//  fraction (fcoil2, coilcircle (x, y, coilxc[1], coilyc[1], 0.5*coild));
-//  fraction (fcoil3, coilcircle (x, y, coilxc[2], coilyc[2], 0.5*coild));
-//  fraction (fcoil4, coilcircle (x, y, coilxc[3], coilyc[3], 0.5*coild));
-//
-//  foreach()
-//    coilb[] = fcoil1[] + fcoil2[] + fcoil3[] + fcoil4[];
-//}
-//
-//event coil (i++) {
-//  int jj;
-//  for (jj=0; jj<NPCOIL && coilprofile[jj][0] <= t; jj++)
-//    ;
-//  double coiltemp = (jj == NPCOIL-1) ? coilprofile[jj][1] :
-//    (coilprofile[jj][1] +
-//    (coilprofile[jj+1][1] - coilprofile[jj][1])*
-//    (t - coilprofile[jj][0])/(coilprofile[jj+1][0] - coilprofile[jj][0]));
-//  foreach()
-//    TG[] = coiltemp*coilb[] + TG[]*(1. - coilb[]);
-//}
-//
-//#endif
-
 /**
 We adapt the grid according to the mass fractions of the
 mass fraction of n-heptane, the temperature, and the
@@ -512,19 +474,9 @@ velocity field. */
 
 #if TREE
 event adapt (i++) {
-//# if COIL
-//  scalar coila[];
-//  foreach()
-//    coila[] = noise()*coilb[];
-//
-//  scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
-//  adapt_wavelet_leave_interface ({fuel,T,u.x,u.y,coila}, {f},
-//      (double[]){1.e-1,1.e0,1.e-1,1.e-1,1.e-3}, maxlevel, minlevel, 1);
-//# else
   scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
   adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
       (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
-//# endif
 }
 #endif
 
@@ -664,22 +616,7 @@ and the temperature field. */
 
 #if MOVIE
 event movie (t += 0.01) {
-# if COIL
-  clear();
-  box();
-  view (tx = 0.025, fov = 5.5, samples = 2);
-  draw_vof ("coilb", filled = 1, fc = {1.,1.,1.});
-  draw_vof ("f", lw = 1.5);
-  squares ("T", min = TL0, max = statsf(T).max, linear = true);
-  save ("temperature.mp4");
-
-  clear();
-  box();
-  view (tx = 0.025, fov = 3.5, samples = 2);
-  draw_vof ("f", lw = 1.5);
-  squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
-  save ("fuel.mp4");
-# elif COMBUSTION
+# if COMBUSTION
   clear();
   box();
   view (tx = -0.025, fov = 5.5, samples = 2);
