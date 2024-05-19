@@ -14,7 +14,7 @@ for evaporation models. */
 #ifndef T_ERR
 # define T_ERR 0.
 #endif
-#include "mass_refine_prolongation.h"
+//#include "mass_refine_prolongation.h"
 
 #ifndef I_TOL
 # define I_TOL 1.e-8
@@ -25,7 +25,37 @@ We define a custom for that simplifies
 loops over the chemical species. */
 
 #define foreach_elem(list, index) \
-for (int index=0; index<list_len (list); index++)
+  for (int index=0; index<list_len (list); index++)
+
+/**
+We define the ghost index which is useful for loops over
+boundaries. */
+
+double get_ghost (Point point, scalar f, int bid) {
+  switch (bid) {
+    case 0: return f[1,0];  break;
+    case 1: return f[-1,0]; break;
+    case 2: return f[0,1];  break;
+    case 3: return f[0,-1]; break;
+    default: return 0;
+  }
+}
+
+void set_ghost (Point point, scalar f, int bid, double val) {
+  switch (bid) {
+    case 0: f[1,0]  = 2.*val - f[]; break;
+    case 1: f[-1,0] = 2.*val - f[]; break;
+    case 2: f[0,1]  = 2.*val - f[]; break;
+    case 3: f[0,-1] = 2.*val - f[]; break;
+    default:;
+  }
+}
+
+/**
+We define a macro describing a radial
+profile. It can be useful for field initialization. */
+
+#define radialprofile(r,r1,r2,T1,T2)(-r1*r2/(r*(r1-r2))*(T1 - T2) + (r1*T1 - r2*T2)/(r1-r2))
 
 /**
 ## Compute the normal in an interfacial cell
@@ -118,6 +148,22 @@ double mole2mw (const double * X, const double * MW, const int NS)
 }
 
 /**
+## *correctfrac()*: Close to 1 a vector of mass or mole fractions
+
+* *X*: vector with mass or mole fractions
+* *NS* total number of species (vector length)
+*/
+
+void correctfrac (double * X, const int NS)
+{
+  double sum = 0.;
+  for (int i=0; i<NS; i++)
+    sum += (X[i] >= 0.) ? X[i] : 0.;
+  for (int i=0; i<NS; i++)
+    X[i] = (X[i] >= 0.) ? X[i]/(sum + 1.e-10) : 0.;
+}
+
+/**
 ## *avg_neighbor()*: Compute the average value of a scalar field Y in a 3x3 stencil around the current cell
 * *point*: current cell location
 * *Y*: field to average
@@ -139,11 +185,11 @@ double avg_neighbor (Point point, scalar Y, scalar f) {
 * *f*: vof volume fraction field
 */
 
-double avg_interface (scalar Y, scalar f) {
+double avg_interface (scalar Y, scalar f, double tol=F_ERR) {
   double Yavg = 0.;
   int counter = 0;
   foreach(reduction(+:Yavg) reduction(+:counter)) {
-    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+    if (f[] > tol && f[] < 1.-tol) {
       counter++;
       Yavg += Y[];
     }
@@ -151,37 +197,37 @@ double avg_interface (scalar Y, scalar f) {
   return Yavg / counter;
 }
 
-/**
-## *vof_source()*: Apply and explicit source to the vof advection equation
-
-This function is implements the plane-shifting approach to
-apply a source term to the vof advection equation. This
-implementation is based on
-[sandbox/ggennari](/sandbox/ggennari/phase_change/phase_change_pure_species.h).
-
-* *f*: vof field
-* *s*: source term [kg/m2/s]
-*/
-
-void vof_source (scalar f, scalar s) {
-  foreach() {
-    if (f[] > F_ERR && f[] < 1.-F_ERR) {
-      coord n = interface_normal(point, f);
-      double alpha = plane_alpha (f[], n);
-      double val = -s[];
-
-#ifdef BYRHOGAS
-      double delta_alpha = -val*dt*sqrt(sq(n.x) + sq(n.y) + sq(n.z))/rho2/Delta;
-#else
-      double delta_alpha = -val*dt*sqrt(sq(n.x) + sq(n.y) + sq(n.z))/rho1/Delta;
-#endif
-      double ff = plane_volume (n, alpha + delta_alpha);
-      if (ff > F_ERR && ff < 1. - F_ERR)
-        f[] = ff;
-      f[] = clamp (f[], 0., 1.);
-    }
-  }
-}
+///**
+//## *vof_source()*: Apply and explicit source to the vof advection equation
+//
+//This function is implements the plane-shifting approach to
+//apply a source term to the vof advection equation. This
+//implementation is based on
+//[sandbox/ggennari](/sandbox/ggennari/phase_change/phase_change_pure_species.h).
+//
+//* *f*: vof field
+//* *s*: source term [kg/m2/s]
+//*/
+//
+//void vof_source (scalar f, scalar s) {
+//  foreach() {
+//    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+//      coord n = interface_normal(point, f);
+//      double alpha = plane_alpha (f[], n);
+//      double val = -s[];
+//
+//#ifdef BYRHOGAS
+//      double delta_alpha = -val*dt*sqrt(sq(n.x) + sq(n.y) + sq(n.z))/rho2/Delta;
+//#else
+//      double delta_alpha = -val*dt*sqrt(sq(n.x) + sq(n.y) + sq(n.z))/rho1/Delta;
+//#endif
+//      double ff = plane_volume (n, alpha + delta_alpha);
+//      if (ff > F_ERR && ff < 1. - F_ERR)
+//        f[] = ff;
+//      f[] = clamp (f[], 0., 1.);
+//    }
+//  }
+//}
 
 /**
 ## *vof_reconstruction()*: VOF reconstruction step
@@ -224,11 +270,11 @@ vofrecon vof_reconstruction (Point point, scalar f) {
 void shift_field (scalar fts, scalar f, int dir) {
 
   scalar avg[];
-#if TREE
-  avg.refine = avg.prolongation = refinement_avg;
-  avg.restriction = no_restriction;
-  avg.dirty = true;
-#endif
+//#if TREE
+//  avg.refine = avg.prolongation = refinement_avg;
+//  avg.restriction = no_restriction;
+//  avg.dirty = true;
+//#endif
 
   // Compute avg
   foreach() {

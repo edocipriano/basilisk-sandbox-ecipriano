@@ -1,0 +1,78 @@
+include $(BASILISK)/Makefile.defs
+
+# the default CFLAGS are set in $(BASILISK)/config
+CFLAGS += -O2 -disable-dimensions -I$(BASILISKSANDBOX) -I$(OPENSMOKE_INTERFACE)/src -I$(GSL_LIBRARY_PATH)/include -L$(GSL_LIBRARY_PATH)/lib
+
+# Common settings for Murakami et. al, 2021
+CFLAGS += -DKINFOLDER=evaporation/n-decane-in-nitrogen -DFUEL=NC10H22 -DINERT=N2 -DFIBER=0.12 -DRADIATION_INTERFACE=0 -DTEMPERATURE_DROPLET=328 -DMOVIE=1
+CFLAGS += -DJUMP=1
+
+# Fig. 4a - Case T = 773 K, P = 1 atm, D = 0.4 mm
+microgravity-04-T773K-P1atm.c: microgravity.c
+	ln -s microgravity.c microgravity-04-T773K-P1atm.c
+microgravity-04-T773K-P1atm.s: CFLAGS += -DDIAMETER=0.4e-3 -DTEMPERATURE=773 -DPRESSURE=1
+microgravity-04-T773K-P1atm.tst: CFLAGS += -DDIAMETER=0.4e-3 -DTEMPERATURE=773 -DPRESSURE=1
+
+# Fig. 4b - Case T = 773 K, P = 5 atm, D = 0.4 mm
+microgravity-04-T773K-P5atm.c: microgravity.c
+	ln -s microgravity.c microgravity-04-T773K-P5atm.c
+microgravity-04-T773K-P5atm.s: CFLAGS += -DDIAMETER=0.4e-3 -DTEMPERATURE=773 -DPRESSURE=5
+microgravity-04-T773K-P5atm.tst: CFLAGS += -DDIAMETER=0.4e-3 -DTEMPERATURE=773 -DPRESSURE=5
+
+# Fig. 5a - Case T = 773 K, P = 1 atm, D = 0.4 mm
+normalgravity-04-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-04-T773K-P1atm.c
+normalgravity-04-T773K-P1atm.s: CFLAGS += -DDIAMETER=0.4e-3 -DTEMPERATURE=773 -DPRESSURE=1
+normalgravity-04-T773K-P1atm.tst: CFLAGS += -DDIAMETER=0.4e-3 -DTEMPERATURE=773 -DPRESSURE=1
+
+# Fig. 5b - Case T = 773 K, P = 1 atm, D = 0.52 mm
+normalgravity-05-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-05-T773K-P1atm.c
+normalgravity-05-T773K-P1atm.s: CFLAGS += -DDIAMETER=0.52e-3 -DTEMPERATURE=773 -DPRESSURE=1
+normalgravity-05-T773K-P1atm.tst: CFLAGS += -DDIAMETER=0.52e-3 -DTEMPERATURE=773 -DPRESSURE=1
+
+# Fig. 5c - Case T = 773 K, P = 1 atm, D = 0.7 mm
+normalgravity-07-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-07-T773K-P1atm.c
+normalgravity-07-T773K-P1atm.s: CFLAGS += -DDIAMETER=0.7e-3 -DTEMPERATURE=773 -DPRESSURE=1
+normalgravity-07-T773K-P1atm.tst: CFLAGS += -DDIAMETER=0.7e-3 -DTEMPERATURE=773 -DPRESSURE=1
+
+# Fig. 5d - Case T = 773 K, P = 1 atm, D = 0.8 mm
+normalgravity-08-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-08-T773K-P1atm.c
+normalgravity-08-T773K-P1atm.s: CFLAGS += -DDIAMETER=0.8e-3 -DTEMPERATURE=773 -DPRESSURE=1
+normalgravity-08-T773K-P1atm.tst: CFLAGS += -DDIAMETER=0.8e-3 -DTEMPERATURE=773 -DPRESSURE=1
+
+# Fig. 5e - Case T = 773 K, P = 5 atm, D = 0.4 mm
+normalgravity-04-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-04-T773K-P5atm.c
+normalgravity-04-T773K-P5atm.s: CFLAGS += -DDIAMETER=0.4e-3 -DTEMPERATURE=773 -DPRESSURE=5
+normalgravity-04-T773K-P5atm.tst: CFLAGS += -DDIAMETER=0.4e-3 -DTEMPERATURE=773 -DPRESSURE=5
+
+# Fig. 5f - Case T = 773 K, P = 5 atm, D = 0.52 mm
+normalgravity-05-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-05-T773K-P5atm.c
+normalgravity-05-T773K-P5atm.s: CFLAGS += -DDIAMETER=0.52e-3 -DTEMPERATURE=773 -DPRESSURE=5
+normalgravity-05-T773K-P5atm.tst: CFLAGS += -DDIAMETER=0.52e-3 -DTEMPERATURE=773 -DPRESSURE=5
+
+# Fig. 5g - Case T = 773 K, P = 5 atm, D = 0.7 mm
+normalgravity-07-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-07-T773K-P5atm.c
+normalgravity-07-T773K-P5atm.s: CFLAGS += -DDIAMETER=0.7e-3 -DTEMPERATURE=773 -DPRESSURE=5
+normalgravity-07-T773K-P5atm.tst: CFLAGS += -DDIAMETER=0.7e-3 -DTEMPERATURE=773 -DPRESSURE=5
+
+# Fig. 5h - Case T = 773 K, P = 5 atm, D = 0.8 mm
+normalgravity-08-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-08-T773K-P5atm.c
+normalgravity-08-T773K-P5atm.s: CFLAGS += -DDIAMETER=0.8e-3 -DTEMPERATURE=773 -DPRESSURE=5
+normalgravity-08-T773K-P5atm.tst: CFLAGS += -DDIAMETER=0.8e-3 -DTEMPERATURE=773 -DPRESSURE=5
+
+# -- Targets
+
+murakaminormal.tst: normalgravity-04-T773K-P1atm.tst normalgravity-05-T773K-P1atm.tst \
+		normalgravity-07-T773K-P1atm.tst normalgravity-08-T773K-P1atm.tst \
+		normalgravity-04-T773K-P5atm.tst normalgravity-05-T773K-P5atm.tst \
+		normalgravity-07-T773K-P5atm.tst normalgravity-08-T773K-P5atm.tst
+
+murakamimicro.tst: microgravity-04-T773K-P1atm.tst microgravity-04-T773K-P5atm.tst
+

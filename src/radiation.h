@@ -45,6 +45,7 @@ species.
 typedef struct {
   double T, P;
   double xCO2, xH2O;
+  double xCO, xCH4;
 } OpticallyThinProperties;
 
 /**
@@ -52,11 +53,14 @@ We also declare a struct that gathers optically-thin settings. */
 
 struct OpticalyThinModel {
   int indexCO2, indexH2O;
+  int indexCO, indexCH4;
 };
 
 struct OpticalyThinModel otm = {
   .indexCO2 = -1,
   .indexH2O = -1,
+  .indexCO  = -1,
+  .indexCH4 = -1,
 };
 
 /**
@@ -75,29 +79,26 @@ double optically_thin (void * p) {
 
   double T = otp->T, P = otp->P, uT = 1000./T;
   double xCO2 = otp->xCO2, xH2O = otp->xH2O;
+  double xCO = otp->xCO, xCH4 = otp->xCH4;
 
   /**
   The pressure value in SI (Pa) is converted in atm. */
 
-  P *= 9.86923e-6;
+  //P *= 9.86923e-6;
 
   /**
-  We compute the Plank-mean absorption coefficients using
-  coefficients from [NIST](#grosshandler1993radcal). */
-
-  //double apCO2 = 18.741 - 121.310*(1000./T) + 273.500*pow (1000./T, 2.)
-  //  - 194.050*pow (1000./T, 3.) + 56.310*pow (1000./T, 4.) - 5.8169*pow (1000./T, 5.);
-  //double apH2O = - 0.23093 - 1.12390*(1000./T) + 9.41530*pow (1000./T, 2.)
-  //  - 2.99880*pow (1000./T, 3.) + 0.51382*pow (1000./T, 4.) - 1.86840e-5*pow (1000./T, 5.);
-
-  /**
-  We try to use the following correlations ([Chu 2014](#chu2014calculations)),
-  that do not degenerate above 2500K. */
+  We compute the Plank-mean absorption using coefficients
+  from ([Chu 2014](#chu2014calculations)), that do not
+  degenerate above 2500K. All the coefficients have units
+  [1/m/bar]. */
 
   double apCO2 = 18.741 +uT*(-121.31+uT*(273.5 +uT*(-194.05 +uT*( 56.31 + uT*(-5.8169)))));
   double apH2O = -0.23093 + uT*(-1.1239 + uT*(9.4153 + uT*(-2.9988 + uT*(0.51382 + uT*(-1.8684e-5)))));
+  double apCO  = (T < 750.) ? (4.7869 + T*(-0.06953 + T*(2.95775e-4 + T*(-4.25732e-7 + T*2.02894e-10)))) :
+    (10.09 + T*(-0.01183 + T*(4.7753e-6 + T*(-5.87209e-10 + T*-2.5334e-14))));
+  double apCH4 = 6.6334 + T*(-0.0035686 + T*(1.6682e-08 + T*(2.5611e-10 - 2.6558e-14*T)));
 
-  double sum_pa = (apCO2*xCO2 + apH2O*xH2O)*P;
+  double sum_pa = (apCO2*xCO2 + apH2O*xH2O + apCO*xCO + apCH4*xCH4)*P/1e+5;
 
   /**
   We return the flux of radiant energy. */
@@ -138,14 +139,24 @@ event init (i = 0) {
 
     for (int jj=0; jj<NGS; jj++) {
       if (strcmp (gas_species[jj], "CO2") == 0)
-        otm.indexCO2 = jj; 
+        otm.indexCO2 = jj;
       if (strcmp (gas_species[jj], "H2O") == 0)
-        otm.indexH2O = jj; 
+        otm.indexH2O = jj;
+      if (strcmp (gas_species[jj], "CO") == 0)
+        otm.indexCO = jj;
+      if (strcmp (gas_species[jj], "CH4") == 0)
+        otm.indexCH4 = jj;
     }
 
     // Species not found
-    assert (otm.indexCO2 != -1);
-    assert (otm.indexH2O != -1);
+    if (otm.indexCO2 == -1)
+      fprintf (ferr, "WARNING: Optically thin model did not found CO2\n");
+    if (otm.indexH2O == -1)
+      fprintf (ferr, "WARNING: Optically thin model did not found H2O\n");
+    if (otm.indexCO == -1)
+      fprintf (ferr, "WARNING: Optically thin model did not found CO\n");
+    if (otm.indexCH4 == -1)
+      fprintf (ferr, "WARNING: Optically thin model did not found CH4\n");
   }
 }
 

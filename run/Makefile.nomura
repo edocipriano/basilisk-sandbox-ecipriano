@@ -1,0 +1,126 @@
+include $(BASILISK)/Makefile.defs
+
+# the default CFLAGS are set in $(BASILISK)/config
+CFLAGS += -O2 -disable-dimensions -I$(BASILISKSANDBOX) -I$(OPENSMOKE_INTERFACE)/src -I$(GSL_LIBRARY_PATH)/include -L$(GSL_LIBRARY_PATH)/lib
+
+# Common settings for Nomura et. al, 1996
+CFLAGS += -DKINFOLDER=evaporation/n-heptane-in-nitrogen -DDIAMETER=0.7e-3 -DFUEL=NC7H16 -DINERT=N2 -DMOVIE=1
+
+# -- Fig. 5 (a)
+
+# Case T = 741K, P = 1 atm
+microgravity-T741K-P1atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T741K-P1atm.c
+microgravity-T741K-P1atm.s: CFLAGS += -DTEMPERATURE=741 -DPRESSURE=1
+microgravity-T741K-P1atm.tst: CFLAGS += -DTEMPERATURE=741 -DPRESSURE=1
+
+# Case T = 648K, P = 1 atm
+microgravity-T648K-P1atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T648K-P1atm.c
+microgravity-T648K-P1atm.s: CFLAGS += -DTEMPERATURE=648 -DPRESSURE=1
+microgravity-T648K-P1atm.tst: CFLAGS += -DTEMPERATURE=648 -DPRESSURE=1
+
+# Case T = 555K, P = 1 atm
+microgravity-T555K-P1atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T555K-P1atm.c
+microgravity-T555K-P1atm.s: CFLAGS += -DTEMPERATURE=555 -DPRESSURE=1
+microgravity-T555K-P1atm.tst: CFLAGS += -DTEMPERATURE=555 -DPRESSURE=1
+
+# Case T = 471K, P = 1 atm
+microgravity-T471K-P1atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T471K-P1atm.c
+microgravity-T471K-P1atm.s: CFLAGS += -DTEMPERATURE=471 -DPRESSURE=1
+microgravity-T471K-P1atm.tst: CFLAGS += -DTEMPERATURE=471 -DPRESSURE=1
+
+# -- Fig. 5 (b)
+
+# Case T = 468K, P = 5 atm
+microgravity-T468K-P5atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T468K-P5atm.c
+microgravity-T468K-P5atm.s: CFLAGS += -DTEMPERATURE=468 -DPRESSURE=5
+microgravity-T468K-P5atm.tst: CFLAGS += -DTEMPERATURE=468 -DPRESSURE=5
+
+# Case T = 556K, P = 5 atm
+microgravity-T556K-P5atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T556K-P5atm.c
+microgravity-T556K-P5atm.s: CFLAGS += -DTEMPERATURE=556 -DPRESSURE=5
+microgravity-T556K-P5atm.tst: CFLAGS += -DTEMPERATURE=556 -DPRESSURE=5
+
+# Case T = 655K, P = 5 atm
+microgravity-T655K-P5atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T655K-P5atm.c
+microgravity-T655K-P5atm.s: CFLAGS += -DTEMPERATURE=655 -DPRESSURE=5
+microgravity-T655K-P5atm.tst: CFLAGS += -DTEMPERATURE=655 -DPRESSURE=5
+
+# Case T = 749K, P = 5 atm
+microgravity-T749K-P5atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T749K-P5atm.c
+microgravity-T749K-P5atm.s: CFLAGS += -DTEMPERATURE=749 -DPRESSURE=5
+microgravity-T749K-P5atm.tst: CFLAGS += -DTEMPERATURE=749 -DPRESSURE=5
+
+# -- Fig. 5 (c)
+
+# Case T = 466K, P = 10 atm
+microgravity-T466K-P10atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T466K-P10atm.c
+microgravity-T466K-P10atm.s: CFLAGS += -DTEMPERATURE=466 -DPRESSURE=10
+microgravity-T466K-P10atm.tst: CFLAGS += -DTEMPERATURE=466 -DPRESSURE=10
+
+# Case T = 508K, P = 10 atm
+microgravity-T508K-P10atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T508K-P10atm.c
+microgravity-T508K-P10atm.s: CFLAGS += -DTEMPERATURE=508 -DPRESSURE=10
+microgravity-T508K-P10atm.tst: CFLAGS += -DTEMPERATURE=508 -DPRESSURE=10
+
+# Case T = 669K, P = 10 atm
+microgravity-T669K-P10atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T669K-P10atm.c
+microgravity-T669K-P10atm.s: CFLAGS += -DTEMPERATURE=669 -DPRESSURE=10
+microgravity-T669K-P10atm.tst: CFLAGS += -DTEMPERATURE=669 -DPRESSURE=10
+
+# Case T = 765K, P = 10 atm
+microgravity-T765K-P10atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T765K-P10atm.c
+microgravity-T765K-P10atm.s: CFLAGS += -DTEMPERATURE=765 -DPRESSURE=10
+microgravity-T765K-P10atm.tst: CFLAGS += -DTEMPERATURE=765 -DPRESSURE=10
+
+# -- Fig. 5 (d)
+
+# Case T = 452K, P = 20 atm
+microgravity-T452K-P20atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T452K-P20atm.c
+microgravity-T452K-P20atm.s: CFLAGS += -DTEMPERATURE=452 -DPRESSURE=20
+microgravity-T452K-P20atm.tst: CFLAGS += -DTEMPERATURE=452 -DPRESSURE=20
+
+# Case T = 511K, P = 20 atm
+microgravity-T511K-P20atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T511K-P20atm.c
+microgravity-T511K-P20atm.s: CFLAGS += -DTEMPERATURE=511 -DPRESSURE=20
+microgravity-T511K-P20atm.tst: CFLAGS += -DTEMPERATURE=511 -DPRESSURE=20
+
+# Case T = 656K, P = 20 atm
+microgravity-T656K-P20atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T656K-P20atm.c
+microgravity-T656K-P20atm.s: CFLAGS += -DTEMPERATURE=656 -DPRESSURE=20
+microgravity-T656K-P20atm.tst: CFLAGS += -DTEMPERATURE=656 -DPRESSURE=20
+
+# Case T = 746K, P = 20 atm
+microgravity-T746K-P20atm.c: microgravity.c
+	ln -s microgravity.c microgravity-T746K-P20atm.c
+microgravity-T746K-P20atm.s: CFLAGS += -DTEMPERATURE=746 -DPRESSURE=20
+microgravity-T746K-P20atm.tst: CFLAGS += -DTEMPERATURE=746 -DPRESSURE=20
+
+# -- Targets
+
+teffectp1.tst: microgravity-T741K-P1atm.tst microgravity-T648K-P1atm.tst \
+		microgravity-T555K-P1atm.tst microgravity-T471K-P1atm.tst
+
+teffectp5.tst: microgravity-T468K-P5atm.tst microgravity-T556K-P5atm.tst \
+		microgravity-T655K-P5atm.tst microgravity-T749K-P5atm.tst
+
+teffectp10.tst: microgravity-T466K-P10atm.tst microgravity-T508K-P10atm.tst \
+		microgravity-T669K-P10atm.tst microgravity-T765K-P10atm.tst
+
+teffectp20.tst: microgravity-T452K-P20atm.tst microgravity-T511K-P20atm.tst \
+		microgravity-T656K-P20atm.tst microgravity-T746K-P20atm.tst
+

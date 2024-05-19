@@ -15,6 +15,7 @@ This file must be used in combination with a phase change model (i.e.
 
 #include "common-evaporation.h"
 #include "fracface.h"
+#include "diffusion.h"
 
 /**
 ## Setup tracers advection
@@ -95,14 +96,27 @@ the vaporization rate of each chemical species).
 */
 
 extern scalar * mEvapList;
-extern double rho1, rho2;
 extern face vector ufext;
-extern scalar rho;
 
 /**
 We add a bool that allows the droplet volume changes to be disabled. */
 
 bool is_shrinking;
+double smoothing_expansion = 0.;
+
+/**
+## Set Variable-Properties fields for compatibility with constant-properties
+simulations. */
+
+#ifndef VARPROP
+//(const) scalar rho1v = unity, rho2v = unity;
+//(const) scalar mu1v = zeroc, mu2v = zeroc;
+
+// The (const) scalar approach gives problems when calling those variables
+// as external by modules included before evaporation.h
+scalar rho1v[], rho2v[];
+scalar mu1v[], mu2v[];
+#endif
 
 /**
 ## Init event
@@ -139,6 +153,21 @@ event init (i = 0)
     for (scalar t in tracers)
       t.depends = list_add (t.depends, c);
   }
+
+#ifndef VARPROP
+  //const scalar rho1vv[] = rho1, rho2vv[] = rho2;
+  //rho1v = rho1vv, rho2v = rho2vv;
+
+  //const scalar mu1vv[] = mu1, mu2vv[] = mu2;
+  //mu1v = mu1vv, mu2v = mu2vv;
+
+  foreach() {
+    rho1v[] = rho1;
+    rho2v[] = rho2;
+    mu1v[] = mu1;
+    mu2v[] = mu2;
+  }
+#endif
 }
 
 /**
@@ -149,6 +178,22 @@ to a specific initial solution).
 */
 
 event end_init (i = 0);
+
+/**
+## Reset Source Terms
+
+We impose the position of the even which resets the source terms
+for the governing equations solved in the specific phase change
+models. */
+
+event reset_sources (i++);
+
+/**
+## Chemical Reaction Step
+
+If combustion chemistry is present we solve it here. */
+
+event chemistry (i++);
 
 /**
 ## Phase Change event
@@ -203,9 +248,9 @@ event phasechange (i++)
       nf = normal (neighborp(-1), f);
     }
 #ifdef BYRHOGAS
-    vpc.x[] = fm.x[]*(-mEvapf/rho2)*nf.x;
+    vpc.x[] = (rho2v[] > 0.) ? fm.x[]*(-mEvapf/rho2v[])*nf.x : 0.;
 #else
-    vpc.x[] = fm.x[]*(-mEvapf/rho1)*nf.x;
+    vpc.x[] = (rho1v[] > 0.) ? fm.x[]*(-mEvapf/rho1v[])*nf.x : 0.;
 #endif
   }
 
@@ -224,9 +269,13 @@ event phasechange (i++)
       coord prel;
       segment = plane_area_center (m, alpha, &prel);
 #ifdef AXI
-      stefanflow[] = cm[]*mEvapTot[]*segment*(y + prel.y*Delta)*(1./rho2 - 1./rho1)/(Delta*y);
+      stefanflow[] = (rho1v[] > 0. && rho2v[] > 0.) ?
+        cm[]*mEvapTot[]*segment*(y + prel.y*Delta)*(1./rho2v[] - 1./rho1v[])/(Delta*y)
+        : 0.;
 #else
-      stefanflow[] = mEvapTot[]*segment*(1./rho2 - 1./rho1)/Delta*cm[];
+      stefanflow[] = (rho1v[] > 0. && rho2v[] > 0.) ?
+        mEvapTot[]*segment*(1./rho2v[] - 1./rho1v[])/Delta*cm[]
+        : 0.;
 #endif
     }
 #endif
@@ -237,25 +286,41 @@ event phasechange (i++)
 If *SHIFTING* is defined, we shift the expansion
 source term. */
 
-scalar stefanflowext[];
+event shifting (i++) {
+
+  /**
+  We perform shifting operations of the expansion
+  term, in order to remove it from the interfacial
+  cells, but still keeping its effect on the velocity
+  field. */
 
 #ifdef SHIFTING
-event shifting (i++) {
-# ifdef EXT_STEFANFLOW
-  foreach()
-    stefanflowext[] = stefanflow[];
-# endif
 # ifdef SHIFT_TO_LIQ
-  int dir = 1;
+  shift_field (stefanflow, f, 1);
 # else
-  int dir = 0;
+  shift_field (stefanflow, f, 0);
 # endif
-  shift_field (stefanflow, f, dir);
-# ifdef EXT_STEFANFLOW
-  shift_field (stefanflowext, f, 0);
-# endif
-}
 #endif
+
+  /**
+  To avoid an expansion term localized on a single layer
+  of cells, we solve a diffusion equation which smoothen
+  the expansion, and we solve the Projection step using
+  this modified term. The volume integral of the expansion
+  during this step must remain constant. */
+
+  if (smoothing_expansion) {
+    face vector eps[];
+    foreach_face()
+      eps.x[] = smoothing_expansion*fm.x[];
+
+    scalar thetacorr[];
+    foreach()
+      thetacorr[] = cm[];
+
+    diffusion (stefanflow, dt, D=eps);
+  }
+}
 
 /**
 ## VOF event
@@ -264,8 +329,6 @@ We overload the vof event in order to include the phase-change
 velocity. Therefore, we perform the advection of the volume
 fraction and we restore the original velocity field.
 */
-
-static scalar * interfaces1 = NULL;
 
 event vof (i++)
 {
@@ -279,24 +342,6 @@ event vof (i++)
       uf.x[] -= vpc.x[];
 #endif
   }
-
-  // It can be useful to compute the stability
-  // conditions based on this modified velocity
-  event ("stability");
-
-  vof_advection ({f}, i);
-
-  /**
-  We restore the value of the $\mathbf{uf}$ velocity field. */
-
-  foreach_face()
-    uf.x[] = uf_save.x[];
-
-  /**
-  We set the list of interfaces to NULL so that the default *vof()*
-  event does nothing (otherwise we would transport $f$ twice). */
-
-  interfaces1 = interfaces, interfaces = NULL;
 }
 
 /**
@@ -311,6 +356,12 @@ respectively.
 
 event tracer_advection (i++)
 {
+  /**
+  We restore the value of the $\mathbf{uf}$ velocity field. */
+
+  foreach_face()
+    uf.x[] = uf_save.x[];
+
   /**
   If the phase tracers are not advected with the same velocity
   of the volume fraction field, the advection is performed
@@ -328,8 +379,17 @@ event tracer_advection (i++)
 
   vof_advection ({fuext}, i);
 
+#ifdef VELOCITY_JUMP
+  foreach_face()
+# ifdef BOILING_SETUP
+    uf.x[] = uf1.x[];
+# else
+    uf.x[] = uf2.x[];
+# endif
+#else
   foreach_face()
     uf.x[] = uf_save.x[];
+#endif
 
   /**
   We call the vof_advection function to transport
@@ -337,10 +397,10 @@ event tracer_advection (i++)
 
   vof_advection ({fu}, i);
 
-  /**
-  We restore the original list of interfaces, which is
-  required by [tension.h](src/tension.h). */
+#ifdef VELOCITY_JUMP
+  foreach_face()
+    uf.x[] = uf_save.x[];
+#endif
 
-  interfaces = interfaces1;
 }
 

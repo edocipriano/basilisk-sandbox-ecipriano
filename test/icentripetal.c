@@ -11,8 +11,11 @@ oscillations in the velocity field.
 
 #include "grid/multigrid.h"
 #include "navier-stokes/centered.h"
+#define ufext uf
 #include "two-phase.h"
 #include "tension.h"
+#include "evaporation.h"
+#include "fixedflux.h"
 #include "icentripetal.h"
 #include "view.h"
 
@@ -28,6 +31,7 @@ double tend = 0.3;
 double R0 = 0.5e-3;
 double XC, YC;
 double trmin, trmax;
+double mEvapVal = 0.;
 
 /**
 We initialize a tracer field, which is used to observe

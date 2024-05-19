@@ -1,0 +1,195 @@
+include $(BASILISK)/Makefile.defs
+
+# the default CFLAGS are set in $(BASILISK)/config
+CFLAGS += -O2 -disable-dimensions -I$(BASILISKSANDBOX) -I$(OPENSMOKE_INTERFACE)/src -I$(GSL_LIBRARY_PATH)/include -L$(GSL_LIBRARY_PATH)/lib
+
+# Common settings for Ghassemi et. al, 2007
+CFLAGS += -DDIAMETER=1.2e-3 -DINERT=N2 -DFIBER=0.12 -DMOVIE=1
+
+# -- Fig. 3 (a)
+
+# Case T = 673 K, P = 10 atm
+normalgravity-C7-T673K-P10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T673K-P10atm.c
+normalgravity-C7-T673K-P10atm.s: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T673K-P10atm.tst: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# Case T = 773 K, P = 10 atm
+normalgravity-C7-T773K-P10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T773K-P10atm.c
+normalgravity-C7-T773K-P10atm.s: CFLAGS += -DTEMPERATURE=773 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T773K-P10atm.tst: CFLAGS += -DTEMPERATURE=773 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# Case T = 873 K, P = 10 atm
+normalgravity-C7-T873K-P10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T873K-P10atm.c
+normalgravity-C7-T873K-P10atm.s: CFLAGS += -DTEMPERATURE=873 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T873K-P10atm.tst: CFLAGS += -DTEMPERATURE=873 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# Case T = 973 K, P = 10 atm
+normalgravity-C7-T973K-P10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T973K-P10atm.c
+normalgravity-C7-T973K-P10atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T973K-P10atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# -- Fig. 4 (a)
+
+# Case T = 973 K, P = 1 atm
+normalgravity-C7-T973K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T973K-P1atm.c
+normalgravity-C7-T973K-P1atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=1 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T973K-P1atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=1 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# Case T = 973 K, P = 5 atm
+normalgravity-C7-T973K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T973K-P5atm.c
+normalgravity-C7-T973K-P5atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=5 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T973K-P5atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=5 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+## Case T = 973 K, P = 10 atm # DUPLICATE
+#normalgravity-C7-T973K-P10atm.c: normalgravity.c
+#	ln -s normalgravity.c normalgravity-C7-T973K-P10atm.c
+#normalgravity-C7-T973K-P10atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+#normalgravity-C7-T973K-P10atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# Case T = 973 K, P = 15 atm
+normalgravity-C7-T973K-P15atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T973K-P15atm.c
+normalgravity-C7-T973K-P15atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=15 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T973K-P15atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=15 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# Case T = 973 K, P = 20 atm
+normalgravity-C7-T973K-P20atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T973K-P20atm.c
+normalgravity-C7-T973K-P20atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=20 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T973K-P20atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=20 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# Case T = 973 K, P = 25 atm
+normalgravity-C7-T973K-P25atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C7-T973K-P25atm.c
+normalgravity-C7-T973K-P25atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=25 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+normalgravity-C7-T973K-P25atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=25 -DFUEL=NC7H16 -DKINFOLDER=evaporation/n-heptane-in-nitrogen
+
+# -- Fig. 3 (b)
+
+# Case T = 673 K, P = 10 atm
+normalgravity-C16-T673K-P10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T673K-P10atm.c
+normalgravity-C16-T673K-P10atm.s: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T673K-P10atm.tst: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 773 K, P = 10 atm
+normalgravity-C16-T773K-P10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T773K-P10atm.c
+normalgravity-C16-T773K-P10atm.s: CFLAGS += -DTEMPERATURE=773 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T773K-P10atm.tst: CFLAGS += -DTEMPERATURE=773 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 873 K, P = 10 atm
+normalgravity-C16-T873K-P10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T873K-P10atm.c
+normalgravity-C16-T873K-P10atm.s: CFLAGS += -DTEMPERATURE=873 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T873K-P10atm.tst: CFLAGS += -DTEMPERATURE=873 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 973 K, P = 10 atm
+normalgravity-C16-T973K-P10atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T973K-P10atm.c
+normalgravity-C16-T973K-P10atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T973K-P10atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# -- Fig. 4 (b)
+
+# Case T = 973 K, P = 1 atm
+normalgravity-C16-T973K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T973K-P1atm.c
+normalgravity-C16-T973K-P1atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=1 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T973K-P1atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=1 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 973 K, P = 5 atm
+normalgravity-C16-T973K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T973K-P5atm.c
+normalgravity-C16-T973K-P5atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=5 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T973K-P5atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=5 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+## Case T = 973 K, P = 10 atm 	# DUPLICATE
+#normalgravity-C16-T973K-P10atm.c: normalgravity.c
+#	ln -s normalgravity.c normalgravity-C16-T973K-P10atm.c
+#normalgravity-C16-T973K-P10atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+#normalgravity-C16-T973K-P10atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 973 K, P = 15 atm
+normalgravity-C16-T973K-P15atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T973K-P15atm.c
+normalgravity-C16-T973K-P15atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=15 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T973K-P15atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=15 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 973 K, P = 20 atm
+normalgravity-C16-T973K-P20atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T973K-P20atm.c
+normalgravity-C16-T973K-P20atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=20 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T973K-P20atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=20 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 973 K, P = 25 atm
+normalgravity-C16-T973K-P25atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T973K-P25atm.c
+normalgravity-C16-T973K-P25atm.s: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=25 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T973K-P25atm.tst: CFLAGS += -DTEMPERATURE=973 -DPRESSURE=25 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# -- Fig. 5
+
+# Case T = 673 K, P = 1 atm
+normalgravity-C16-T673K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T673K-P1atm.c
+normalgravity-C16-T673K-P1atm.s: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=1 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T673K-P1atm.tst: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=1 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 673 K, P = 5 atm
+normalgravity-C16-T673K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T673K-P5atm.c
+normalgravity-C16-T673K-P5atm.s: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=5 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T673K-P5atm.tst: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=5 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+## Case T = 673 K, P = 10 atm  	# DUPLICATE
+#normalgravity-C16-T673K-P10atm.c: normalgravity.c
+#	ln -s normalgravity.c normalgravity-C16-T673K-P10atm.c
+#normalgravity-C16-T673K-P10atm.s: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+#normalgravity-C16-T673K-P10atm.tst: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=10 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 673 K, P = 15 atm
+normalgravity-C16-T673K-P15atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T673K-P15atm.c
+normalgravity-C16-T673K-P15atm.s: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=15 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T673K-P15atm.tst: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=15 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 673 K, P = 20 atm
+normalgravity-C16-T673K-P20atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T673K-P20atm.c
+normalgravity-C16-T673K-P20atm.s: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=20 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T673K-P20atm.tst: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=20 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+# Case T = 673 K, P = 25 atm
+normalgravity-C16-T673K-P25atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-C16-T673K-P25atm.c
+normalgravity-C16-T673K-P25atm.s: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=25 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+normalgravity-C16-T673K-P25atm.tst: CFLAGS += -DTEMPERATURE=673 -DPRESSURE=25 -DFUEL=NC16H34 -DKINFOLDER=evaporation/n-hexadecane-in-nitrogen
+
+
+# -- Targets
+
+c7temperature.tst: normalgravity-C7-T673K-P10atm.tst normalgravity-C7-T773K-P10atm.tst \
+		normalgravity-C7-T873K-P10atm.tst normalgravity-C7-T973K-P10atm.tst
+
+c7pressure.tst: normalgravity-C7-T973K-P1atm.tst normalgravity-C7-T973K-P5atm.tst \
+		normalgravity-C7-T973K-P15atm.tst normalgravity-C7-T973K-P20atm.tst	\
+		normalgravity-C7-T973K-P25atm.tst
+
+c16temperature.tst: normalgravity-C16-T673K-P10atm.tst normalgravity-C16-T773K-P10atm.tst \
+		normalgravity-C16-T873K-P10atm.tst normalgravity-C16-T973K-P10atm.tst
+
+c16pressureT1.tst: normalgravity-C16-T973K-P1atm.tst normalgravity-C16-T973K-P5atm.tst \
+		normalgravity-C16-T973K-P15atm.tst normalgravity-C16-T973K-P20atm.tst \
+		normalgravity-C16-T973K-P25atm.tst
+
+c16pressureT2.tst: normalgravity-C16-T673K-P1atm.tst normalgravity-C16-T673K-P5atm.tst \
+		normalgravity-C16-T673K-P15atm.tst normalgravity-C16-T673K-P20atm.tst \
+		normalgravity-C16-T673K-P25atm.tst
+

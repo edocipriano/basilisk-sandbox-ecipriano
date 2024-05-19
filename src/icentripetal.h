@@ -177,10 +177,11 @@ void position_centripetal (scalar f, scalar pos, bool add = false)
           hp += sq (o.x + Delta*c.x - sfm.p.x);
         hp = sqrt (hp);
       }
+
       if (add)
-        pos[] += 1./hp*sfm.eps*(rho2 - rho1);
+        pos[] += 1./hp*sfm.eps*(rho2v[] - rho1v[]);
       else
-        pos[] = 1./hp*sfm.eps*(rho2 - rho1);
+        pos[] = 1./hp*sfm.eps*(rho2v[] - rho1v[]);
     }
     else
       pos[] = nodata;

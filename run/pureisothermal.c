@@ -204,10 +204,23 @@ event output_data (i++) {
 We write on a file the temperature and mass fraction
 profiles at different time instants. */
 
+bool opened = false;
+
+event cleanup (t = end)
+  opened = false;
+
 event profiles (t = {1.03e-5, 6.03e-5, 1.40e-4}) {
   char name[80];
   sprintf (name, "Profiles-%d", maxlevel);
-  FILE * fp = fopen (name, "a");
+
+  char mode[10];
+  if (!opened)
+    sprintf (mode, "w");
+  else
+    sprintf (mode, "a");
+
+  FILE * fp = fopen (name, mode);
+  opened = true;
 
   /**
   We reconstruct the total mass fraction summing the

@@ -74,7 +74,7 @@ int main (void) {
     u[] = (levelset[] <= 0.) ? cos(x)*sin(y) : 0.;
   write_picture ("initial.png", u);
 
-  constant_extrapolation (u, levelset, 0.01, 300);
+  constant_extrapolation (u, levelset, 0.5, 300);
   write_picture ("constant.png", u);
   fprintf (stderr, "constant = %g\n", statsf(u).sum);
 
@@ -84,7 +84,7 @@ int main (void) {
 
   foreach()
     u[] = (levelset[] <= 0.) ? cos(x)*sin(y) : 0.;
-  linear_extrapolation (u, levelset, 0.01, 300);
+  linear_extrapolation (u, levelset, 0.5, 300);
   write_picture ("linear.png", u);
   fprintf (stderr, "linear = %g\n", statsf(u).sum);
 }

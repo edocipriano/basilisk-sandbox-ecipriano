@@ -8,6 +8,11 @@ extern scalar * YLList;
 extern scalar * YGList;
 extern scalar * YLIntList;
 extern scalar * YGIntList;
+#ifdef VARPROP
+extern scalar * Dmix1List;
+extern scalar * Dmix2List;
+extern scalar * dhevList;
+#endif
 extern double inDmix1[NLS];
 extern double inDmix2[NGS];
 extern double inKeq[NLS];
@@ -76,6 +81,32 @@ void Equations (const double * xdata, double * fdata, void * params) {
 #endif
 
   /**
+  Convert mass-to-mole fractions. */
+
+  {
+    double inMWG[NGS];
+    for (int jj=0; jj<NGS; jj++)
+      inMWG[jj] = inMW[jj];
+
+    double inMWL[NLS];
+    for (int jj=0; jj<NLS; jj++)
+      inMWL[jj] = inMW[LSI[jj]];
+
+    mass2molefrac (XLInti, YLInti, inMWL, NLS);
+    mass2molefrac (XGInti, YGInti, inMWG, NGS);
+  }
+
+#ifdef VARPROP
+  ThermoState ts1h, ts2h;
+  ts1h.T = TInti;
+  ts2h.T = TInti;
+  ts1h.P = Pref;
+  ts2h.P = Pref;
+  ts1h.x = XLInti;
+  ts2h.x = XGInti;
+#endif
+
+  /**
   Set to zero gas-only species vaporization mass flow-rates. */
 
   for (int jj=0; jj<NLS; jj++)
@@ -88,14 +119,32 @@ void Equations (const double * xdata, double * fdata, void * params) {
   Compute diffusive fluxes. */
 
   for (int jj=0; jj<NGS; jj++) {
+    double rho2vh = rho2;
+    double Dmix2vh = inDmix2[jj];
+#ifdef VARPROP
+    rho2vh = rho2v[];
+    scalar Dmix2 = Dmix2List[jj];
+    Dmix2vh = Dmix2[];
+    //rho2vh = tp2.rhov (&ts2);
+    //Dmix2vh = tp2.diff (&ts2, jj);
+#endif
     scalar YG = YGList[jj];
     double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInti[jj], &success);
-    jG[jj] = -rho2*inDmix2[jj]*gtrgrad;
+    jG[jj] = -rho2vh*Dmix2vh*gtrgrad;
   }
   for (int jj=0; jj<NLS; jj++) {
+    double rho1vh = rho1;
+    double Dmix1vh = inDmix1[jj];
+#ifdef VARPROP
+    rho1vh = rho1v[];
+    scalar Dmix1 = Dmix1List[jj];
+    Dmix1vh = Dmix1[];
+    //rho1vh = tp1.rhov (&ts1);
+    //Dmix1vh = tp1.diff (&ts1, jj);
+#endif
     scalar YL = YLList[jj];
     double ltrgrad = ebmgrad (point, YL, fL, fG, fsL, fsG, false, YLInti[jj], &success);
-    jL[jj] = rho1*inDmix1[jj]*ltrgrad;
+    jL[jj] = rho1vh*Dmix1vh*ltrgrad;
   }
 
   /**
@@ -114,22 +163,6 @@ void Equations (const double * xdata, double * fdata, void * params) {
   gradTGn = ebmgrad (point, TG, fL, fG, fsL, fsG, true,  TInti, &success);
   gradTLn = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TInti, &success);
 #endif
-
-  /**
-  Convert mass-to-mole fractions. */
-
-  {
-    double inMWG[NGS];
-    for (int jj=0; jj<NGS; jj++)
-      inMWG[jj] = inMW[jj];
-
-    double inMWL[NLS];
-    for (int jj=0; jj<NLS; jj++)
-      inMWL[jj] = inMW[LSI[jj]];
-
-    mass2molefrac (XLInti, YLInti, inMWL, NLS);
-    mass2molefrac (XGInti, YGInti, inMWG, NGS);
-  }
 
   /**
   Compute sum of vaporization mass flow-rate. */
@@ -220,6 +253,11 @@ void Equations (const double * xdata, double * fdata, void * params) {
     Keq[jj] = min (YL.antoine (TInti, Pref), 0.98);
   }
 #endif
+#ifdef USE_ANTOINE_OPENSMOKE
+  for (int jj=0; jj<NLS; jj++) {
+    Keq[jj] = min (opensmoke_antoine (TInti, Pref, jj), 0.98);
+  }
+#endif
 
   for (int jj=0; jj<NLS; jj++) {
     fdata[count++] = XLInti[jj]*Keq[jj] - XGInti[LSI[jj]];
@@ -243,14 +281,27 @@ void Equations (const double * xdata, double * fdata, void * params) {
   Interface energy balance. */
 
   double vapheat = 0.;
-  for (int jj=0; jj<NLS; jj++)
-    vapheat -= dhev*mEvapi[jj];
+  for (int jj=0; jj<NLS; jj++) {
+    double dhevvh = dhev;
+#ifdef VARPROP
+    scalar dhevjj = dhevList[jj];
+    dhevvh = dhevjj[];
+    //dhevvh = tp1.dhev (&ts1h, jj);
+#endif
+    vapheat -= dhevvh*mEvapi[jj];
+  }
 
   fdata[count++] = vapheat
+# ifdef VARPROP
+                 + lambda1v[]*gradTLn
+                 + lambda2v[]*gradTGn
+                 // + tp1.lambdav (&ts1h)*gradTLn
+                 // + tp2.lambdav (&ts2h)*gradTGn
+# else
                  + lambda1*gradTLn
                  + lambda2*gradTGn
+# endif
                  ;
-
 #endif
 }
 
@@ -358,6 +409,15 @@ void ijc_CoupledNls ()
 
 #ifdef SOLVE_TEMPERATURE
 
+#ifndef RADIATION_INTERFACE
+# define RADIATION_INTERFACE 0.
+#endif
+
+double divq_rad_int (double TInti, double Tbulk = 300., double alphacorr = 1.) {
+  //return alphacorr*5.669e-8*(pow(Tbulk, 4.) - pow(TInti, 4.));
+  return alphacorr*5.670373e-8*(pow(Tbulk, 4.) - pow(TInti, 4.));
+}
+
 void EqTemperature (const double * xdata, double * fdata, void * params) {
   UserDataNls * data = (UserDataNls *)params;
   Point point = data->point;
@@ -368,22 +428,61 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
   double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true,  TInti, &success);
   double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TInti, &success);
 
+#ifdef VARPROP
+  double yl[NLS], yg[NGS];
+  double xl[NLS], xg[NGS];
+  double MWl[NLS], MWg[NGS];
+
+  foreach_elem (YLList, jj) {
+    scalar YL = YLList[jj];
+    yl[jj] = YL[];
+    MWl[jj] = inMW[LSI[jj]];
+  }
+  mass2molefrac (xl, yl, MWl, NLS);
+
+  foreach_elem (YGList, jj) {
+    scalar YG = YGList[jj];
+    yg[jj] = YG[];
+    MWg[jj] = inMW[jj];
+  }
+  mass2molefrac (xg, yg, MWg, NGS);
+
+  ThermoState ts1h;
+  ts1h.T = TInti;
+  ts1h.P = Pref;
+  ts1h.x = xl;
+
+  ThermoState ts2h;
+  ts2h.T = TInti;
+  ts2h.P = Pref;
+  ts2h.x = xg;
+#endif
+
   double vapheat = 0.;
-  double mEvapi[NLS];
   for (int jj=0; jj<NLS; jj++) {
-    scalar mEvapSi = mEvapList[LSI[jj]];
-    mEvapi[jj] = mEvapSi[];
-    vapheat -= mEvapi[jj]*dhev;
+    scalar mEvap = mEvapList[LSI[jj]];
+#ifdef VARPROP
+    scalar dhevjj = dhevList[jj];
+    vapheat -= mEvap[]*dhevjj[];
+#else
+    vapheat -= mEvap[]*dhev;
+#endif
   }
 
   fdata[0] = vapheat
+      - divq_rad_int (TInti, TG0, RADIATION_INTERFACE)
+#ifdef VARPROP
+       + lambda1v[]*ltrgrad
+       + lambda2v[]*gtrgrad
+#else
        + lambda1*ltrgrad
        + lambda2*gtrgrad
+#endif
        ;
 }
 
 int EqTemperatureGsl (const gsl_vector * x, void * params, gsl_vector * f) {
-  double * xdata = x->data;
+ double * xdata = x->data;
   double * fdata = f->data;
 
   EqTemperature (xdata, fdata, params);
@@ -408,6 +507,8 @@ void ijc_CoupledTemperature ()
       {
         double * unk = (double *)arrUnk->p;
         TInt[] = unk[0];
+        //if (unk[0] > 0. && unk[0] < 5000.) // The solution is reasonable
+        //  TInt[] = unk[0];
       }
       array_free (arrUnk);
     }
@@ -418,16 +519,17 @@ void ijc_CoupledTemperature ()
 void EqBoilingTemperature (const double * xdata, double * fdata, void * params) {
   double Tb = xdata[0];
   double * xc = (double *)params;
-#ifdef USE_ANTOINE
   double sumKeq = 0.;
   foreach_elem (YLList, jj) {
+#ifdef USE_ANTOINE
     scalar YL = YLList[jj];
     sumKeq += YL.antoine (Tb, Pref)*xc[jj];
+#endif
+#ifdef USE_ANTOINE_OPENSMOKE
+    sumKeq += opensmoke_antoine (Tb, Pref, jj)*xc[jj];
+#endif
   }
   fdata[0] = sumKeq - 1.;
-#else
-  fdata[0] = Tb + 1.;
-#endif
 }
 
 int EqBoilingTemperatureGsl (const gsl_vector * x, void * params, gsl_vector * f) {

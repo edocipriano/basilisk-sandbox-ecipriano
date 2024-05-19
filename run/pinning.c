@@ -37,8 +37,8 @@ set term pop
 
 #include "grid/multigrid.h"
 #include "navier-stokes/centered.h"
-#include "two-phase.h"
 #include "contact.h"
+#include "two-phase.h"
 #include "tension.h"
 #include "reduced.h"
 #include "view.h"

@@ -52,7 +52,60 @@ typedef struct {
   double (* pvap) (void *, int);
   double (* dhev) (void *, int);
   double (* diff) (void *, int);
+  double (* cps)  (void *, int);
+  double (* sigmas) (void *, int);
 } ThermoProps;
+
+/**
+## Overwrite Two-Phase Properties
+
+We define macros used to overwrite the calculation of the variable density and
+viscosity fields in two-phase simulations using any method (VOF, LS, CLSVOF).
+*/
+
+#define aavg(f,v1,v2) (clamp(f,0.,1.)*(v1 - v2) + v2)
+#define havg(f,v1,v2) (1./(clamp(f,0,1)*(1./(v1) - 1./(v2)) + 1./(v2)))
+
+/**
+## Update One-Field Properties
+
+We overwrite the event `properties` to re-calculate the density and viscosity
+fields after the calculation in [two-phase.h](/src/two-phase-generic.h). */
+
+extern scalar f;
+extern face vector alphav;
+extern scalar rhov;
+#ifdef FILTERED
+extern scalar sf;
+#else
+# define sf f
+#endif
+
+event properties (i++) {
+  foreach_face() {
+    double ff = (sf[] + sf[-1])/2.;
+
+    double rho1vh = 0.5*(rho1v[] + rho1v[-1]);
+    double rho2vh = 0.5*(rho2v[] + rho2v[-1]);
+
+    alphav.x[] = fm.x[]/aavg (ff, rho1vh, rho2vh);
+
+    {
+      face vector muv = mu;
+      double mu1vh = 0.5*(mu1v[] + mu1v[-1]);
+      double mu2vh = 0.5*(mu2v[] + mu2v[-1]);
+
+      muv.x[] = fm.x[]*aavg (ff, mu1vh, mu2vh);
+    }
+  }
+
+  foreach() {
+    double rho1vh = rho1v[];
+    double rho2vh = rho2v[];
+
+    rhov[] = cm[]*aavg (sf[], rho1vh, rho2vh);
+  }
+}
 
 /**
 ## Useful functions
@@ -62,11 +115,38 @@ simulations.
 */
 
 /**
+### *check_termostate()*: check that the thermodynamic state is
+reasonable. */
+
+int check_thermostate (ThermoState * ts, int NS) {
+  double sum = 0.;
+  for (int jj=0; jj<NS; jj++)
+    sum += ts->x[jj];
+
+  int T_ok = (ts->T > 180. && ts->T < 4000.) ? true : false;
+  int P_ok = (ts->P > 1e3 && ts->P < 1e7) ? true : false;
+  int X_ok = (sum > 1.-1.e-3 && sum < 1.+1.e-3) ? true : false;
+
+  return T_ok*P_ok*X_ok;
+}
+
+/**
+### *print_thermostate()*: print the thermodynamic state of the mixture.
+*/
+
+void print_thermostate (ThermoState * ts, int NS, FILE * fp = stdout) {
+  fprintf (fp, "Temperature = %g - Pressure = %g\n", ts->T, ts->P);
+  for (int jj=0; jj<NS; jj++)
+    fprintf (fp, "  Composition[%d] = %g\n", jj, ts->x[jj]);
+  fprintf (fp, "\n");
+}
+
+/**
 ### *gasprop_thermal_expansion()*: Thermal expansion coefficient of an ideal gas
 */
 
 double gasprop_thermal_expansion (ThermoState * ts) {
-  return 1./ts->T;
+  return ts->T > 0. ? 1./ts->T : 0.;
 }
 
 /**
@@ -81,6 +161,6 @@ double liqprop_thermal_expansion (ThermoProps * tp, ThermoState * ts) {
   tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
   double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
   double rhoval = tp->rhov (ts);
-  return -1./rhoval*(rhotop - rhobot)/(2.*epsT);
+  return (rhoval > 0.) ? -1./rhoval*(rhotop - rhobot)/(2.*epsT) : 0.;
 }
 

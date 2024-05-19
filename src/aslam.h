@@ -15,6 +15,17 @@ domain.
 */
 
 #include "mapregion.h"
+#include "redistance.h"
+
+void vof_to_ls (scalar f, scalar levelset, int imax = 3) {
+  double deltamin = L0/(1 << grid->maxdepth);
+  foreach()
+    levelset[] = -(2.*f[] - 1.)*deltamin*0.75;
+#if TREE
+  restriction({levelset});
+#endif
+  redistance (levelset, imax);
+}
 
 /**
 ## Constant Extrapolation
@@ -47,11 +58,12 @@ trace
 void constant_extrapolation (
   scalar f,                   // field to extrapolate
   scalar ls,                  // level set field
-  double dt,                  // time step (not physical)
+  double cfl = 0.5,           // CFL number
   int nmax,                   // number of maximum time steps
   (const) scalar s = {-1},    // source term, default zero
   (const) scalar c = {-1},    // vof field, optional
-  int nl = 0                  // from which layer of cells (optional, min=0, max=2)
+  int nl = 0,                 // from which layer of cells (optional, min=0, max=2)
+  int nointerface = 0         // remove the interface from the heaviside (default false)
 )
 {
   scalar H[];
@@ -77,7 +89,7 @@ void constant_extrapolation (
   it can be set to 1 or 2. */
 
   if (c.i > 0)
-    mapregion (H, c, nl=nl);
+    mapregion (H, c, nl=nl, nointerface=nointerface);
   else
     foreach()
       H[] = (ls[] <= 0.) ? 0. : 1.;
@@ -113,6 +125,7 @@ void constant_extrapolation (
     We solve a single step of the PDE. */
 
     foreach() {
+      double dt = cfl*Delta;
       double nscalargf = 0.;
       foreach_dimension()
         nscalargf += n.x[]*gf.x[];
@@ -160,11 +173,12 @@ if higher order extrapolations have to be solved.
 void linear_extrapolation (
   scalar f,                   // field to extrapolate
   scalar ls,                  // level set field
-  double dt,                  // time step (not physical)
+  double cfl,                 // CFL number
   int nmax,                   // number of maximum time steps
   (const) scalar s = {-1},    // source term, default zero
   (const) scalar c = {-1},    // vof field, optional
-  int nl = 0                  // from which layer of cells (optional, min=0, max=2)
+  int nl = 0,                 // from which layer of cells (optional, min=0, max=2)
+  int nointerface = 0         // remove the interface from the heaviside (default false)
 )
 {
   scalar H[], fn[];
@@ -191,7 +205,8 @@ void linear_extrapolation (
   it can be set to 1 or 2. */
 
   if (c.i > 0)
-    mapregion (H, c, nl = (nl == 0.) ? 1. : min (nl+1, 2));
+    mapregion (H, c, nl = (nl == 0.) ? 1. : min (nl+1, 2),
+        nointerface=nointerface);
   else
     foreach()
       H[] = (ls[]+Delta <= 0.) ? 0. : 1.;
@@ -232,6 +247,7 @@ void linear_extrapolation (
     We solve a single step of the PDE. */
 
     foreach() {
+      double dt = cfl*Delta;
       double nscalargf = 0.;
       foreach_dimension()
         nscalargf += n.x[]*gf.x[];
@@ -245,9 +261,9 @@ void linear_extrapolation (
   the directional derivative. */
 
   if (c.i > 0)
-    constant_extrapolation (f, ls, dt, nmax, fn, c, nl);
+    constant_extrapolation (f, ls, cfl, nmax, fn, c, nl, nointerface);
   else
-    constant_extrapolation (f, ls, dt, nmax, fn);
+    constant_extrapolation (f, ls, cfl, nmax, fn);
 }
 
 /**

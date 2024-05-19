@@ -76,12 +76,14 @@ event chemistry (i++) {
       Set additional data to be passed to the ODE system. */
 
       UserDataODE data;
-      data.P = 101325.;
+      data.P = Pref;
       data.T = 1200.;
 #ifdef SOLVE_TEMPERATURE
       data.rho = rho2;
       data.cp = cp2;
 #endif
+      double sources[NEQ];
+      data.sources = sources;
 
       /**
       Solve the ODE system using the OpenSMOKE native ODE solver,
@@ -95,12 +97,19 @@ event chemistry (i++) {
       foreach_elem (YGList, jj) {
         scalar YG = YGList[jj];
         YG[] = y0ode[jj];
+
+#ifdef VARPROP
+        scalar DYDt2jj = DYDt2[jj];
+        DYDt2jj[] += sources[jj]*cm[];
+#endif
       }
 #ifdef SOLVE_TEMPERATURE
       TG[] = y0ode[NGS];
+# ifdef VARPROP
+      DTDt2[] += sources[NGS]*cm[];
+# endif
 #endif
     }
   }
-  boundary(YGList);
 }
 

@@ -581,6 +581,36 @@ event cleanup (t = end)
 }
 
 /**
+## Reset Source Terms
+
+We set to zero phase change source terms, in order to add other
+source term contributions from outside this module. */
+
+event reset_sources (i++)
+{
+  foreach() {
+#ifdef SOLVE_TEMPERATURE
+    sgT[] = 0.;
+    slT[] = 0.;
+    sgTimp[] = 0.;
+    slTimp[] = 0.;
+#endif
+    for (int jj=0; jj<NLS; jj++) {
+      scalar slexp = slexpList[jj];
+      scalar slimp = slimpList[jj];
+      slexp[] = 0.;
+      slimp[] = 0.;
+    }
+    for (int jj=0; jj<NGS; jj++) {
+      scalar sgexp = sgexpList[jj];
+      scalar sgimp = sgimpList[jj];
+      sgexp[] = 0.;
+      sgimp[] = 0.;
+    }
+  }
+}
+
+/**
 ## Phase Change
 
 In the *phasechange* event, the vaporization rate is computed
@@ -905,21 +935,6 @@ event phasechange (i++)
 
   foreach() {
 
-    for (int jj=0; jj<NLS; jj++) {
-      scalar slexp = slexpList[jj];
-      scalar slimp = slimpList[jj];
-
-      slexp[] = 0.;
-      slimp[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar sgexp = sgexpList[jj];
-      scalar sgimp = sgimpList[jj];
-
-      sgexp[] = 0.;
-      sgimp[] = 0.;
-    }
-
     if (f[] > F_ERR && f[] < 1.-F_ERR) {
       coord n = facet_normal (point, fL, fsL), p;
       double alpha = plane_alpha (fL[], n);
@@ -931,12 +946,17 @@ event phasechange (i++)
         scalar sgimp = sgimpList[jj];
         scalar mEvap = mEvapList[jj];
 
+        //scalar YGInt = YGIntList[jj];
 #ifdef AXI
-        sgexp[] = -mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        sgimp[] = +mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //sgimp[] += 0.;
+        sgexp[] += -mEvap[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        sgimp[] += +mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        sgexp[] = -mEvap[]/rho2*area/Delta*cm[];
-        sgimp[] = +mEvapTot[]/rho2*area/Delta*cm[];
+        //sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])/rho2*area/Delta*cm[];
+        //sgimp[] += 0.;
+        sgexp[] += -mEvap[]/rho2*area/Delta*cm[];
+        sgimp[] += +mEvapTot[]/rho2*area/Delta*cm[];
 #endif
       }
 
@@ -945,12 +965,17 @@ event phasechange (i++)
         scalar slimp = slimpList[jj];
         scalar mEvap = mEvapList[LSI[jj]];
 
+        //scalar YLInt = YLIntList[jj];
 #ifdef AXI
-        slexp[] = +mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        slimp[] = -mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //slimp[] += 0.;
+        slexp[] += +mEvap[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        slimp[] += -mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        slexp[] = +mEvap[]/rho1*area/Delta*cm[];
-        slimp[] = -mEvapTot[]/rho1*area/Delta*cm[];
+        //slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])/rho1*area/Delta*cm[];
+        //slimp[] += 0.;
+        slexp[] += +mEvap[]/rho1*area/Delta*cm[];
+        slimp[] += -mEvapTot[]/rho1*area/Delta*cm[];
 #endif
       }
     }
@@ -970,6 +995,41 @@ event phasechange (i++)
     }
 #endif
   }
+
+#ifdef SOLVE_TEMPERATURE
+
+  /**
+  Compute source terms for temperature equations. */
+
+  foreach() {
+    if (f[] > F_ERR && f[] < 1.-F_ERR) {
+      coord n = facet_normal (point, fL, fsL), p;
+      double alpha = plane_alpha (fL[], n);
+      double area = plane_area_center (n, alpha, &p);
+      normalize (&n);
+
+      double bc = TInt[];
+      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
+      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
+
+      double lheatflux = lambda1*ltrgrad;
+      double gheatflux = lambda2*gtrgrad;
+
+#ifdef AXI
+      slT[] += lheatflux/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgT[] += gheatflux/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      slTimp[] += mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
+      sgTimp[] += mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
+#else
+      slT[] += lheatflux/rho1/cp1*area/Delta*cm[];
+      sgT[] += gheatflux/rho2/cp2*area/Delta*cm[];
+      slTimp[] += mEvapTot[]/rho1*area/Delta*cm[];
+      sgTimp[] += mEvapTot[]/rho2*area/Delta*cm[];
+#endif
+    }
+  }
+
+#endif
 
   /**
   We restore the tracer form of the liquid and gas-phase
@@ -1096,41 +1156,6 @@ event tracer_diffusion (i++)
   foreach_face() {
     lambda1f.x[] = lambda1/rho1/cp1*fsL.x[]*fm.x[];
     lambda2f.x[] = lambda2/rho2/cp2*fsG.x[]*fm.x[];
-  }
-
-  /**
-  Compute source terms for temperature equations. */
-
-  foreach() {
-    sgT[] = 0.; slT[] = 0.;
-    sgTimp[] = 0.; slTimp[] = 0.;
-    theta1[] = cm[]*max(f[], F_ERR);
-    theta2[] = cm[]*max(1. - f[], F_ERR);
-    if (f0[] > F_ERR && f0[] < 1.-F_ERR) {
-      coord n = facet_normal (point, fL, fsL), p;
-      double alpha = plane_alpha (fL[], n);
-      double area = plane_area_center (n, alpha, &p);
-      normalize (&n);
-
-      double bc = TInt[];
-      double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true, bc, &success);
-      double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, bc, &success);
-
-      double lheatflux = lambda1*ltrgrad;
-      double gheatflux = lambda2*gtrgrad;
-
-#ifdef AXI
-      slT[] = lheatflux/rho1/cp1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgT[] = gheatflux/rho2/cp2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      slTimp[] = mEvapTot[]/rho1*area*(y + p.y*Delta)/(Delta*y)*cm[];
-      sgTimp[] = mEvapTot[]/rho2*area*(y + p.y*Delta)/(Delta*y)*cm[];
-#else
-      slT[] = lheatflux/rho1/cp1*area/Delta*cm[];
-      sgT[] = gheatflux/rho2/cp2*area/Delta*cm[];
-      slTimp[] = mEvapTot[]/rho1*area/Delta*cm[];
-      sgTimp[] = mEvapTot[]/rho2*area/Delta*cm[];
-#endif
-    }
   }
 
   foreach() {

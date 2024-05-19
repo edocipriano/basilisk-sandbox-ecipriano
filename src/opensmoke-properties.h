@@ -61,6 +61,19 @@ double opensmoke_gasprop_heatcapacity (void * p) {
 }
 
 /**
+### *opensmoke_gasprop_heatcapacity_species()*: gas phase species heat capacity
+*/
+
+double opensmoke_gasprop_heatcapacity_species (void * p, int i) {
+  ThermoState * ts = (ThermoState *)p;
+  OpenSMOKE_GasProp_SetTemperature (ts->T);
+  OpenSMOKE_GasProp_SetPressure (ts->P);
+  double Cps[OpenSMOKE_NumberOfSpecies()];
+  OpenSMOKE_GasProp_HeatCapacity_PureSpecies (Cps);
+  return Cps[i];
+}
+
+/**
 ### *opensmoke_gasprop_diff()*: diffusion coefficient of a species in gas phase
 */
 
@@ -108,6 +121,20 @@ double opensmoke_liqprop_heatcapacity (void * p) {
 }
 
 /**
+### *opensmoke_liqprop_heatcapacity_species()*: liquid phase species heat capacity
+*/
+
+double opensmoke_liqprop_heatcapacity_species (void * p, int i) {
+  ThermoState * ts = (ThermoState *)p;
+  const char* name = OpenSMOKE_NamesOfLiquidSpecies (i);
+  int len = strlen (name);
+  char corrname[len+1];
+  strcpy (corrname, name);
+  corrname[3 <= len ? len-3 : 0] = '\0';
+  return OpenSMOKE_LiqProp_HeatCapacity_PureSpecies (corrname, ts->T);
+}
+
+/**
 ### *opensmoke_liqprop_pvap()*: vapor pressure of the chemical species
 */
 
@@ -133,6 +160,20 @@ double opensmoke_liqprop_dhev (void * p, int i) {
   strcpy (corrname, name);
   corrname[3 <= len ? len-3 : 0] = '\0';
   return OpenSMOKE_LiqProp_VaporizationEnthalpy (corrname, ts->T);
+}
+
+/**
+### *opensmoke_liqprop_sigma()*: surface tension of the chemical species
+*/
+
+double opensmoke_liqprop_sigma (void * p, int i) {
+  ThermoState * ts = (ThermoState *)p;
+  const char* name = OpenSMOKE_NamesOfLiquidSpecies (i);
+  int len = strlen (name);
+  char corrname[len+1];
+  strcpy (corrname, name);
+  corrname[3 <= len ? len-3 : 0] = '\0';
+  return OpenSMOKE_LiqProp_Sigma (corrname, ts->T);
 }
 
 /**
@@ -211,11 +252,14 @@ event defaults (i = 0) {
   tp1.pvap    = opensmoke_liqprop_pvap;
   tp1.dhev    = opensmoke_liqprop_dhev;
   tp1.diff    = opensmoke_liqprop_diff_lc;
+  tp1.cps     = opensmoke_liqprop_heatcapacity_species;
+  tp1.sigmas  = opensmoke_liqprop_sigma;
 
   tp2.rhov    = opensmoke_gasprop_density;
   tp2.muv     = opensmoke_gasprop_viscosity;
   tp2.lambdav = opensmoke_gasprop_thermalconductivity;
   tp2.cpv     = opensmoke_gasprop_heatcapacity;
   tp2.diff    = opensmoke_gasprop_diff;
+  tp2.cps     = opensmoke_gasprop_heatcapacity_species;
 }
 

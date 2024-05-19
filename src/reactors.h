@@ -40,6 +40,7 @@ typedef struct {
   double cp;
   double P;
   double T;
+  double * sources;
 } UserDataODE;
 
 /**
@@ -58,9 +59,9 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
 
   UserDataODE data = *(UserDataODE *)args;
   double rho = data.rho;
-  double cp = data.cp;
   double Pressure = data.P;
   double Temperature = data.T;
+  double * sources = data.sources;
 
   /**
   Set temperature and pressure of the system,
@@ -78,8 +79,8 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
     massfracs[jj] = y[jj];
   }
 
-  mass2molefrac (molefracs, massfracs, inMW, NGS);
-  double MWMix = mass2mw (massfracs, inMW, NGS);
+  double MWMix = 0.;
+  OpenSMOKE_MoleFractions_From_MassFractions (molefracs, &MWMix, massfracs);
 
   double ctot = Pressure/(R_GAS*1000.)/Temperature;
   double ci[NGS], ri[NGS];
@@ -102,6 +103,7 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
 
   for (int jj=0; jj<OpenSMOKE_NumberOfSpecies(); jj++) {
     dy[jj] = OpenSMOKE_MW(jj)*ri[jj]/rho;
+    sources[jj] = dy[jj]*rho;
   }
 }
 
@@ -124,6 +126,7 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   double cp = data.cp;
   double Pressure = data.P;
   double Temperature = y[OpenSMOKE_NumberOfSpecies()];
+  double * sources = data.sources;
 
   /**
   Set temperature and pressure of the system,
@@ -140,37 +143,54 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   for (int jj=0; jj<NGS; jj++) {
     massfracs[jj] = y[jj];
   }
+  correctfrac (massfracs, NGS);
 
-  mass2molefrac (molefracs, massfracs, inMW, NGS);
-  double MWMix = mass2mw (massfracs, inMW, NGS);
+  double MWMix = 0.;
+  OpenSMOKE_MoleFractions_From_MassFractions (molefracs, &MWMix, massfracs);
 
-  double ctot = Pressure/(R_GAS*1000.)/Temperature;
+#ifdef VARPROP
+
+  /**
+  We compute the density and the heat capacity as
+  a function of the thermodynamic state. */
+
+  double ctot = Pressure/(R_GAS*1000.)/Temperature;  // [kmol/m3]
+  rho = ctot*MWMix;  // [kg/m3]
+
+  cp = OpenSMOKE_GasProp_HeatCapacity (molefracs);
+
+#endif
+
   double ci[NGS], ri[NGS];
   for (int jj=0; jj<NGS; jj++) {
+    //ci[jj] = massfracs[jj]*rho/OpenSMOKE_MW(jj);
     ci[jj] = ctot*molefracs[jj];
+    ci[jj] = (ci[jj] < 0.) ? 0. : ci[jj];
     ri[jj] = 0.;
   }
-  rho = ctot*MWMix;
 
   OpticallyThinProperties otp;
   otp.T = Temperature;
   otp.P = Pressure;
   otp.xH2O = molefracs[otm.indexH2O];
   otp.xCO2 = molefracs[otm.indexCO2];
+  otp.xCO  = molefracs[otm.indexCO];
+  otp.xCH4 = molefracs[otm.indexCH4];
 
   /**
   Compute the kinetic constant, reaction rates,
   and formation rates. */
 
   OpenSMOKE_GasProp_KineticConstants ();
-  OpenSMOKE_GasProp_ReactionRates (ci);
-  OpenSMOKE_GasProp_FormationRates (ri);
+  OpenSMOKE_GasProp_ReactionRates (ci);     // [kmol/m3]
+  OpenSMOKE_GasProp_FormationRates (ri);    // [kmol/m3/s]
 
   /**
   Equation for the chemical species. */
 
   for (int jj=0; jj<OpenSMOKE_NumberOfSpecies(); jj++) {
     dy[jj] = OpenSMOKE_MW(jj)*ri[jj]/rho;
+    sources[jj] = dy[jj]*rho;
   }
 
   /**
@@ -180,6 +200,7 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
 
   double QR = OpenSMOKE_GasProp_HeatRelease (ri);
   dy[OpenSMOKE_NumberOfSpecies()] = (QR + divq_rad (&otp))/rho/cp;
+  sources[OpenSMOKE_NumberOfSpecies()] = dy[OpenSMOKE_NumberOfSpecies()]*rho*cp;
 }
 
 /**

@@ -1,9 +1,12 @@
 
-#include "run.h"
-#include "utils.h"
+//#include "run.h"
+//#include "utils.h"
+#include "navier-stokes/centered.h"
 #include "opensmoke-properties.h"
+#include "two-phase.h"
 
 int main (void) {
+  mu1 = 1. , mu2 = 1.;
   kinfolder = "skeletal/methanol";
   run();
 }
@@ -58,6 +61,8 @@ event properties (i++) {
         OpenSMOKE_NamesOfLiquidSpecies (i), tp1.pvap (&ts1, i));
     fprintf (stderr, "dhev[%s] = %f\n",
         OpenSMOKE_NamesOfLiquidSpecies (i), tp1.dhev (&ts1, i));
+    fprintf (stderr, "sigma[%s] = %f\n",
+        OpenSMOKE_NamesOfLiquidSpecies (i), tp1.sigmas (&ts1, i));
   }
 }
 
