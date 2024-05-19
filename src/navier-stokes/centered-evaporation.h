@@ -152,4 +152,3 @@ source terms. */
 #include "navier-stokes/centered.h"
 #undef advection
 #undef project
-
