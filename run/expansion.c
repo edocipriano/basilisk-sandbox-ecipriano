@@ -52,7 +52,7 @@ temperature is not computed from the jump conditon, it is just set to the gas
 phase temperature value. */
 
 #define SOLVE_TEMPERATURE
-#define VARPROP
+#define NO_ADVECTION_DIV 1
 #define T_PROP 1.e-6
 #define FIXED_INTERFACE_TEMPERATURE TG0
 
@@ -73,10 +73,10 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 #include "navier-stokes/centered-evaporation.h"
 #include "navier-stokes/centered-doubled.h"
 #include "opensmoke-properties.h"
-#include "two-phase-varprop.h"
+#include "two-phase.h"
 #include "tension.h"
-#include "evaporation-varprop.h"
-#include "multicomponent.h"
+#include "evaporation.h"
+#include "multicomponent-varprop.h"
 #include "view.h"
 
 /**
@@ -121,8 +121,8 @@ int main (void) {
   /**
   We set additional data for the simulation. */
 
-  rho1 = 0.; rho2 = 0.;
-  mu1 = 0.; mu2 = 0.;
+  rho1 = 1.; rho2 = 1.;
+  mu1 = 1.; mu2 = 1.;
   Pref = 10*101325.;
 
   /**
@@ -153,8 +153,6 @@ We initialize the volume fraction field and we compute the
 initial radius of the droplet. We don't use the value D0
 because for small errors of initialization the squared
 diameter decay would not start from 1. */
-
-double mLiq0 = 0.;
 
 event init (i = 0) {
   fraction (f, circle (x, y, 0.5*D0));
