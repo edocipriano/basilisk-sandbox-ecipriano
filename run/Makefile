@@ -4,7 +4,7 @@ BASILISK_INCLUDES ?= -I../src
 BASILISK_LIBS ?= 
 
 # the default CFLAGS are set in $(BASILISK)/config
-CFLAGS += -O2 -events -disable-dimensions $(BASILISK_INCLUDES) $(BASILISK_LIBS)
+CFLAGS += -O2 -disable-dimensions $(BASILISK_INCLUDES) $(BASILISK_LIBS)
 
 fixedbubblevelocity-jump.c: fixedbubblevelocity.c
 	ln -s fixedbubblevelocity.c fixedbubblevelocity-jump.c
