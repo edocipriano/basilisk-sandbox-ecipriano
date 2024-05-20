@@ -14,7 +14,6 @@ for evaporation models. */
 #ifndef T_ERR
 # define T_ERR 0.
 #endif
-//#include "mass_refine_prolongation.h"
 
 #ifndef I_TOL
 # define I_TOL 1.e-8

@@ -289,7 +289,7 @@ event movie (t += 0.5e-5, t <= 1.5e-4) {
 }
 
 /**
-## References
+## Results
 
 The numerical results are compared with the results obtained
 by [Pathak et al., 2018](#pathak2018steady) using a radially

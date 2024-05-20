@@ -88,7 +88,7 @@ event movie (t += 0.001; t <= tEnd) {
   clear();
   box();
   view (tx = -0.5, ty = -0.5);
-  draw_vof ("cs", "fs", filled = -1, fc = {1.,1.,1.});
+  draw_vof ("cs", "fs", filled = -1, fc = {0.3,0.3,0.3});
   draw_vof ("f", lw = 1.5);
   squares ("omega", linear = false, 
            min = -1000., max = 1000., 

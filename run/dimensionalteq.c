@@ -46,18 +46,12 @@ Problably it is not necessary to set the units for all these
 quantities, but it seems easier to me to just set the units of
 every input value. */
 
-//double T0 = 273. SI_Temp;
-//double TL = 373. SI_Temp;
-//double TR = 173. SI_Temp;
-//double rho = 1.  SI_Density;
-//double cp = 1.   SI_SpecificHeat;
-//double k = 1.e-2 SI_ThermalCond;
-double T0 = 273.  SI_Temp;
-double TL = 373.  SI_Temp;
-double TR = 173.  SI_Temp;
-double rho = 1.   SI_Density;
-double cp = 1.    SI_SpecificHeat;
-double k = 1.e-2  SI_ThermalCond;
+double T0 = 273. SI_Temp;
+double TL = 373. SI_Temp;
+double TR = 173. SI_Temp;
+double rho = 1.  SI_Density;
+double cp = 1.   SI_SpecificHeat;
+double k = 1.e-2 SI_ThermalCond;
 
 /**
 We create the temperature field and the thermal diffusivity,

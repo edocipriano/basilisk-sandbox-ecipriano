@@ -183,7 +183,7 @@ int main (void) {
   coefficient. */
 
   L0 = 10.e-3;
-  f.sigma = 0.059;
+  f.sigma = 0.0059;
 
   /**
   We run the simulation at four different levels of refinement. */

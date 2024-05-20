@@ -169,7 +169,7 @@ enforce the divergence-free condition on the predicted face velocity. To do so,
 we solve the Poisson equation:
 
 $$
-  \left(\dfrac{1}{\rho^{n+1/2}}\nabla p^{n+1/2}\right)
+  \nabla\cdot\left(\dfrac{1}{\rho^{n+1/2}}\nabla p^{n+1/2}\right)
   = \dfrac{\nabla\cdot\mathbf{u}_{p,f}^{n+1/2}}{\Delta t/2}
 $$
 
@@ -316,7 +316,7 @@ The remaining part of the momentum equation (with just the pressure gradient),
 and the continuity equation are combined in a Poisson equation:
 
 $$
-  \left(\dfrac{1}{\rho^{n+1/2}}\nabla p^{n+1}\right) =
+  \nabla\cdot\left(\dfrac{1}{\rho^{n+1/2}}\nabla p^{n+1}\right) =
   \dfrac{\nabla\cdot\mathbf{u}_f^{**}}{\Delta t}
 $$
 
@@ -353,7 +353,7 @@ The collocated $\mathbf{g}^{n+1}$ is updated from $\mathbf{g}_f^{n+1}$ using a
 linear interpolation:
 
 $$
-  \mathbf{g}^{n+1} = \dfrac{\mathbf{g}_f^{n+1}[1] + \mathbf{g}_f^{n+1}}{2}
+  \mathbf{g}^{n+1} = \dfrac{\mathbf{g}_f^{n+1}[1] + \mathbf{g}_f^{n+1}[]}{2}
 $$
 
 Finally, the collocated velocity at the end of the time step is obtained:

@@ -12,10 +12,7 @@ Therefore, the Stefan flow is not considered in the theretical
 solution, obtained assuming quasi-static conditions. In this context,
 the chemical species concentration profile is assumed to be equal to
 the steady-state concentration profile, at any simulation time instants.
-This approximation is justified when the diffusion is much faster than
-the interface regression velocity. Using this approximation, the
-theretical solution describing the evolution of the droplet radius in
-time was obtained by [Epstein and Plesset in 1950](#epstein1950stability):
+This approximation is justified when the diffusion is much faster than the interface regression velocity. Using this approximation, the theretical solution describing the evolution of the droplet radius in time was obtained by [Epstein and Plesset in 1950](#epstein1950stability):
 
 $$
   \dfrac{dR}{dt} = -MW\dfrac{\mathcal{D} (\hat{c} - c_{bulk})}{\rho_g}

@@ -23,35 +23,45 @@ The scheme implemented here is close to that used in Gerris ([Popinet,
 We will use the generic time loop, a CFL-limited timestep, the
 Bell-Collela-Glaz advection scheme and the implicit viscosity
 solver. If embedded boundaries are used, a different scheme is used
-for viscosity. This scheme is extended considering the phase change
-between two phases described by a VOF or CLSVOF approach. Using the
-jump condition is convenient because it does not require an explicit
-source term, localized at the gas-liquid interface, in the projection
-step, which causes oscillations in the velocity field.
+for viscosity.
 
-The method that we use here to enforce the velocity jump condition is
-the same proposed by [Tanguy et al. 2007](#tanguy2007level) for droplet
+We extend this scheme by including the velocity jump due to the phase
+change:
+$$
+  \left(\mathbf{u}_g - \mathbf{u}_l\right)\cdot\mathbf{n}_\Gamma
+  = \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)
+$$
+which is introduced into the velocity field directly, according to the
+ghost velocity approach proposed by [Nguyen et al. 2001](#nguyen2001boundary),
+that was modified by [Tanguy et al. 2007](#tanguy2007level) for droplet
 evaporation problems, and by [Tanguy et al. 2014](#tanguy2014benchmarks)
-for boiling simulations. It is based on the combination of the ghost fluid
-velocity method poposed by [Nguyen et al. 2001](#nguyen2001boundary),
-which defines ghost velocities as:
+for boiling simulations.
 
+The idea is to set the velocity jump in the "ghost regions" by exploiting the
+jump condition:
 $$
   \mathbf{u}^{ghost}_l = \mathbf{u}_g -
-  \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)\mathbf{n}
+  \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)\mathbf{n}_\Gamma
 $$
 
 $$
   \mathbf{u}^{ghost}_g = \mathbf{u}_l +
-  \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)\mathbf{n}
+  \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)\mathbf{n}_\Gamma
 $$
-
-The ghost velocities impose the continuity of the velocity fields
-across the interface. Two different momentum equations for the gas
-and liquid phase velocities are solved, a single projection step is
+Two different momentum equations for the gas
+and liquid phase velocities are solved, but a single projection step is
 used to update the velocities at the new time step. Additional
-velocity extensions are used to obtain a divergence-free velocity for
+projection steps are used to obtain a divergence-free velocity for
 the advection of the volume fraction field.
+
+This is a modified version of the method discussed by [Long et al. 2024](#long2024edge)
+for phase change using the EBIT approach, and implemented in basilisk by [Tian Long](/sandbox/tianlong/src/semushin/double-evaporation.h).
+Unlike the previous version, this approach has mainly been tested on evaporation
+problems rather than on boiling simulations, and it was designed for VOF simulations.
+
+The main advantage with respect to the [navier-stokes/centered-doubled.h](/sandbox/ecipriano/src/navier-stokes/centered-doubled.h)
+approach is that we avoid the oscillations that arise due to the introduction of
+the localized expansion term as a volumetric source in the projection step.
 */
 
 #define VELOCITY_JUMP
@@ -580,7 +590,7 @@ gas phase ghost velocity:
 
 $$
   \mathbf{u}^{ghost}_g = \mathbf{u}_l -
-  \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)\mathbf{n}
+  \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)\mathbf{n}_\Gamma
 $$
 
 while the initial liquid ghost velocity is set to zero. For boiling
@@ -590,7 +600,7 @@ velocity:
 
 $$
   \mathbf{u}^{ghost}_l = \mathbf{u}_g +
-  \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)\mathbf{n}
+  \dot{m}\left(\dfrac{1}{\rho_g} - \dfrac{1}{\rho_l}\right)\mathbf{n}_\Gamma
 $$
 */
 
@@ -600,13 +610,9 @@ void update_ghost_velocities (void) {
 #ifdef BOILING_SETUP
       u2g.x[] = u2g.x[];
       u1g.x[] = u2.x[] + mEvapTot1[]*n.x[];
-
-      //u2g.x[] = u1.x[] - mEvapTot2[]*n.x[]; // [Test]
 #else
       u1g.x[] = u1g.x[];
       u2g.x[] = u1.x[] - mEvapTot2[]*n.x[];
-
-      //u1g.x[] = u2.x[] + mEvapTot1[]*n.x[]; // [Test]
 #endif
       u1.x[] = (ls1[] < 0.) ? u1.x[] : u1g.x[];
       u2.x[] = (ls1[] > 0.) ? u2.x[] : u2g.x[];
@@ -618,16 +624,10 @@ void update_ghost_velocities (void) {
     double mEvapTot1f = 0.5*(mEvapTot1[] + mEvapTot1[-1]);
     uf2g.x[] = uf2g.x[];
     uf1g.x[] = uf2.x[] + mEvapTot1f*nf.x[]*fm.x[];
-
-    //double mEvapTot2f = 0.5*(mEvapTot2[] + mEvapTot2[-1]); // [Test]
-    //uf2g.x[] = uf1.x[] - mEvapTot2f*nf.x[]*fm.x[];             // [Test]
 #else
     double mEvapTot2f = 0.5*(mEvapTot2[] + mEvapTot2[-1]);
     uf1g.x[] = uf1g.x[];
     uf2g.x[] = uf1.x[] - mEvapTot2f*nf.x[]*fm.x[];
-
-    //double mEvapTot1f = 0.5*(mEvapTot1[] + mEvapTot1[-1]); // [Test]
-    //uf1g.x[] = uf2.x[] + mEvapTot1f*nf.x[]*fm.x[];             // [Test]
 #endif
     double lsf = 0.5*(ls1[] + ls1[-1]);
     uf1.x[] = (lsf < 0.) ? uf1.x[] : uf1g.x[];
@@ -1017,13 +1017,9 @@ event update_ghost (i++, last) {
 #ifdef BOILING_SETUP
       u2g.x[] = u2g.x[];
       u1g.x[] = u2.x[] + mEvapTot1[]*n.x[];
-
-      //u2g.x[] = u1.x[] - mEvapTot2[]*n.x[]; // [Test]
 #else
       u1g.x[] = u1g.x[];
       u2g.x[] = u1.x[] - mEvapTot2[]*n.x[];
-
-      //u1g.x[] = u2.x[] + mEvapTot1[]*n.x[]; // [Test]
 #endif
     }
   }
@@ -1033,16 +1029,10 @@ event update_ghost (i++, last) {
     double mEvapTot1f = 0.5*(mEvapTot1[] + mEvapTot1[-1]);
     uf2g.x[] = uf2g.x[];
     uf1g.x[] = uf2.x[] + mEvapTot1f*nf.x[]*fm.x[];
-
-    //double mEvapTot2f = 0.5*(mEvapTot2[] + mEvapTot2[-1]); // [Test]
-    //uf2g.x[] = uf1.x[] - mEvapTot2f*nf.x[]*fm.x[];             // [Test]
 #else
     double mEvapTot2f = 0.5*(mEvapTot2[] + mEvapTot2[-1]);
     uf1g.x[] = uf1g.x[];
     uf2g.x[] = uf1.x[] - mEvapTot2f*nf.x[]*fm.x[];
-
-    //double mEvapTot1f = 0.5*(mEvapTot1[] + mEvapTot1[-1]); // [Test]
-    //uf1g.x[] = uf2.x[] + mEvapTot1f*nf.x[]*fm.x[];             // [Test]
 #endif
   }
 }
@@ -1200,6 +1190,13 @@ event adapt (i++,last) {
   pages={71--98},
   year={2001},
   publisher={Elsevier}
+}
+
+@article{long2024edge,
+  title={An Edge-based Interface Tracking (EBIT) Method for Multiphase Flows with Phase Change},
+  author={Long, Tian and Pan, Jieyun and Zaleski, St{\'e}phane},
+  journal={arXiv preprint arXiv:2402.13677},
+  year={2024}
 }
 ~~~
 */

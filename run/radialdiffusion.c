@@ -5,7 +5,7 @@ a 1D grid and the ([spherisym.h](/sandbox/ecipriano/src/spherisym.h)) metrics.
 */
 
 #include "grid/multigrid1D.h"
-#include "../src/spherisym.h"
+#include "spherisym.h"
 #include "run.h"
 #include "timestep.h"
 #include "diffusion.h"
