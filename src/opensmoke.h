@@ -22,6 +22,7 @@ external dependencies:
 */
 
 #include "OpenSMOKE_Interface.h"
+#define OPENSMOKE 1
 
 #pragma autolink -L$OPENSMOKE_INTERFACE/build -lopensmoke
 

@@ -107,6 +107,30 @@ double optically_thin (void * p) {
 }
 
 /**
+Optically-thin model using OpenSMOKE++. */
+
+#if OPENSMOKE
+typedef struct {
+  double T, P;
+  double * x;
+} OpenSMOKE_OpticallyThinProperties;
+
+double opensmoke_optically_thin (void * p) {
+
+  OpenSMOKE_OpticallyThinProperties * otp;
+  otp = (OpenSMOKE_OpticallyThinProperties *)p;
+
+  double T = otp->T, P = otp->P, * x = otp->x;
+
+  OpenSMOKE_GasProp_SetTemperature (T);
+  OpenSMOKE_GasProp_SetPressure (P);
+  double kPlanckMix = OpenSMOKE_GasProp_kPlanckMix (x);
+
+  return -4.*STEFAN_BOLTZMANN*kPlanckMix*( pow (T, 4.) - pow (300., 4.) );
+}
+#endif
+
+/**
 ## No Radiation
 
 Implementation of a dummy no_radiation model, which returns

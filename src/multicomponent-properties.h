@@ -64,6 +64,14 @@ void update_properties_constant (void) {
 }
 
 void update_properties_initial (void) {
+  {
+    ThermoState ts;
+    ts.T = TL0;
+    ts.P = Pref;
+    ts.x = liq_start;
+
+    f.sigma = tp1.sigmas (&ts, 0);
+  }
   foreach() {
     ThermoState ts1h, ts2h;
     ts1h.T = TL0;

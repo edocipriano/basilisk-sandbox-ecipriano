@@ -5,11 +5,11 @@ include $(BASILISK)/Makefile.defs
 
 CFLAGS += -DCOMBUSTION=1 \
 	-DUSE_SPARK=1 \
-	-DDIAMETER=0.65e-3 \
-	-DFIBER=0.12 \
+	-DDIAMETER=0.5e-3 \
+	-DFIBER=0.2 \
 	-DTEMPERATURE=300 \
-	-DFUEL=CH3OH \
-	-DKINFOLDER=two-step/methanol \
+	-DFUEL=NC7H16 \
+	-DKINFOLDER=two-step/n-heptane \
 	-DMASSFRAC_INERT=0.79 \
 	-DMASSFRAC_OXIDIZER=0.21 \
 	-DNGS=6 \
@@ -20,14 +20,14 @@ CFLAGS += -DCOMBUSTION=1 \
 # Normal gravity at D0 = 0.65 mm and P = 1 atm
 normalgravity-1atm.c: normalgravity.c
 	ln -s normalgravity.c normalgravity-1atm.c
-normalgravity-1atm.s: CFLAGS += -DPRESSURE=1 -DGRAVITY=-9.81 -DSPARK_VALUE=1e8
-normalgravity-1atm.tst: CFLAGS += -DPRESSURE=1 -DGRAVITY=-9.81 -DSPARK_VALUE=1e8
+normalgravity-1atm.s: CFLAGS += -DPRESSURE=1 -DGRAVITY=-9.81 -DSPARK_VALUE=1e7 -DSPARK_START=0.5
+normalgravity-1atm.tst: CFLAGS += -DPRESSURE=1 -DGRAVITY=-9.81 -DSPARK_VALUE=1e7 -DSPARK_START=0.5
 
 # Normal gravity at D0 = 0.56 mm and P = 5 atm
 normalgravity-5atm.c: normalgravity.c
 	ln -s normalgravity.c normalgravity-5atm.c
-normalgravity-5atm.s: CFLAGS += -DPRESSURE=5 -DGRAVITY=-9.81
-normalgravity-5atm.tst: CFLAGS += -DPRESSURE=5 -DGRAVITY=-9.81
+normalgravity-5atm.s: CFLAGS += -DPRESSURE=5 -DGRAVITY=-9.81 -DSPARK_VALUE=1e7 -DSPARK_START=0.5
+normalgravity-5atm.tst: CFLAGS += -DPRESSURE=5 -DGRAVITY=-9.81 -DSPARK_VALUE=1e7 -DSPARK_START=0.5
 
 # Normal gravity at D0 = 0.88 mm and P = 10 atm
 normalgravity-10atm.c: normalgravity.c
@@ -45,8 +45,8 @@ normalgravity-15atm.tst: CFLAGS += -DPRESSURE=15 -DGRAVITY=-9.81
 # Microgravity at D0 = 0.65 mm and P = 1 atm
 microgravity-1atm.c: microgravity.c
 	ln -s microgravity.c microgravity-1atm.c
-microgravity-1atm.s: CFLAGS += -DPRESSURE=1 -DGRAVITY=0
-microgravity-1atm.tst: CFLAGS += -DPRESSURE=1 -DGRAVITY=0
+microgravity-1atm.s: CFLAGS += -DPRESSURE=1 -DGRAVITY=0 -DSPARK_VALUE=1e8 -DSPARK_START=0.1 -DSPARK_TIME=0.001
+microgravity-1atm.tst: CFLAGS += -DPRESSURE=1 -DGRAVITY=0 -DSPARK_VALUE=1e8 -DSPARK_START=0.1 -DSPARK_TIME=0.001
 
 # Microgravity at D0 = 0.56 mm and P =5 atm
 microgravity-5atm.c: microgravity.c

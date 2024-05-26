@@ -146,12 +146,11 @@ event flame (i++) {
   We write the post-processing data on the Flame file. */
 
   extern double d_over_d02, D0;
-  double diam = sqrt (d_over_d02)*2.*D0;
+  double diam = sqrt (d_over_d02)*D0;
 
   fprintf (fpflame, "%g %g %g %g %g %g %g %g %g\n",
       t, t/sq(D0*1e3), Dx, Dy, De,
       Dx/diam, Dy/diam, De/diam, Tflame);
-
 }
 
 

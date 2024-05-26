@@ -169,13 +169,18 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
     ri[jj] = 0.;
   }
 
-  OpticallyThinProperties otp;
+  //OpticallyThinProperties otp;
+  //otp.T = Temperature;
+  //otp.P = Pressure;
+  //otp.xH2O = molefracs[otm.indexH2O];
+  //otp.xCO2 = molefracs[otm.indexCO2];
+  //otp.xCO  = molefracs[otm.indexCO];
+  //otp.xCH4 = molefracs[otm.indexCH4];
+
+  OpenSMOKE_OpticallyThinProperties otp;
   otp.T = Temperature;
   otp.P = Pressure;
-  otp.xH2O = molefracs[otm.indexH2O];
-  otp.xCO2 = molefracs[otm.indexCO2];
-  otp.xCO  = molefracs[otm.indexCO];
-  otp.xCH4 = molefracs[otm.indexCH4];
+  otp.x = molefracs;
 
   /**
   Compute the kinetic constant, reaction rates,

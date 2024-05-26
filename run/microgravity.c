@@ -87,6 +87,10 @@ physical properties as a function of the thermodynamic state of the mixture. */
 # define MASSFRAC_OXIDIZER 0.
 #endif
 
+#ifndef SPARK_START
+# define SPARK_START 0.008
+#endif
+
 #ifndef SPARK_TIME
 # define SPARK_TIME 0.008
 #endif
@@ -291,14 +295,15 @@ event init (i = 0) {
     inMW[jj] = OpenSMOKE_MW (jj);
 
 #ifdef RADIATION
-  divq_rad = optically_thin;
+  divq_rad = opensmoke_optically_thin;
 #endif
 
 #ifdef USE_SPARK
   spark.T = qspark;
   spark.position = (coord){0.75*D0, 0.75*D0};
   spark.diameter = 0.2*D0;
-  spark.time = 0.;
+  //spark.time = 0.;
+  spark.time = SPARK_START;
   spark.duration = SPARK_TIME;
   spark.temperature = SPARK_VALUE;
 #endif
@@ -403,8 +408,13 @@ velocity field. */
 #if TREE
 event adapt (i++) {
   scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
+# if COMBUSTION
+  adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
+      (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+# else
   adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
       (double[]){1.e-2,1.e-1,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+# endif
 }
 #endif
 
