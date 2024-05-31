@@ -529,7 +529,7 @@ void extrapolations (void)
   Update the interface normal vectors on the faces. */
 
   foreach_face()
-    n.x[] = 0.5*(n.x[] + n.x[-1]);
+    nf.x[] = 0.5*(n.x[] + n.x[-1]);
 
   /**
   We store the extrapolated vaporization rate $\hat{m}$ on the fields
