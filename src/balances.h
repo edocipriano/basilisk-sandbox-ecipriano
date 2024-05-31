@@ -148,10 +148,14 @@ static double face_value_bid (Point point, scalar Y, int bid) {
 
 We must choose a convention: the flux is positive if leaving the
 domain from the right and top boundaries, and negative if it enters
-the fomain from left and bottom. */
+the fomain from left and bottom. Note that `unity` is used to force
+the face value to be equal to 1. This is redundant because the same
+effect can be obtained providing a scalar `Y` which is equal to 1
+everywhere; however, there is a problem with the face value of this
+field when `restriction` is not called. */
 
-static double face_flux_bid (Point point, scalar Y, int bid) {
-  double flux = 0., faceval = face_value_bid (point, Y, bid);
+static double face_flux_bid (Point point, scalar Y, int bid, bool unity=false) {
+  double flux = 0., faceval = (unity) ? 1. : face_value_bid (point, Y, bid);
   switch (bid) {
     case 0: flux = +faceval*uf.x[]*Delta; break;  // right
     case 1: flux = -faceval*uf.x[]*Delta; break;  // left
@@ -201,8 +205,8 @@ static void advection_boundary (Point point, int bid) {
   volume fraction. */
 
   double ff = face_value_bid (point, f, bid);
-  mb.totmass1bdnow += mb.rho1*face_flux_bid (point, U, bid)*ff*dt;
-  mb.totmass2bdnow += mb.rho2*face_flux_bid (point, U, bid)*(1. - ff)*dt;
+  mb.totmass1bdnow += mb.rho1*face_flux_bid (point, U, bid, unity=true)*ff*dt;
+  mb.totmass2bdnow += mb.rho2*face_flux_bid (point, U, bid, unity=true)*(1. - ff)*dt;
 }
 
 /**
