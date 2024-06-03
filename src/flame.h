@@ -107,7 +107,7 @@ event flame (i++) {
 
   face vector flamepos[];
   foreach_face()
-    flamepos.x[] = (flameinterface.x[] == 1.)? xp.x[-1] + flamelambda.x[]*Delta : 0.;
+    flamepos.x[] = (flameinterface.x[] == 1.) ? xp.x[-1] + flamelambda.x[]*Delta : 0.;
 
   /**
   We calculate the horizontal flame diameter `Dx`, the vertical flame
@@ -115,6 +115,8 @@ event flame (i++) {
 
   double Dx = 2.*statsf(flamepos.y).max;
   double Dy = statsf(flamepos.x).max - statsf(flamepos.x).min;
+  if (!X0)
+    Dy = 2.*statsf(flamepos.x).max;
   double De = 0.5*(Dx + Dy);
 
   /**
@@ -142,15 +144,45 @@ event flame (i++) {
     flameind[] = (ind) ? 1. : 0.;
   }
 
-  /**
-  We write the post-processing data on the Flame file. */
-
   extern double d_over_d02, D0;
   double diam = sqrt (d_over_d02)*D0;
 
-  fprintf (fpflame, "%g %g %g %g %g %g %g %g %g\n",
-      t, t/sq(D0*1e3), Dx, Dy, De,
-      Dx/diam, Dy/diam, De/diam, Tflame);
+  /**
+  Flame diameter using the temperature peak. */
+
+  Array * arrtemp = array_new();
+  for (double y = 0.; y < L0; y += 0.5*L0/(double)N) {
+    double val = interpolate (T, 0., y);
+    val = (val == nodata) ? 0. : val;
+    array_append (arrtemp, &val, sizeof(double));
+  }
+  double * temps = (double *)arrtemp->p;
+
+  @if _MPI
+  int size = arrtemp->len/sizeof(double);
+  MPI_Allreduce (MPI_IN_PLACE, temps, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  @endif
+
+  int index = 0;
+  double Tmax = 0., ymax = 0.;
+  for (double y = 0.; y < L0; y += 0.5*L0/(double)N) {
+    if (temps[index] > Tmax) {
+      Tmax = temps[index];
+      ymax = y;
+    }
+    index++;
+  }
+  double DTmax = 2.*ymax;
+  array_free (arrtemp);
+
+  /**
+  We write the post-processing data on the Flame file. */
+
+  if (pid() == 0) {
+    fprintf (fpflame, "%g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+        t, t/sq(D0*1e3), Dx, Dy, De,
+        Dx/diam, Dy/diam, De/diam, Tflame, statsf(T).max, Tmax, DTmax, DTmax/diam);
+  }
 }
 
 
