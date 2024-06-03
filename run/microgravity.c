@@ -224,8 +224,6 @@ int maxlevel, minlevel = 2;
 double D0 = DIAMETER, effective_radius0, d_over_d02 = 1., tad = 0.;
 double volumecorr = 0., volume0 = 0.;
 
-vector ur[];
-
 int main (void) {
   /**
   We set the kinetics folder, which defines the species
@@ -302,7 +300,6 @@ event init (i = 0) {
   spark.T = qspark;
   spark.position = (coord){0.75*D0, 0.75*D0};
   spark.diameter = 0.2*D0;
-  //spark.time = 0.;
   spark.time = SPARK_START;
   spark.duration = SPARK_TIME;
   spark.temperature = SPARK_VALUE;
@@ -379,26 +376,26 @@ event cleanup (t = end) {
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-event bcs (i = 0) {
-  scalar fuel  = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
-  scalar inert = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))];
-
-  fuel[top] = dirichlet (0.);
-  fuel[right] = dirichlet (0.);
-
-  inert[top] = dirichlet (MASSFRAC_INERT);
-  inert[right] = dirichlet (MASSFRAC_INERT);
-
-#if COMBUSTION
-  scalar oxidizer = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))];
-
-  oxidizer[top] = dirichlet (MASSFRAC_OXIDIZER);
-  oxidizer[right] = dirichlet (MASSFRAC_OXIDIZER);
-#endif
-
-  TG[top] = dirichlet (TG0);
-  TG[right] = dirichlet (TG0);
-}
+//event bcs (i = 0) {
+//  scalar fuel  = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
+//  scalar inert = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))];
+//
+//  fuel[top] = dirichlet (0.);
+//  fuel[right] = dirichlet (0.);
+//
+//  inert[top] = dirichlet (MASSFRAC_INERT);
+//  inert[right] = dirichlet (MASSFRAC_INERT);
+//
+//#if COMBUSTION
+//  scalar oxidizer = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))];
+//
+//  oxidizer[top] = dirichlet (MASSFRAC_OXIDIZER);
+//  oxidizer[right] = dirichlet (MASSFRAC_OXIDIZER);
+//#endif
+//
+//  TG[top] = dirichlet (TG0);
+//  TG[right] = dirichlet (TG0);
+//}
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -408,15 +405,17 @@ velocity field. */
 #if TREE
 event adapt (i++) {
   scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
-# if COMBUSTION
-  adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
-# else
   adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
       (double[]){1.e-2,1.e-1,1.e-1,1.e-1}, maxlevel, minlevel, 1);
-# endif
 }
 #endif
+
+event shrinking (i++) {
+  if (t < SPARK_START)
+    is_shrinking = false;
+  else
+    is_shrinking = true;
+}
 
 /**
 ## Post-Processing
@@ -475,39 +474,21 @@ event output_data (i++) {
 }
 
 /**
-We reconstruct a one-field discontinuous velocity field for
-visualization. */
-
-event end_timestep (i++) {
-  foreach()
-    foreach_dimension()
-      ur.x[] = f[]*uext.x[] + (1. - f[])*u.x[];
-}
-
-/**
 ### Movie
 
 We write the animation with the evolution of the
 n-heptane mass fraction, the interface position
 and the temperature field. */
 
-event pictures (t = {0.1, 1., 2.}) {
-  char name[80];
-  sprintf (name, "picturefields-%.1f", t);
-
-  FILE * fp = fopen (name, "w");
-  output_field ({f,T,u.x,u.y}, fp, linear = true);
-  fclose (fp);
-}
-
 #if MOVIE
-event movie (t += 0.01) {
+event movie (t += 0.001) {
   clear();
   box();
   view (fov = 3, samples = 2);
   draw_vof ("f", lw = 1.5);
 # if COMBUSTION
   squares ("T", min = TL0, max = statsf(T).max, linear = true);
+  isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
 # else
   squares ("T", min = TL0, max = statsf(T).max, linear = true);
 # endif
@@ -518,6 +499,9 @@ event movie (t += 0.01) {
   view (fov = 3, samples = 2);
   draw_vof ("f", lw = 1.5);
   squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
+#if COMBUSTION
+  isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+#endif
   save ("fuel.mp4");
 }
 #endif
@@ -528,7 +512,7 @@ event movie (t += 0.01) {
 Output dump files for restore or post-processing. */
 
 #if DUMP
-event snapshots (t += 0.1) {
+event snapshots (t += 0.005) {
   char name[80];
   sprintf (name, "snapshots-%g", t);
   dump (name);
@@ -543,97 +527,14 @@ We stop the simulation when the droplet is almost fully consumed. */
 event stop (i++) {
   if (d_over_d02 <= 0.05)
     return 1;
+#if COMBUSTION
+  if (t >= (SPARK_START + SPARK_TIME) && statsf(T).max < 1200.) {
+    fprintf (ferr, "WARNING: Combustion did not start.\n");
+    fflush (ferr);
+    return 1;
+  }
+#endif
 }
 
 event end (t = 50.);
-
-/**
-## Results
-
-~~~gnuplot Effect of Temperature on the Square Diameter Decay at P = 0.1 MPa
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T471K-P1atm/OutputData-10" u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T555K-P1atm/OutputData-10" u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T648K-P1atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T741K-P1atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-471K.csv" w p lc 1 t "471 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-555K.csv" w p lc 2 t "555 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-648K.csv" w p lc 3 t "648 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-741K.csv" w p lc 4 t "741 K"
-~~~
-
-~~~gnuplot Effect of Temperature on the Square Diameter Decay at P = 0.5 MPa
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T468K-P5atm/OutputData-10" u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T556K-P5atm/OutputData-10" u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T655K-P5atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T749K-P5atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-468K.csv" w p lc 1 t "468 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-556K.csv" w p lc 2 t "556 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-655K.csv" w p lc 3 t "655 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-749K.csv" w p lc 4 t "749 K"
-~~~
-
-~~~gnuplot Effect of Temperature on the Square Diameter Decay at P = 1.0 MPa
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T466K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T508K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T669K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T765K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-466K.csv" w p lc 1 t "466 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-508K.csv" w p lc 2 t "508 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-669K.csv" w p lc 3 t "669 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-765K.csv" w p lc 4 t "765 K"
-~~~
-
-~~~gnuplot Effect of Temperature on the Square Diameter Decay at P = 2.0 MPa
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T452K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T511K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T656K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T746K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-452K.csv" w p lc 1 t "452 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-511K.csv" w p lc 2 t "511 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-656K.csv" w p lc 3 t "656 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-746K.csv" w p lc 4 t "746 K"
-~~~
-
-~~~gnuplot Effect of Pressure on the Square Diameter Decay at T = 650 K
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T648K-P1atm/OutputData-10"  u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T655K-P5atm/OutputData-10"  u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T661K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T656K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-648K.csv"  w p lc 1 t "0.1 MPa", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-655K.csv"  w p lc 2 t "0.5 MPa", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-661K.csv" w p lc 3 t "1.0 MPa", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-656K.csv" w p lc 4 t "2.0 MPa"
-~~~
-
-*/
 
