@@ -664,7 +664,11 @@ event phasechange (i++)
   foreach() {
     TInt[] = 0.;
     if (f[] > F_ERR && f[] < 1.-F_ERR)
+#ifdef FIXED_INTERFACE_TEMPERATURE
+      TInt[] = FIXED_INTERFACE_TEMPERATURE;
+#else
       TInt[] = avg_neighbor (point, TL, f);
+#endif
   }
 #endif
 
