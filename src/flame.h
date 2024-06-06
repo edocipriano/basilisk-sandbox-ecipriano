@@ -18,7 +18,8 @@ FILE * fpflame;
 event init (i = 0) {
   char name[80];
   sprintf (name, "Flame-%d", grid->maxdepth);
-  fpflame = fopen (name, "w");
+  if (pid() == 0)
+    fpflame = fopen (name, "w");
 }
 
 event flame (i++) {
@@ -146,6 +147,7 @@ event flame (i++) {
 
   extern double d_over_d02, D0;
   double diam = sqrt (d_over_d02)*D0;
+  double statTmax = statsf(T).max;
 
   /**
   Flame diameter using the temperature peak. */
@@ -181,7 +183,7 @@ event flame (i++) {
   if (pid() == 0) {
     fprintf (fpflame, "%g %g %g %g %g %g %g %g %g %g %g %g %g\n",
         t, t/sq(D0*1e3), Dx, Dy, De,
-        Dx/diam, Dy/diam, De/diam, Tflame, statsf(T).max, Tmax, DTmax, DTmax/diam);
+        Dx/diam, Dy/diam, De/diam, Tflame, statTmax, Tmax, DTmax, DTmax/diam);
   }
 }
 
