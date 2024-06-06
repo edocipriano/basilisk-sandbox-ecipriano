@@ -207,6 +207,8 @@ scalar dummy[];
 scalar rho1v0[], rho2v0[];
 #endif
 
+double TEMPERATURE_TOLERANCE = 1.e-3 [*];
+
 /**
 ## Defaults
 
@@ -1830,8 +1832,11 @@ event tracer_diffusion (i++)
   /**
   Solve diffusion equations for temperature. */
 
+  double CACHE_TOLERANCE = TOLERANCE;
+  TOLERANCE = TEMPERATURE_TOLERANCE;
   diffusion (TL, dt, D=lambda1f, r=slT, theta=theta1);
   diffusion (TG, dt, D=lambda2f, r=sgT, theta=theta2);
+  TOLERANCE = CACHE_TOLERANCE;
 
 #endif
 
