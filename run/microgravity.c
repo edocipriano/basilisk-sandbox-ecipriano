@@ -484,7 +484,12 @@ and the temperature field. */
 event movie (t += 0.001) {
   clear();
   box();
+#if COMBUSTION
+  double tshift = -0.07;
+  view (fov = 3, samples = 2, tx = tshift, ty = tshift);
+#else
   view (fov = 3, samples = 2);
+#endif
   draw_vof ("f", lw = 1.5);
 # if COMBUSTION
   squares ("T", min = TL0, max = statsf(T).max, linear = true);
@@ -496,7 +501,11 @@ event movie (t += 0.001) {
 
   clear();
   box();
+#if COMBUSTION
+  view (fov = 3, samples = 2, tx = tshift, ty = tshift);
+#else
   view (fov = 3, samples = 2);
+#endif
   draw_vof ("f", lw = 1.5);
   squares (TOSTRING(FUEL), min = 0., max = 1., linear = true);
 #if COMBUSTION
