@@ -1391,17 +1391,17 @@ event phasechange (i++)
         scalar sgimp = sgimpList[jj];
         scalar mEvap = mEvapList[jj];
 
-        scalar YGInt = YGIntList[jj];
+        //scalar YGInt = YGIntList[jj];
 #ifdef AXI
-        sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        sgimp[] += 0.;
-        //sgexp[] += -mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        //sgimp[] += +mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //sgimp[] += 0.;
+        sgexp[] += -mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        sgimp[] += +mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])*area/Delta*cm[];
-        sgimp[] += 0.;
-        //sgexp[] += -mEvap[]*area/Delta*cm[];
-        //sgimp[] += +mEvapTot[]*area/Delta*cm[];
+        //sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])*area/Delta*cm[];
+        //sgimp[] += 0.;
+        sgexp[] += -mEvap[]*area/Delta*cm[];
+        sgimp[] += +mEvapTot[]*area/Delta*cm[];
 #endif
       }
 
@@ -1410,17 +1410,17 @@ event phasechange (i++)
         scalar slimp = slimpList[jj];
         scalar mEvap = mEvapList[LSI[jj]];
 
-        scalar YLInt = YLIntList[jj];
+        //scalar YLInt = YLIntList[jj];
 #ifdef AXI
-        slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        slimp[] += 0.;
-        //slexp[] += +mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        //slimp[] += -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //slimp[] += 0.;
+        slexp[] += +mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        slimp[] += -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])*area/Delta*cm[];
-        slimp[] += 0.;
-        //slexp[] += +mEvap[]*area/Delta*cm[];
-        //slimp[] += -mEvapTot[]*area/Delta*cm[];
+        //slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])*area/Delta*cm[];
+        //slimp[] += 0.;
+        slexp[] += +mEvap[]*area/Delta*cm[];
+        slimp[] += -mEvapTot[]*area/Delta*cm[];
 #endif
       }
 
