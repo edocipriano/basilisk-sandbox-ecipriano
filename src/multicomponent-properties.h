@@ -148,8 +148,10 @@ event init (i = 0)
   foreach(reduction(+:mLiq0))
     mLiq0 += rho1v[]*f[]*dv();
 
-  MW1mix.dirty = false;
-  MW2mix.dirty = false;
+  //MW1mix.dirty = false;
+  //MW2mix.dirty = false;
+  MW1mix.dirty = true;
+  MW2mix.dirty = true;
 
 #if TREE
   for (scalar s in {drhodt, drhodtext}) {
@@ -441,34 +443,34 @@ void update_properties (void)
   boundary (Dmix2List);
   boundary (Cp2List);
 
-  for (int b = 0; b < nboundary; b++) {
-    foreach_boundary(b) {
+  //for (int b = 0; b < nboundary; b++) {
+  //  foreach_boundary(b) {
 
-      // liquid phase
-      double x1[NLS], y1[NLS];
-      foreach_elem (YLList, jj) {
-        scalar YL = YLList[jj];
-        double YLf = 0.5*(YL[] + get_ghost (point, YL, b));
-        y1[jj] = (NLS == 1.) ? 1. : YLf;
-      }
-      correctfrac (y1, NLS);
-      mass2molefrac (x1, y1, MW1, NLS);
-      double MW1mixf = mass2mw (y1, MW1, NLS);
-      set_ghost (point, MW1mix, b, MW1mixf);
+  //    // liquid phase
+  //    double x1[NLS], y1[NLS];
+  //    foreach_elem (YLList, jj) {
+  //      scalar YL = YLList[jj];
+  //      double YLf = 0.5*(YL[] + get_ghost (point, YL, b));
+  //      y1[jj] = (NLS == 1.) ? 1. : YLf;
+  //    }
+  //    correctfrac (y1, NLS);
+  //    mass2molefrac (x1, y1, MW1, NLS);
+  //    double MW1mixf = mass2mw (y1, MW1, NLS);
+  //    set_ghost (point, MW1mix, b, MW1mixf);
 
-      // gas phase
-      double x2[NGS], y2[NGS];
-      foreach_elem (YGList, jj) {
-        scalar YG = YGList[jj];
-        double YGf = 0.5*(YG[] + get_ghost (point, YG, b));
-        y2[jj] = YGf;
-      }
-      correctfrac (y2, NGS);
-      mass2molefrac (x2, y2, MW2, NGS);
-      double MW2mixf = mass2mw (y2, MW2, NGS);
-      set_ghost (point, MW2mix, b, MW2mixf);
-    }
-  }
+  //    // gas phase
+  //    double x2[NGS], y2[NGS];
+  //    foreach_elem (YGList, jj) {
+  //      scalar YG = YGList[jj];
+  //      double YGf = 0.5*(YG[] + get_ghost (point, YG, b));
+  //      y2[jj] = YGf;
+  //    }
+  //    correctfrac (y2, NGS);
+  //    mass2molefrac (x2, y2, MW2, NGS);
+  //    double MW2mixf = mass2mw (y2, MW2, NGS);
+  //    set_ghost (point, MW2mix, b, MW2mixf);
+  //  }
+  //}
 }
 
 void update_divergence (void) {
@@ -583,9 +585,10 @@ void update_divergence (void) {
 
     // Add gas compressibility due to composition
     //DrhoDt2 += ((1. - f[]) > F_ERR) ? -DYDt2sum : 0.;
-    DrhoDt2 += (f[] == 0.) ? -DYDt2sum : 0.;
+    //DrhoDt2 += (f[] == 0.) ? -DYDt2sum : 0.;
+    DrhoDt2 += -DYDt2sum;
 
-    drhodt[] = DrhoDt1*f[] + DrhoDt2*(1. - f[]);
+    drhodt[] = DrhoDt1*f[] + DrhoDt2*(1. - f[])*(f[] < F_ERR);
     drhodtext[] = DrhoDt1;
   }
   boundary ({drhodt, drhodtext});

@@ -135,6 +135,8 @@ scalar T[], TInt[];
 scalar TL, TG;
 scalar sgT[], slT[], sgTimp[], slTimp[];
 face vector lambda1f[], lambda2f[];
+
+mgstats mgTL, mgTG;
 #endif
 
 /**
@@ -447,7 +449,8 @@ event defaults (i = 0)
     sprintf (name, "XL_%s", liq_species[jj]);
     a.name = strdup (name);
     a.nodump = true;
-    a.dirty = false;
+    //a.dirty = false;
+    a.dirty = true;
     XLList = list_append (XLList, a);
   }
   reset (XLList, 0.);
@@ -459,7 +462,8 @@ event defaults (i = 0)
     sprintf (name, "XG_%s", gas_species[jj]);
     a.name = strdup (name);
     a.nodump = true;
-    a.dirty = false;
+    //a.dirty = false;
+    a.dirty = true;
     XGList = list_append (XGList, a);
   }
   reset (XGList, 0.);
@@ -812,9 +816,11 @@ void update_mw_moles (void) {
 
 #ifdef MOLAR_DIFFUSION
   for (scalar s in XLList)
-    s.dirty = false;
+    //s.dirty = false;
+    s.dirty = true;
   for (scalar s in XGList)
-    s.dirty = false;
+    //s.dirty = false;
+    s.dirty = true;
 #endif
 
   foreach() {
@@ -923,42 +929,42 @@ void update_mw_moles (void) {
 #endif
   boundary ({MW1mix,MW2mix});
 
-  for (int b = 0; b < nboundary; b++) {
-    foreach_boundary (b) {
-
-      double x1[NLS], y1[NLS];
-      for (int jj=0; jj<NLS; jj++) {
-        scalar YL = YLList[jj];
-        y1[jj] = 0.5*(YL[] + get_ghost (point, YL, b));
-      }
-      correctfrac (y1, NLS);
-      mass2molefrac (x1, y1, MW1, NLS);
-      double MW1face = mass2mw (y1, MW1, NLS);
-      set_ghost (point, MW1mix, b, MW1face);
-#ifdef MOLAR_DIFFUSION
-      for (int jj=0; jj<NLS; jj++) {
-        scalar XL = XLList[jj];
-        set_ghost (point, XL, b, x1[jj]);
-      }
-#endif
-
-      double x2[NGS], y2[NGS];
-      for (int jj=0; jj<NGS; jj++) {
-        scalar YG = YGList[jj];
-        y2[jj] = 0.5*(YG[] + get_ghost (point, YG, b));
-      }
-      correctfrac (y2, NGS);
-      mass2molefrac (x2, y2, MW2, NGS);
-      double MW2face = mass2mw (y2, MW2, NGS);
-      set_ghost (point, MW2mix, b, MW2face);
-#ifdef MOLAR_DIFFUSION
-      for (int jj=0; jj<NGS; jj++) {
-        scalar XG = XGList[jj];
-        set_ghost (point, XG, b, x2[jj]);
-      }
-#endif
-    }
-  }
+//  for (int b = 0; b < nboundary; b++) {
+//    foreach_boundary (b) {
+//
+//      double x1[NLS], y1[NLS];
+//      for (int jj=0; jj<NLS; jj++) {
+//        scalar YL = YLList[jj];
+//        y1[jj] = 0.5*(YL[] + get_ghost (point, YL, b));
+//      }
+//      correctfrac (y1, NLS);
+//      mass2molefrac (x1, y1, MW1, NLS);
+//      double MW1face = mass2mw (y1, MW1, NLS);
+//      set_ghost (point, MW1mix, b, MW1face);
+//#ifdef MOLAR_DIFFUSION
+//      for (int jj=0; jj<NLS; jj++) {
+//        scalar XL = XLList[jj];
+//        set_ghost (point, XL, b, x1[jj]);
+//      }
+//#endif
+//
+//      double x2[NGS], y2[NGS];
+//      for (int jj=0; jj<NGS; jj++) {
+//        scalar YG = YGList[jj];
+//        y2[jj] = 0.5*(YG[] + get_ghost (point, YG, b));
+//      }
+//      correctfrac (y2, NGS);
+//      mass2molefrac (x2, y2, MW2, NGS);
+//      double MW2face = mass2mw (y2, MW2, NGS);
+//      set_ghost (point, MW2mix, b, MW2face);
+//#ifdef MOLAR_DIFFUSION
+//      for (int jj=0; jj<NGS; jj++) {
+//        scalar XG = XGList[jj];
+//        set_ghost (point, XG, b, x2[jj]);
+//      }
+//#endif
+//    }
+//  }
 }
 
 /**
@@ -1012,7 +1018,7 @@ event phasechange (i++)
   The thermodynamic and transport properties are updated at the
   beginning of the each time-step. */
 
-#ifdef VARPROP
+#if defined (VARPROP) && !defined (NO_UPDATE_PROPERTIES)
   update_properties();
 #endif
 
@@ -1385,17 +1391,17 @@ event phasechange (i++)
         scalar sgimp = sgimpList[jj];
         scalar mEvap = mEvapList[jj];
 
-        //scalar YGInt = YGIntList[jj];
+        scalar YGInt = YGIntList[jj];
 #ifdef AXI
-        //sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        //sgimp[] += 0.;
-        sgexp[] += -mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        sgimp[] += +mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        sgimp[] += 0.;
+        //sgexp[] += -mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //sgimp[] += +mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        //sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])*area/Delta*cm[];
-        //sgimp[] += 0.;
-        sgexp[] += -mEvap[]*area/Delta*cm[];
-        sgimp[] += +mEvapTot[]*area/Delta*cm[];
+        sgexp[] += -(mEvap[] - mEvapTot[]*YGInt[])*area/Delta*cm[];
+        sgimp[] += 0.;
+        //sgexp[] += -mEvap[]*area/Delta*cm[];
+        //sgimp[] += +mEvapTot[]*area/Delta*cm[];
 #endif
       }
 
@@ -1404,17 +1410,17 @@ event phasechange (i++)
         scalar slimp = slimpList[jj];
         scalar mEvap = mEvapList[LSI[jj]];
 
-        //scalar YLInt = YLIntList[jj];
+        scalar YLInt = YLIntList[jj];
 #ifdef AXI
-        //slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        //slimp[] += 0.;
-        slexp[] += +mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
-        slimp[] += -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        slimp[] += 0.;
+        //slexp[] += +mEvap[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
+        //slimp[] += -mEvapTot[]*area*(y + p.y*Delta)/(Delta*y)*cm[];
 #else
-        //slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])*area/Delta*cm[];
-        //slimp[] += 0.;
-        slexp[] += +mEvap[]*area/Delta*cm[];
-        slimp[] += -mEvapTot[]*area/Delta*cm[];
+        slexp[] += +(mEvap[] - mEvapTot[]*YLInt[])*area/Delta*cm[];
+        slimp[] += 0.;
+        //slexp[] += +mEvap[]*area/Delta*cm[];
+        //slimp[] += -mEvapTot[]*area/Delta*cm[];
 #endif
       }
 
@@ -1530,7 +1536,7 @@ event phasechange (i++)
   The divergence of the velocity field is computed after the calculation
   of source terms for species and temperature. */
 
-#ifdef VARPROP
+#if defined (VARPROP) && !defined (NO_DIVERGENCE)
   update_divergence();
 #endif
 
@@ -1834,9 +1840,14 @@ event tracer_diffusion (i++)
 
   double CACHE_TOLERANCE = TOLERANCE;
   TOLERANCE = TEMPERATURE_TOLERANCE;
-  diffusion (TL, dt, D=lambda1f, r=slT, theta=theta1);
-  diffusion (TG, dt, D=lambda2f, r=sgT, theta=theta2);
+  mgTL = diffusion (TL, dt, D=lambda1f, r=slT, theta=theta1);
+  mgTG = diffusion (TG, dt, D=lambda2f, r=sgT, theta=theta2);
   TOLERANCE = CACHE_TOLERANCE;
+
+# if PRINT_ITERS
+  fprintf (stderr, "TL: iter = %d - resa = %g - nrelax = %d\n", mgTL.i, mgTL.resa, mgTL.nrelax);
+  fprintf (stderr, "TG: iter = %d - resa = %g - nrelax = %d\n", mgTG.i, mgTG.resa, mgTG.nrelax);
+# endif
 
 #endif
 
