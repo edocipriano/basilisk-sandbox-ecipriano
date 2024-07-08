@@ -31,7 +31,7 @@ different simulations in parallel. */
 #endif
 
 #ifndef PRESSURE
-# define PRESSURE 10.
+# define PRESSURE 1.
 #endif
 
 #ifndef DIAMETER
@@ -59,7 +59,7 @@ different simulations in parallel. */
 #endif
 
 #ifndef RADIATION_INTERFACE
-# define RADIATION_INTERFACE 0.98
+# define RADIATION_INTERFACE 0.93
 #endif
 
 /**
@@ -139,6 +139,7 @@ phase temperature value. */
 #define MOLAR_DIFFUSION
 #define MASS_DIFFUSION_ENTHALPY
 #define NO_ADVECTION_DIV 1
+#define FILTERED
 
 /**
 ## Simulation Setup
@@ -296,7 +297,7 @@ event init (i = 0) {
   divq_rad = opensmoke_optically_thin;
 #endif
 
-#ifdef USE_SPARK
+#if USE_SPARK
   spark.T = qspark;
   spark.position = (coord){0.75*D0, 0.75*D0};
   spark.diameter = 0.2*D0;
@@ -409,13 +410,6 @@ event adapt (i++) {
       (double[]){1.e-2,1.e-1,1.e-1,1.e-1}, maxlevel, minlevel, 1);
 }
 #endif
-
-event shrinking (i++) {
-  if (t < SPARK_START)
-    is_shrinking = false;
-  else
-    is_shrinking = true;
-}
 
 /**
 ## Post-Processing

@@ -301,7 +301,8 @@ void shift_field (scalar fts, scalar f, int dir) {
   scalar sf0[];
   foreach() {
     sf0[] = fts[];
-    fts[] = 0.;
+    if (f[] > F_ERR && f[] < 1. - F_ERR)
+      fts[] = 0.;
   }
 
   // Compute m
@@ -314,10 +315,7 @@ void shift_field (scalar fts, scalar f, int dir) {
             val += sf0[]/avg[];
           }
         }
-        fts[] = val;
-      }
-      else {
-        fts[] = 0.;
+        fts[] += val;
       }
     }
     else {
@@ -328,10 +326,7 @@ void shift_field (scalar fts, scalar f, int dir) {
             val += sf0[]/avg[];
           }
         }
-        fts[] = val;
-      }
-      else {
-        fts[] = 0.;
+        fts[] += val;
       }
     }
   }

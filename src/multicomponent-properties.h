@@ -542,6 +542,8 @@ void update_divergence (void) {
     }
   }
 
+  scalar DrhoDt1[], DrhoDt2[];
+
   foreach() {
 
     double DYDt2sum = dYdt[];
@@ -573,23 +575,31 @@ void update_divergence (void) {
     DTDt1[] += (laplT1 + slT[]);
     DTDt2[] += (laplT2 + sgT[]);
 
-    double DrhoDt1 = 0.;
-    double DrhoDt2 = 0.;
+    //double DrhoDt1 = 0.;
+    //double DrhoDt2 = 0.;
+    DrhoDt1[] = 0.;
+    DrhoDt2[] = 0.;
 
     // Add liquid compressibility due to temperature
-    DrhoDt1 += (rho1v[]*cp1v[] > 0.) ?
+    DrhoDt1[] += (rho1v[]*cp1v[] > 0.) ?
       -betaexp1[]/(rho1v[]*cp1v[])*DTDt1[] : 0.;
 
-    DrhoDt2 += (TG[]*rho2v[]*cp2v[] > 0.) ?
+    DrhoDt2[] += (TG[]*rho2v[]*cp2v[] > 0.) ?
       -1./(TG[]*rho2v[]*cp2v[])*DTDt2[] : 0.;
 
     // Add gas compressibility due to composition
     //DrhoDt2 += ((1. - f[]) > F_ERR) ? -DYDt2sum : 0.;
-    //DrhoDt2 += (f[] == 0.) ? -DYDt2sum : 0.;
-    DrhoDt2 += -DYDt2sum;
+    DrhoDt2[] += (f[] == 0.) ? -DYDt2sum : 0.;
 
-    drhodt[] = DrhoDt1*f[] + DrhoDt2*(1. - f[])*(f[] < F_ERR);
-    drhodtext[] = DrhoDt1;
+    //drhodt[] = DrhoDt1*f[] + DrhoDt2*(1. - f[])*(f[] < F_ERR);
+    //drhodtext[] = DrhoDt1;
+  }
+  //shift_field (DrhoDt1, f, 1);
+  //shift_field (DrhoDt2, f, 0);
+
+  foreach() {
+    drhodt[] = DrhoDt1[]*f[] + DrhoDt2[]*(1. - f[]);
+    drhodtext[] = DrhoDt1[];
   }
   boundary ({drhodt, drhodtext});
 }

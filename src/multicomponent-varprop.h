@@ -814,14 +814,12 @@ void update_mw_moles (void) {
   foreach_elem (YGList, jj)
     MW2[jj] = inMW[jj];
 
-#ifdef MOLAR_DIFFUSION
-  for (scalar s in XLList)
-    //s.dirty = false;
-    s.dirty = true;
-  for (scalar s in XGList)
-    //s.dirty = false;
-    s.dirty = true;
-#endif
+//#ifdef MOLAR_DIFFUSION
+//  for (scalar s in XLList)
+//    s.dirty = false;
+//  for (scalar s in XGList)
+//    s.dirty = false;
+//#endif
 
   foreach() {
     double x1[NLS], y1[NLS];

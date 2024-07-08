@@ -59,7 +59,7 @@ different simulations in parallel. */
 #endif
 
 #ifndef RADIATION_INTERFACE
-# define RADIATION_INTERFACE 0.98
+# define RADIATION_INTERFACE 0.93
 #endif
 
 #ifndef GRAVITY
@@ -147,6 +147,7 @@ phase temperature value. */
 #define MOLAR_DIFFUSION
 #define MASS_DIFFUSION_ENTHALPY
 #define NO_ADVECTION_DIV 1
+#define FILTERED
 
 /**
 ## Simulation Setup
@@ -295,24 +296,25 @@ int main (void) {
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
-  double RR = 7.986462e+01;
+  //double RR = 7.986462e+01;
+  double RR = 160.;
   L0 = 0.5*RR*D0;
 
   G.x = GRAVITY;
   double df = FIBER*D0;
-  X0 = -0.5*L0, Y0 = 0.5*df;
+  X0 = -0.15*L0, Y0 = 0.5*df;
 
   /**
   We change the surface tension coefficient. */
 
-  f.sigma = 0.03;
+  f.sigma = 0.01;
   f.tracers = {tr};
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 10; maxlevel <= 10; maxlevel++) {
+  for (maxlevel = 11; maxlevel <= 11; maxlevel++) {
 
     pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
     pinning.ac = pinning.ap - 2.*L0/(1 << maxlevel);
@@ -370,7 +372,9 @@ event init (i = 0) {
 
 #if USE_SPARK
   spark.T = qspark;
-  spark.position = (coord){0., 0.8*D0};
+  //spark.position = (coord){0., 0.8*D0};
+  //spark.position = (coord){0., 1.*D0};
+  spark.position = (coord){0., 1.2*D0};
   spark.diameter = 0.2*D0;
   spark.time = SPARK_START;
   spark.duration = SPARK_TIME;
@@ -417,6 +421,9 @@ event defaults (i = 0) {
 
   /**
   Reset initial composition according to the new species. */
+
+  for (int jj=0; jj<NGS; jj++)
+    gas_start[jj] = 0.;
 
   gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))] = MASSFRAC_OXIDIZER;
   gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))] = MASSFRAC_INERT;
@@ -548,13 +555,6 @@ event grashof (i++) {
 #endif
 }
 
-event shrinking (i++) {
-  if (t < SPARK_START)
-    is_shrinking = false;
-  else
-    is_shrinking = true;
-}
-
 /**
 ### Output Files
 
@@ -673,7 +673,7 @@ We stop the simulation when the droplet is almost fully consumed. */
 event stop (i++) {
   if (d_over_d02 <= 0.05)
     return 1;
-#if COMBUSTION
+#if USE_SPARK
   if (t >= (SPARK_START + SPARK_TIME) && statsf(T).max < 1200.) {
     fprintf (ferr, "WARNING: Combustion did not start.\n");
     fflush (ferr);
