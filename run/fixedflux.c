@@ -109,7 +109,7 @@ int main(void) {
   We set the density and viscosity values. */
 
   rho1 = 2., rho2 = 1.;
-  mu1 = 1.e-3, mu2 = 1.e-4;
+  mu1 = 1., mu2 = 0.1;
 
   /**
   The surface tension is set to zero in order to assess
@@ -225,7 +225,7 @@ event movie (t += 0.1; t <= 4) {
     clear();
     view (tx = -0.5, ty = -0.5);
     draw_vof ("f", lw = 1.5);
-    vectors ("u", scale = 3.e-2);
+    vectors ("u", scale = 7.e-2);
     box();
     save ("movie.mp4");
   }

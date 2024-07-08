@@ -28,10 +28,8 @@ Defining the variable *WELCH* you can use the setup
 described in the [paper](#welch2000volume).
 */
 
-#define NOSHIFTING
-#define BYRHOGAS
+#define BOILING_SETUP
 #define SOLVE_GASONLY
-#define CONSISTENTPHASE2
 
 /**
 ## Simulation setup
@@ -43,8 +41,12 @@ The temperature-gradient phase change model is employed,
 since just the temperature field has to be solved.
 */
 
-#include "navier-stokes/centered-evaporation.h"
-#include "navier-stokes/velocity-potential.h"
+#if POTENTIAL
+# include "navier-stokes/centered-evaporation.h"
+# include "navier-stokes/velocity-potential.h"
+#else
+# include "navier-stokes/velocity-jump.h"
+#endif
 #include "two-phase.h"
 #include "tension.h"
 #include "reduced.h"
@@ -82,6 +84,7 @@ boundary conditions are set in order to be coherent with
 the pressure boundary conditions.
 */
 
+#if POTENTIAL
 u.n[bottom] = dirichlet (0.);
 u.t[bottom] = dirichlet (0.);
 p[bottom] = neumann (0.);
@@ -91,6 +94,23 @@ u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
 ps[top] = dirichlet (0.);
+#else
+u1.n[bottom] = dirichlet (0.);
+u1.t[bottom] = dirichlet (0.);
+u2.n[bottom] = dirichlet (0.);
+u2.t[bottom] = dirichlet (0.);
+p[bottom] = neumann (0.);
+ps[bottom] = neumann (0.);
+pg[bottom] = neumann (0.);
+
+u1.n[top] = neumann (0.);
+u1.t[top] = neumann (0.);
+u2.n[top] = neumann (0.);
+u2.t[top] = neumann (0.);
+p[top] = dirichlet (0.);
+ps[top] = dirichlet (0.);
+pg[top] = dirichlet (0.);
+#endif
 
 f[bottom] = dirichlet (0.);
 TG[bottom] = dirichlet (Twall);
@@ -118,7 +138,7 @@ int main (void) {
   /**
   We set the initial and wall temperatures. */
 
-  Tsat = 500., Twall = 510.;
+  Tsat = 500., Twall = 506.;
   TL0 = Tsat, TG0 = Tsat, TIntVal = Tsat;
 
   /**
@@ -220,7 +240,7 @@ event remove_droplets (i++) {
 We output a movie with the evolution of the temperature
 field and the volume fraction facets. */
 
-event movie (t += 0.01; t <= 5) {
+event movie (t += 0.01; t <= 6) {
   clear();
   view (ty = -0.5);
   draw_vof ("f", lw = 1.5);
