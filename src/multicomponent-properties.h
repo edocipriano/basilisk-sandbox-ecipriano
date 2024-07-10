@@ -191,6 +191,11 @@ event reset_sources (i++)
 
 void update_properties (void)
 {
+  foreach() {
+    rho1v0[] = rho1v[];
+    rho2v0[] = rho2v[];
+  }
+
   double MW1[NLS], MW2[NGS];
   foreach_elem (YLList, jj)
     MW1[jj] = inMW[LSI[jj]];
@@ -386,7 +391,6 @@ void update_properties (void)
           }
         }
       }
-      rho1v0[] = rho1v[];
       rho1v[] = (counter != 0) ? rho1vgh/counter : 0.;
       mu1v[] = (counter != 0) ? mu1vgh/counter : 0.;
       cp1v[] = (counter != 0) ? cp1vgh/counter : 0.;
@@ -423,7 +427,6 @@ void update_properties (void)
           }
         }
       }
-      rho2v0[] = rho2v[];
       rho2v[] = (counter != 0) ? rho2vgh/counter : 0.;
       mu2v[] = (counter != 0) ? mu2vgh/counter : 0.;
       cp2v[] = (counter != 0) ? cp2vgh/counter : 0.;
@@ -602,6 +605,38 @@ void update_divergence (void) {
     drhodtext[] = DrhoDt1[];
   }
   boundary ({drhodt, drhodtext});
+}
+
+void update_divergence_density (void) {
+  vector grho1[], grho2[];
+  gradients ({rho1v, rho2v}, {grho1, grho2});
+
+  scalar DrhoDt1[], DrhoDt2[];
+  foreach() {
+    DrhoDt1[] = (rho1v[] - rho1v0[])/dt;
+    DrhoDt2[] = (rho2v[] - rho2v0[])/dt;
+
+    foreach_dimension() {
+#ifdef VELOCITY_JUMP
+      DrhoDt1[] += u1.x[]*grho1.x[];
+      DrhoDt2[] += u2.x[]*grho2.x[];
+#else
+      DrhoDt1[] += uext.x[]*grho1.x[];
+      DrhoDt2[] += u.x[]*grho2.x[];
+#endif
+    }
+
+    DrhoDt1[] = DrhoDt1[]*cm[];
+    DrhoDt2[] = DrhoDt2[]*cm[];
+
+    double one_over_rho1 = (rho1v[] > 0.) ? 1./rho1v[] : 0.;
+    double one_over_rho2 = (rho2v[] > 0.) ? 1./rho2v[] : 0.;
+
+    if (iter > 1) {
+      drhodt[] = (one_over_rho1*DrhoDt1[]*f[] + one_over_rho2*DrhoDt2[]*(1. - f[]));
+      drhodtext[] = one_over_rho1*DrhoDt1[]*f[];
+    }
+  }
 }
 
 #endif
