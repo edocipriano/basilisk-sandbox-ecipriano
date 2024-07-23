@@ -1535,8 +1535,8 @@ event phasechange (i++)
   of source terms for species and temperature. */
 
 #if defined (VARPROP) && !defined (NO_DIVERGENCE)
-  //update_divergence();
-  update_divergence_density();
+  update_divergence();
+  //update_divergence_density();
 #endif
 
   /**
