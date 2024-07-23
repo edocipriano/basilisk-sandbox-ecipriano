@@ -88,7 +88,7 @@ physical properties as a function of the thermodynamic state of the mixture. */
 #endif
 
 #ifndef SPARK_START
-# define SPARK_START 0.008
+# define SPARK_START 0.
 #endif
 
 #ifndef SPARK_TIME
