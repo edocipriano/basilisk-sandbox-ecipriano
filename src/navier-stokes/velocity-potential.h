@@ -48,7 +48,7 @@ of the stefan velocity onto a field with divergence
 equal to the volume expansion term. */
 
 trace
-mgstats project_sv (face vector ufs, scalar p,
+mgstats project_sv (face vector ufs, scalar ps,
      (const) face vector alpha = unityf,
      double dt = 1.,
      int nrelax = 4)
