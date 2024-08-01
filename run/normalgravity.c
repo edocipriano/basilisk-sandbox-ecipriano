@@ -486,7 +486,8 @@ velocity field. */
 event adapt (i++) {
   scalar fuel = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
   adapt_wavelet_leave_interface ({fuel,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+      (double[]){1.e-1,1.e0,1.e-2,1.e-2}, maxlevel, minlevel, 1);
+  unrefine (x >= (0.5*L0 + X0));
 }
 #endif
 
