@@ -26,8 +26,12 @@ different simulations in parallel. */
 # define TEMPERATURE 773.
 #endif
 
+#ifndef TEMPERATURE_DROPLET
+# define TEMPERATURE_DROPLET 300.
+#endif
+
 #ifndef PRESSURE
-# define PRESSURE 10.
+# define PRESSURE 1.
 #endif
 
 #ifndef DIAMETER
@@ -39,7 +43,7 @@ different simulations in parallel. */
 #endif
 
 #ifndef FUEL2
-# define FUEL2 NC16H34
+# define FUEL2 NC10H22
 #endif
 
 #ifndef FUEL1_INIT
@@ -54,13 +58,22 @@ different simulations in parallel. */
 # define INERT N2
 #endif
 
+#ifndef OXIDIZER
+# define OXIDIZER O2
+#endif
+
 #ifndef KINFOLDER
-# define KINFOLDER evaporation/n-heptane-hexadecane-in-nitrogen
+# define KINFOLDER evaporation/n-heptane-decane-in-nitrogen
+#endif
+
+#ifndef LIQFOLDER
+# define LIQFOLDER LiquidProperties
 #endif
 
 #ifndef RADIATION_INTERFACE
-# define RADIATION_INTERFACE 0.
+# define RADIATION_INTERFACE 0.93
 #endif
+
 
 #ifndef GRAVITY
 # define GRAVITY -9.81
@@ -79,11 +92,29 @@ change model. The properties are set to null values because they are
 overwritten by the variable properties formulation, which computes all the
 physical properties as a function of the thermodynamic state of the mixture. */
 
-#define NGS 3
-#define NLS 2
+#ifndef NGS
+# define NGS 3
+#endif
 
+#ifndef NLS
+# define NLS 2
+#endif
+
+#ifndef MASSFRAC_INERT
+# define MASSFRAC_INERT 1.
+#endif
+
+#ifndef MASSFRAC_OXIDIZER
+# define MASSFRAC_OXIDIZER 0.
+#endif
+
+#if COMBUSTION
+char* gas_species[NGS];
+char* liq_species[NLS];
+#else
 char* gas_species[NGS] = {TOSTRING(FUEL1), TOSTRING(FUEL2), TOSTRING(INERT)};
 char* liq_species[NLS] = {TOSTRING(FUEL1), TOSTRING(FUEL2)};
+#endif
 char* inert_species[1] = {TOSTRING(INERT)};
 double gas_start[NGS] = {0., 0, 1.};
 double liq_start[NLS] = {FUEL1_INIT, FUEL2_INIT};
@@ -100,7 +131,7 @@ double cp2 = 0.;
 /**
 We set the initial temperature of the liquid and of the gas phase. */
 
-double TL0 = 300.;
+double TL0 = TEMPERATURE_DROPLET;
 double TG0 = TEMPERATURE;
 
 /**
@@ -110,13 +141,15 @@ temperature is not computed from the jump conditon, it is just set to the gas
 phase temperature value. */
 
 #define SOLVE_TEMPERATURE
-#define VARPROP
 #define USE_GSL 0
 #define FSOLVE_ABSTOL 1.e-3
 #define USE_ANTOINE_OPENSMOKE
 #define FICK_CORRECTED
 #define MOLAR_DIFFUSION
 #define MASS_DIFFUSION_ENTHALPY
+#define NO_ADVECTION_DIV 1
+#define FILTERED
+#define CONDENSATION 1
 
 /**
 ## Simulation Setup
@@ -140,11 +173,19 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 #endif
 #include "opensmoke-properties.h"
 #include "pinning.h"
-#include "two-phase-varprop.h"
+#include "two-phase.h"
 #include "tension.h"
 #include "gravity.h"
-#include "evaporation-varprop.h"
-#include "multicomponent.h"
+#include "recoil.h"
+#include "evaporation.h"
+#include "multicomponent-varprop.h"
+#if USE_SPARK
+# include "spark.h"
+#endif
+#if COMBUSTION
+# include "chemistry.h"
+# include "flame.h"
+#endif
 #include "view.h"
 
 /**
@@ -235,7 +276,6 @@ double D0 = DIAMETER, effective_radius0;
 double effective_radius = 0.5*DIAMETER, d_over_d02 = 1., tad = 0.;
 double volumecorr = 0., trmin = 0., trmax = 0.;
 
-vector ur[];
 scalar tr[];
 
 int main (void) {
@@ -245,36 +285,38 @@ int main (void) {
   calculation of the thermodynamic and transport properties. */
 
   kinfolder = TOSTRING(KINFOLDER);
+  liqfolder = TOSTRING(LIQFOLDER);
 
   /**
   We set additional data for the simulation. */
 
-  rho1 = 0.; rho2 = 0.;
-  mu1 = 0.; mu2 = 0.;
+  rho1 = 1.; rho2 = 1.;
+  mu1 = 1.; mu2 = 1.;   // can't use 0 or [two-phase.h] won't create muf
   Pref = PRESSURE*101325.;
 
   /**
   We change the dimension of the domain as a function
   of the initial diameter of the droplet. */
 
-  double RR = 7.986462e+01;
+  //double RR = 7.986462e+01;
+  double RR = 160.;
   L0 = 0.5*RR*D0;
 
   G.x = GRAVITY;
   double df = FIBER*D0;
-  X0 = -0.5*L0, Y0 = 0.5*df;
+  X0 = -0.15*L0, Y0 = 0.5*df;
 
   /**
   We change the surface tension coefficient. */
 
-  f.sigma = 0.03;
+  f.sigma = 0.01;
   f.tracers = {tr};
 
   /**
   We run the simulation at different maximum
   levels of refinement. */
 
-  for (maxlevel = 10; maxlevel <= 10; maxlevel++) {
+  for (maxlevel = 11; maxlevel <= 11; maxlevel++) {
 
     pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
     pinning.ac = pinning.ap - 2.*L0/(1 << maxlevel);
@@ -292,7 +334,7 @@ initial radius of the droplet. We don't use the value D0
 because for small errors of initialization the squared
 diameter decay would not start from 1. */
 
-double mLiq0 = 0.;
+scalar qspark[];
 
 event init (i = 0) {
   refine (circle (x, y, 4.*D0) > 0. && level < maxlevel);
@@ -301,7 +343,8 @@ event init (i = 0) {
   /**
   We compute initial variables useful for post-processing. */
 
-  volumecorr = 2.*pi*statsf(f).sum - (4./3.*pi*pow (0.5*D0, 3.));
+  //volumecorr = 2.*pi*statsf(f).sum - (4./3.*pi*pow (0.5*D0, 3.));
+  volumecorr = 0.;
   effective_radius0 = pow(3./4./pi*(2.*pi*statsf(f).sum - volumecorr), 1./3.);
   effective_radius = effective_radius0;
 
@@ -324,33 +367,115 @@ event init (i = 0) {
 
   trmin = statsf(tr).min;
   trmax = statsf(tr).max;
+
+#ifdef RADIATION
+  divq_rad = opensmoke_optically_thin;
+#endif
+
+#if USE_SPARK
+  spark.T = qspark;
+  //spark.position = (coord){0., 0.8*D0};
+  //spark.position = (coord){0., 1.*D0};
+  spark.position = (coord){0., 1.2*D0};
+  spark.diameter = 0.2*D0;
+  spark.time = SPARK_START;
+  spark.duration = SPARK_TIME;
+  spark.temperature = SPARK_VALUE;
+#endif
 }
+
+#if COMBUSTION
+event defaults (i = 0) {
+
+  /**
+  Initialize OpenSMOKE pointers. */
+
+  char kinfolder_root[120];
+  sprintf (kinfolder_root, "%s/kinetics/%s/kinetics",
+      getenv ("OPENSMOKE_INTERFACE"), kinfolder);
+
+  char liqfolder_root[120];
+  sprintf (liqfolder_root, "%s/kinetics/LiquidProperties/%s",
+      getenv ("OPENSMOKE_INTERFACE"), liqfolder);
+
+  OpenSMOKE_Init();
+  OpenSMOKE_ReadKinetics (kinfolder_root);
+  OpenSMOKE_ReadLiquidKinetics (kinfolder_root);
+  OpenSMOKE_ReadLiquidProperties (liqfolder_root);
+
+  /**
+  Reset species name using OpenSMOKE data. */
+
+  for (int jj=0; jj<NGS; jj++) {
+    gas_species[jj] = strdup (OpenSMOKE_NamesOfSpecies (jj));
+    fprintf (stdout, "gas_species[%d] = %s\n", jj, gas_species[jj]);
+  }
+
+  for (int jj=0; jj<NLS; jj++) {
+    const char * species = OpenSMOKE_NamesOfLiquidSpecies (jj);
+    int len = strlen (species);
+    char corrname[len+1];
+    strcpy (corrname, species);
+    corrname[3 <= len ? len-3 : 0] = '\0';
+    liq_species[jj] = strdup (corrname);
+    fprintf (stdout, "liq_species[%d] = %s\n", jj, liq_species[jj]);
+  }
+
+  /**
+  Reset initial composition according to the new species. */
+
+  for (int jj=0; jj<NGS; jj++)
+    gas_start[jj] = 0.;
+
+  gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))] = MASSFRAC_OXIDIZER;
+  gas_start[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))] = MASSFRAC_INERT;
+
+  /**
+  Clean OpenSMOKE pointers to avoid conflicts with successive
+  events. */
+
+  OpenSMOKE_Clean();
+}
+
+event cleanup (t = end) {
+  for (int jj=0; jj<NGS; jj++) {
+    free (gas_species[jj]);
+    gas_species[jj] = NULL;
+  }
+
+  for (int jj=0; jj<NLS; jj++) {
+    free (liq_species[jj]);
+    liq_species[jj] = NULL;
+  }
+}
+#endif
+
 
 /**
 We use the same boundary conditions used by
 [Pathak at al., 2018](#pathak2018steady). */
 
-event bcs (i = 0) {
-  scalar fuel1 = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL1))];
-  scalar fuel2 = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL2))];
-  scalar inert = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))];
-
-  fuel1[top] = dirichlet (0.);
-  fuel1[left] = dirichlet (0.);
-  fuel1[right] = dirichlet (0.);
-
-  fuel2[top] = dirichlet (0.);
-  fuel2[left] = dirichlet (0.);
-  fuel2[right] = dirichlet (0.);
-
-  inert[top] = dirichlet (1.);
-  inert[left] = dirichlet (1.);
-  inert[right] = dirichlet (1.);
-
-  TG[top] = dirichlet (TG0);
-  TG[left] = dirichlet (TG0);
-  TG[right] = dirichlet (TG0);
-}
+//event bcs (i = 0) {
+//  scalar fuel1 = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL1))];
+//  scalar fuel2 = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL2))];
+//  scalar inert = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))];
+//
+//  fuel1[top] = dirichlet (0.);
+//  fuel1[left] = dirichlet (0.);
+//  fuel1[right] = dirichlet (0.);
+//
+//  fuel2[top] = dirichlet (0.);
+//  fuel2[left] = dirichlet (0.);
+//  fuel2[right] = dirichlet (0.);
+//
+//  inert[top] = dirichlet (1.);
+//  inert[left] = dirichlet (1.);
+//  inert[right] = dirichlet (1.);
+//
+//  TG[top] = dirichlet (TG0);
+//  TG[left] = dirichlet (TG0);
+//  TG[right] = dirichlet (TG0);
+//}
 
 /**
 We adapt the grid according to the mass fractions of the
@@ -362,7 +487,8 @@ event adapt (i++) {
   scalar fuel1 = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL1))];
   scalar fuel2 = YList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL2))];
   adapt_wavelet_leave_interface ({fuel1,fuel2,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.e-1,1.e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+      (double[]){1.e-1,1.e-1,1.e0,1.e-2,1.e-2}, maxlevel, minlevel, 1);
+  unrefine (x >= (0.5*L0 + X0));
 }
 #endif
 
@@ -386,47 +512,48 @@ struct Grashof {
 struct Grashof Gr;
 
 event grashof (i++) {
-  if (i == 0) {
-    ThermoState tsg;
-    tsg.T = TG0;
-    tsg.P = Pref;
-    tsg.x = gas_start;
+  //if (i == 0) {
+  //  ThermoState tsg;
+  //  tsg.T = TG0;
+  //  tsg.P = Pref;
+  //  tsg.x = gas_start;
 
-    Gr.rhob = tp2.rhov (&tsg);
-    Gr.nu = tp2.muv (&tsg)/tp2.rhov (&tsg);
-    effective_radius = effective_radius0;
-  }
-  Gr.r = effective_radius;
-  Gr.g = fabs (GRAVITY);
+  //  Gr.rhob = tp2.rhov (&tsg);
+  //  Gr.nu = tp2.muv (&tsg)/tp2.rhov (&tsg);
+  //  effective_radius = effective_radius0;
+  //}
+  //Gr.r = effective_radius;
+  //Gr.g = fabs (GRAVITY);
 
-  scalar YGIntFuel1 = YGIntList[0];
-  scalar YGIntFuel2 = YGIntList[1];
-  scalar YGIntInert = YGIntList[2];
+  //scalar YGIntFuel1 = YGIntList[0];
+  //scalar YGIntFuel2 = YGIntList[1];
+  //scalar YGIntInert = YGIntList[2];
 
-  double TIntAvg = avg_interface (TInt, f, tol=0.1);
-  double YIntAvgFuel1 = avg_interface (YGIntFuel1, f, tol=0.1);
-  double YIntAvgFuel2 = avg_interface (YGIntFuel2, f, tol=0.1);
-  double YIntAvgInert = avg_interface (YGIntInert, f, tol=0.1);
+  //double TIntAvg = avg_interface (TInt, f, tol=0.1);
+  //double YIntAvgFuel1 = avg_interface (YGIntFuel1, f, tol=0.1);
+  //double YIntAvgFuel2 = avg_interface (YGIntFuel2, f, tol=0.1);
+  //double YIntAvgInert = avg_interface (YGIntInert, f, tol=0.1);
 
-  double YIntAvg[] = {YIntAvgFuel1, YIntAvgFuel2, YIntAvgInert};
-  double XIntAvg[NGS];
+  //double YIntAvg[] = {YIntAvgFuel1, YIntAvgFuel2, YIntAvgInert};
+  //double XIntAvg[NGS];
 
-  correctfrac (YIntAvg, NGS);
-  mass2molefrac (XIntAvg, YIntAvg, inMW, NGS);
+  //correctfrac (YIntAvg, NGS);
+  //mass2molefrac (XIntAvg, YIntAvg, inMW, NGS);
 
-  ThermoState tsg;
-  tsg.P = Pref;
-  if (i == 0) {
-    tsg.T = TL0;
-    tsg.x = gas_start;
-  }
-  else {
-    tsg.T = TIntAvg;
-    tsg.x = XIntAvg;
-  }
-  Gr.rhos = tp2.rhov (&tsg);
+  //ThermoState tsg;
+  //tsg.P = Pref;
+  //if (i == 0) {
+  //  tsg.T = TL0;
+  //  tsg.x = gas_start;
+  //}
+  //else {
+  //  tsg.T = TIntAvg;
+  //  tsg.x = XIntAvg;
+  //}
+  //Gr.rhos = tp2.rhov (&tsg);
 
-  Gr.value = (Gr.rhos - Gr.rhob)*pow (Gr.r, 3.)*Gr.g/(Gr.rhob*sq(Gr.nu));
+  //Gr.value = (Gr.rhos - Gr.rhob)*pow (Gr.r, 3.)*Gr.g/(Gr.rhob*sq(Gr.nu));
+  Gr.value = 0.;
 }
 
 /**
@@ -435,7 +562,7 @@ event grashof (i++) {
 We write on a file the squared diameter decay and the
 dimensionless time. */
 
-event output_data (i++) {
+event output_data (i += 50) {
   char name[80];
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
@@ -483,30 +610,11 @@ event output_data (i++) {
 }
 
 /**
-We reconstruct a one-field discontinuous velocity field for
-visualization. */
-
-event end_timestep (i++) {
-  foreach()
-    foreach_dimension()
-      ur.x[] = f[]*uext.x[] + (1. - f[])*u.x[];
-}
-
-/**
 ### Movie
 
 We write the animation with the evolution of the
 n-heptane mass fraction, the interface position
 and the temperature field. */
-
-event pictures (t = {0.1, 1., 2.}) {
-  char name[80];
-  sprintf (name, "picturefields-%.1f", t);
-
-  FILE * fp = fopen (name, "w");
-  output_field ({f,T,u.x,u.y}, fp, linear = true);
-  fclose (fp);
-}
 
 #if MOVIE
 event movie (t += 0.01) {
@@ -521,7 +629,7 @@ event movie (t += 0.01) {
   box();
   view (tx = 0.025, fov = 3.5, samples = 2);
   draw_vof ("f", lw = 1.5);
-  squares (TOSTRING(FUEL1), min = 0., max = 0.5, linear = true);
+  squares (TOSTRING(FUEL1), min = 0., max = FUEL1_INIT, linear = true);
   save ("fuel1.mp4");
 
   clear();
@@ -539,10 +647,12 @@ event movie (t += 0.01) {
 Output dump files for restore or post-processing. */
 
 #if DUMP
-event snapshots (t += 0.1) {
-  char name[80];
-  sprintf (name, "snapshots-%g", t);
-  dump (name);
+event snapshots (t += 0.005) {
+    if (i > 1) {
+    char name[80];
+    sprintf (name, "snapshots-%g", t);
+    dump (name);
+  }
 }
 #endif
 
@@ -554,97 +664,14 @@ We stop the simulation when the droplet is almost fully consumed. */
 event stop (i++) {
   if (d_over_d02 <= 0.05)
     return 1;
+#if defined (COMBUSTION) && !defined (CONDENSATION)
+  if (t >= (SPARK_START + SPARK_TIME) && statsf(T).max < 1200.) {
+    fprintf (ferr, "WARNING: Combustion did not start.\n");
+    fflush (ferr);
+    return 1;
+  }
+#endif
 }
 
 event end (t = 50.);
-
-/**
-## Results
-
-~~~gnuplot Effect of Temperature on the Square Diameter Decay at P = 0.1 MPa
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T471K-P1atm/OutputData-10" u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T555K-P1atm/OutputData-10" u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T648K-P1atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T741K-P1atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-471K.csv" w p lc 1 t "471 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-555K.csv" w p lc 2 t "555 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-648K.csv" w p lc 3 t "648 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-741K.csv" w p lc 4 t "741 K"
-~~~
-
-~~~gnuplot Effect of Temperature on the Square Diameter Decay at P = 0.5 MPa
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T468K-P5atm/OutputData-10" u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T556K-P5atm/OutputData-10" u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T655K-P5atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T749K-P5atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-468K.csv" w p lc 1 t "468 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-556K.csv" w p lc 2 t "556 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-655K.csv" w p lc 3 t "655 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-749K.csv" w p lc 4 t "749 K"
-~~~
-
-~~~gnuplot Effect of Temperature on the Square Diameter Decay at P = 1.0 MPa
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T466K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T508K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T669K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T765K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-466K.csv" w p lc 1 t "466 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-508K.csv" w p lc 2 t "508 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-669K.csv" w p lc 3 t "669 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-765K.csv" w p lc 4 t "765 K"
-~~~
-
-~~~gnuplot Effect of Temperature on the Square Diameter Decay at P = 2.0 MPa
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T452K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T511K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T656K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T746K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-452K.csv" w p lc 1 t "452 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-511K.csv" w p lc 2 t "511 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-656K.csv" w p lc 3 t "656 K", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-746K.csv" w p lc 4 t "746 K"
-~~~
-
-~~~gnuplot Effect of Pressure on the Square Diameter Decay at T = 650 K
-reset
-set grid
-set key top right
-set xlabel "t/D_0^2 [s/mm^2]"
-set ylabel "(D/D_0)^2 [-]"
-
-plot "../microgravity-T648K-P1atm/OutputData-10"  u 2:4 w l lw 2 lc 1 t "", \
-     "../microgravity-T655K-P5atm/OutputData-10"  u 2:4 w l lw 2 lc 2 t "", \
-     "../microgravity-T661K-P10atm/OutputData-10" u 2:4 w l lw 2 lc 3 t "", \
-     "../microgravity-T656K-P20atm/OutputData-10" u 2:4 w l lw 2 lc 4 t "", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-1atm-648K.csv"  w p lc 1 t "0.1 MPa", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-5atm-655K.csv"  w p lc 2 t "0.5 MPa", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-10atm-661K.csv" w p lc 3 t "1.0 MPa", \
-     "/home/chimica2/ecipriano/ExperimentalData/Nomura/nomura-heptane-20atm-656K.csv" w p lc 4 t "2.0 MPa"
-~~~
-
-*/
 
