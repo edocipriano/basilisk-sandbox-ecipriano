@@ -307,7 +307,7 @@ int main (void) {
   /**
   We change the surface tension coefficient. */
 
-  f.sigma = 0.01;
+  f.sigma = 0.03;
   f.tracers = {tr};
 
   /**
