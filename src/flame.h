@@ -149,6 +149,7 @@ event flame (i++) {
   double diam = sqrt (d_over_d02)*D0;
   double statTmax = statsf(T).max;
 
+#if 0
   /**
   Flame diameter using the temperature peak. */
 
@@ -176,6 +177,21 @@ event flame (i++) {
   }
   double DTmax = 2.*ymax;
   array_free (arrtemp);
+#else
+  /**
+  The following calculation of the temperature peak is
+  correct only for 1/4 droplet in microgravity conditions. */
+
+  double Tmax = statTmax, xcoord = 0., ycoord = 0.;
+  foreach() {
+    if (T[] == Tmax) {
+      xcoord = x;
+      ycoord = y;
+    }
+  }
+  double DTmax = 2.*sqrt (sq(xcoord) + sq(ycoord));
+
+#endif
 
   /**
   We write the post-processing data on the Flame file. */
