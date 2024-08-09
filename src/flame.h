@@ -182,14 +182,12 @@ event flame (i++) {
   The following calculation of the temperature peak is
   correct only for 1/4 droplet in microgravity conditions. */
 
-  double Tmax = statTmax, xcoord = 0., ycoord = 0.;
-  foreach() {
-    if (T[] == Tmax) {
-      xcoord = x;
-      ycoord = y;
-    }
+  double Tmax = statTmax, radius = 0.;
+  foreach(reduction(max:radius)) {
+    if (T[] == Tmax)
+      radius = sqrt (sq(x) + sq(y));
   }
-  double DTmax = 2.*sqrt (sq(xcoord) + sq(ycoord));
+  double DTmax = 2.*radius;
 
 #endif
 
