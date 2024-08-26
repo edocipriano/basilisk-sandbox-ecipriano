@@ -160,8 +160,9 @@ We write a function that calculates and write the numerical contact angle from
 the height--functions, and we write the droplet shape using the facets. */
 
 void write_theta (void) {
-  Point point = locate (pinning.ap, Y0);
-  double ca = atan (1./(h.x[0,-1] - h.x[]));
+  double ca = 0.;
+  foreach_point (pinning.ap, Y0)
+    ca = atan (1./(h.x[0,-1] - h.x[]));
 
   fprintf (stdout, "\n\n");
   fflush (stdout);

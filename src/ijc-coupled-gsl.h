@@ -38,12 +38,11 @@ extern double Tboil[NLS];
 #endif
 
 typedef struct {
-  Point point;
+  coord c;
 } UserDataNls;
 
 void Equations (const double * xdata, double * fdata, void * params) {
   UserDataNls * data = (UserDataNls *)params;
-  Point point = data->point;
 
   double mEvapToti[NGS];
   double mEvapi[NLS];
@@ -62,247 +61,250 @@ void Equations (const double * xdata, double * fdata, void * params) {
   double gradTLn;
 #endif
 
-  /**
-  Rename unknowns for convenience. */
+  foreach_point (data->c.x, data->c.y, data->c.z) {
 
-  count = 0;
+    /**
+    Rename unknowns for convenience. */
 
-  for (int jj=0; jj<NLS; jj++)
-    mEvapi[jj] = xdata[count++];
+    count = 0;
 
-  for (int jj=0; jj<NLS; jj++)
-    YLInti[jj] = xdata[count++];
-
-  for (int jj=0; jj<NGS; jj++)
-    YGInti[jj] = xdata[count++];
-
-#ifdef SOLVE_TEMPERATURE
-  TInti = xdata[count++];
-#endif
-
-  /**
-  Convert mass-to-mole fractions. */
-
-  {
-    double inMWG[NGS];
-    for (int jj=0; jj<NGS; jj++)
-      inMWG[jj] = inMW[jj];
-
-    double inMWL[NLS];
     for (int jj=0; jj<NLS; jj++)
-      inMWL[jj] = inMW[LSI[jj]];
+      mEvapi[jj] = xdata[count++];
 
-    mass2molefrac (XLInti, YLInti, inMWL, NLS);
-    mass2molefrac (XGInti, YGInti, inMWG, NGS);
-  }
+    for (int jj=0; jj<NLS; jj++)
+      YLInti[jj] = xdata[count++];
 
-#ifdef VARPROP
-  ThermoState ts1h, ts2h;
-  ts1h.T = TInti;
-  ts2h.T = TInti;
-  ts1h.P = Pref;
-  ts2h.P = Pref;
-  ts1h.x = XLInti;
-  ts2h.x = XGInti;
+    for (int jj=0; jj<NGS; jj++)
+      YGInti[jj] = xdata[count++];
+
+#ifdef SOLVE_TEMPERATURE
+    TInti = xdata[count++];
 #endif
 
-  /**
-  Set to zero gas-only species vaporization mass flow-rates. */
+    /**
+    Convert mass-to-mole fractions. */
 
-  for (int jj=0; jj<NLS; jj++)
-    mEvapToti[LSI[jj]] = mEvapi[jj];
+    {
+      double inMWG[NGS];
+      for (int jj=0; jj<NGS; jj++)
+        inMWG[jj] = inMW[jj];
 
-  for (int jj=0; jj<NGOS; jj++)
-    mEvapToti[GOSI[jj]] = 0.;
+      double inMWL[NLS];
+      for (int jj=0; jj<NLS; jj++)
+        inMWL[jj] = inMW[LSI[jj]];
 
-  /**
-  Compute diffusive fluxes. */
+      mass2molefrac (XLInti, YLInti, inMWL, NLS);
+      mass2molefrac (XGInti, YGInti, inMWG, NGS);
+    }
 
-  for (int jj=0; jj<NGS; jj++) {
-    double rho2vh = rho2;
-    double Dmix2vh = inDmix2[jj];
 #ifdef VARPROP
-    rho2vh = rho2v[];
-    scalar Dmix2 = Dmix2List[jj];
-    Dmix2vh = Dmix2[];
-    //rho2vh = tp2.rhov (&ts2);
-    //Dmix2vh = tp2.diff (&ts2, jj);
+    ThermoState ts1h, ts2h;
+    ts1h.T = TInti;
+    ts2h.T = TInti;
+    ts1h.P = Pref;
+    ts2h.P = Pref;
+    ts1h.x = XLInti;
+    ts2h.x = XGInti;
 #endif
-    scalar YG = YGList[jj];
-    double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInti[jj], &success);
-    jG[jj] = -rho2vh*Dmix2vh*gtrgrad;
-  }
-  for (int jj=0; jj<NLS; jj++) {
-    double rho1vh = rho1;
-    double Dmix1vh = inDmix1[jj];
+
+    /**
+    Set to zero gas-only species vaporization mass flow-rates. */
+
+    for (int jj=0; jj<NLS; jj++)
+      mEvapToti[LSI[jj]] = mEvapi[jj];
+
+    for (int jj=0; jj<NGOS; jj++)
+      mEvapToti[GOSI[jj]] = 0.;
+
+    /**
+    Compute diffusive fluxes. */
+
+    for (int jj=0; jj<NGS; jj++) {
+      double rho2vh = rho2;
+      double Dmix2vh = inDmix2[jj];
 #ifdef VARPROP
-    rho1vh = rho1v[];
-    scalar Dmix1 = Dmix1List[jj];
-    Dmix1vh = Dmix1[];
-    //rho1vh = tp1.rhov (&ts1);
-    //Dmix1vh = tp1.diff (&ts1, jj);
+      rho2vh = rho2v[];
+      scalar Dmix2 = Dmix2List[jj];
+      Dmix2vh = Dmix2[];
+      //rho2vh = tp2.rhov (&ts2);
+      //Dmix2vh = tp2.diff (&ts2, jj);
 #endif
-    scalar YL = YLList[jj];
-    double ltrgrad = ebmgrad (point, YL, fL, fG, fsL, fsG, false, YLInti[jj], &success);
-    jL[jj] = rho1vh*Dmix1vh*ltrgrad;
-  }
+      scalar YG = YGList[jj];
+      double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInti[jj], &success);
+      jG[jj] = -rho2vh*Dmix2vh*gtrgrad;
+    }
+    for (int jj=0; jj<NLS; jj++) {
+      double rho1vh = rho1;
+      double Dmix1vh = inDmix1[jj];
+#ifdef VARPROP
+      rho1vh = rho1v[];
+      scalar Dmix1 = Dmix1List[jj];
+      Dmix1vh = Dmix1[];
+      //rho1vh = tp1.rhov (&ts1);
+      //Dmix1vh = tp1.diff (&ts1, jj);
+#endif
+      scalar YL = YLList[jj];
+      double ltrgrad = ebmgrad (point, YL, fL, fG, fsL, fsG, false, YLInti[jj], &success);
+      jL[jj] = rho1vh*Dmix1vh*ltrgrad;
+    }
 
-  /**
-  Compute total diffusive fluxes for Fick corrected approach. */
+    /**
+    Compute total diffusive fluxes for Fick corrected approach. */
 
-  double jLtot = 0., jGtot = 0.;
+    double jLtot = 0., jGtot = 0.;
 #ifdef FICK_CORRECTED
-  for (int jj=0; jj<NLS; jj++)
-    jLtot += jL[jj];
+    for (int jj=0; jj<NLS; jj++)
+      jLtot += jL[jj];
 
-  for (int jj=0; jj<NGS; jj++)
-    jGtot += jG[jj];
+    for (int jj=0; jj<NGS; jj++)
+      jGtot += jG[jj];
 #endif
 
 #ifdef SOLVE_TEMPERATURE
-  gradTGn = ebmgrad (point, TG, fL, fG, fsL, fsG, true,  TInti, &success);
-  gradTLn = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TInti, &success);
+    gradTGn = ebmgrad (point, TG, fL, fG, fsL, fsG, true,  TInti, &success);
+    gradTLn = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TInti, &success);
 #endif
 
-  /**
-  Compute sum of vaporization mass flow-rate. */
+    /**
+    Compute sum of vaporization mass flow-rate. */
 
-  mEvapSum = 0.;
-  for (int jj=0; jj<NLS; jj++) {
-    mEvapSum += mEvapi[jj];
-  }
+    mEvapSum = 0.;
+    for (int jj=0; jj<NLS; jj++) {
+      mEvapSum += mEvapi[jj];
+    }
 
-  count = 0;
+    count = 0;
 
-  /**
-  [NEW]
-  Mass balance in gas phase for evaporating species. */
+    /**
+    [NEW]
+    Mass balance in gas phase for evaporating species. */
 
-  for (int jj=0; jj<NLS; jj++) {
-
-    fdata[count++] = mEvapi[jj]
-                   - mEvapSum*YGInti[LSI[jj]]
-                   - jG[jj]
-                   + jGtot*YGInti[LSI[jj]]
-                   ;
-  }
-
-  /**
-  [NEW]
-  Mass balance in liquid phase for liquid species. */
-
-  if (NLS > 1) {
     for (int jj=0; jj<NLS; jj++) {
 
       fdata[count++] = mEvapi[jj]
-                     - mEvapSum*YLInti[jj]
-                     - jL[jj]
-                     + jLtot*YLInti[jj];
+                     - mEvapSum*YGInti[LSI[jj]]
+                     - jG[jj]
+                     + jGtot*YGInti[LSI[jj]]
                      ;
     }
-  }
-  else {
-    fdata[count++] = YLInti[0] - 1.;
-  }
+
+    /**
+    [NEW]
+    Mass balance in liquid phase for liquid species. */
+
+    if (NLS > 1) {
+      for (int jj=0; jj<NLS; jj++) {
+
+        fdata[count++] = mEvapi[jj]
+                       - mEvapSum*YLInti[jj]
+                       - jL[jj]
+                       + jLtot*YLInti[jj];
+                       ;
+      }
+    }
+    else {
+      fdata[count++] = YLInti[0] - 1.;
+    }
 
 
-  ///**
-  //Mass balance for species in liquid phase. */
+    ///**
+    //Mass balance for species in liquid phase. */
 
-  //if (NLS > 1) {
-  //  for (int jj=0; jj<NLS; jj++) {
+    //if (NLS > 1) {
+    //  for (int jj=0; jj<NLS; jj++) {
 
-  //    fdata[count++] = mEvapi[jj]
-  //                   - mEvapSum*YLInti[jj]
-  //                   - jL[jj]
-  //                   + jLtot*YLInti[jj]
-  //                   ;
-  //  }
-  //}
-  //else {
-  //  fdata[count++] = YLInti[0] - 1.;
-  //}
+    //    fdata[count++] = mEvapi[jj]
+    //                   - mEvapSum*YLInti[jj]
+    //                   - jL[jj]
+    //                   + jLtot*YLInti[jj]
+    //                   ;
+    //  }
+    //}
+    //else {
+    //  fdata[count++] = YLInti[0] - 1.;
+    //}
 
-  ///**
-  //Mass balance for species in gas phase and for gas-only species. */
+    ///**
+    //Mass balance for species in gas phase and for gas-only species. */
 
-  //for (int jj=0; jj<NGS; jj++) {
+    //for (int jj=0; jj<NGS; jj++) {
 
-  //  fdata[count++] = mEvapToti[jj]
-  //                 - mEvapSum*YGInti[jj]
-  //                 - jG[jj]
-  //                 + jGtot*YGInti[jj]
-  //                 ;
-  //}
+    //  fdata[count++] = mEvapToti[jj]
+    //                 - mEvapSum*YGInti[jj]
+    //                 - jG[jj]
+    //                 + jGtot*YGInti[jj]
+    //                 ;
+    //}
 
-  /**
-  Thermodynamic (VLE) equilibrium at the interface. */
+    /**
+    Thermodynamic (VLE) equilibrium at the interface. */
 
-  double Keq[NLS];
-  for (int jj=0; jj<NLS; jj++)
-    Keq[jj] = inKeq[jj];
+    double Keq[NLS];
+    for (int jj=0; jj<NLS; jj++)
+      Keq[jj] = inKeq[jj];
 
 #ifdef USE_CLAPEYRON
-  for (int jj=0; jj<NLS; jj++) {
-    Keq[jj] = min (clapeyron ( min (TInti, Tboil[jj]-1), Tboil[jj], dhev, inMW[LSI[jj]]), 0.98);
-  }
+    for (int jj=0; jj<NLS; jj++) {
+      Keq[jj] = min (clapeyron ( min (TInti, Tboil[jj]-1), Tboil[jj], dhev, inMW[LSI[jj]]), 0.98);
+    }
 #endif
 #ifdef USE_ANTOINE
-  for (int jj=0; jj<NLS; jj++) {
-    scalar YL = YLList[jj];
-    Keq[jj] = min (YL.antoine (TInti, Pref), 0.98);
-  }
+    for (int jj=0; jj<NLS; jj++) {
+      scalar YL = YLList[jj];
+      Keq[jj] = min (YL.antoine (TInti, Pref), 0.98);
+    }
 #endif
 #ifdef USE_ANTOINE_OPENSMOKE
-  for (int jj=0; jj<NLS; jj++) {
-    Keq[jj] = min (opensmoke_antoine (TInti, Pref, jj), 0.98);
-  }
+    for (int jj=0; jj<NLS; jj++) {
+      Keq[jj] = min (opensmoke_antoine (TInti, Pref, jj), 0.98);
+    }
 #endif
 
-  for (int jj=0; jj<NLS; jj++) {
-    fdata[count++] = XLInti[jj]*Keq[jj] - XGInti[LSI[jj]];
-  }
+    for (int jj=0; jj<NLS; jj++) {
+      fdata[count++] = XLInti[jj]*Keq[jj] - XGInti[LSI[jj]];
+    }
 
-  /**
-  [NEW]
-  Mass balance in gas phase for gas-only species. */
+    /**
+    [NEW]
+    Mass balance in gas phase for gas-only species. */
 
-  for (int jj=0; jj<NGOS; jj++) {
-    fdata[count++] = mEvapToti[GOSI[jj]]
-                   - mEvapSum*YGInti[GOSI[jj]]
-                   - jG[GOSI[jj]]
-                   + jGtot*YGInti[GOSI[jj]]
-                   ;
-  }
+    for (int jj=0; jj<NGOS; jj++) {
+      fdata[count++] = mEvapToti[GOSI[jj]]
+                     - mEvapSum*YGInti[GOSI[jj]]
+                     - jG[GOSI[jj]]
+                     + jGtot*YGInti[GOSI[jj]]
+                     ;
+    }
 
 #ifdef SOLVE_TEMPERATURE
 
-  /**
-  Interface energy balance. */
+    /**
+    Interface energy balance. */
 
-  double vapheat = 0.;
-  for (int jj=0; jj<NLS; jj++) {
-    double dhevvh = dhev;
+    double vapheat = 0.;
+    for (int jj=0; jj<NLS; jj++) {
+      double dhevvh = dhev;
 #ifdef VARPROP
-    scalar dhevjj = dhevList[jj];
-    dhevvh = dhevjj[];
-    //dhevvh = tp1.dhev (&ts1h, jj);
+      scalar dhevjj = dhevList[jj];
+      dhevvh = dhevjj[];
+      //dhevvh = tp1.dhev (&ts1h, jj);
 #endif
-    vapheat -= dhevvh*mEvapi[jj];
-  }
+      vapheat -= dhevvh*mEvapi[jj];
+    }
 
-  fdata[count++] = vapheat
+    fdata[count++] = vapheat
 # ifdef VARPROP
-                 + lambda1v[]*gradTLn
-                 + lambda2v[]*gradTGn
-                 // + tp1.lambdav (&ts1h)*gradTLn
-                 // + tp2.lambdav (&ts2h)*gradTGn
+                   + lambda1v[]*gradTLn
+                   + lambda2v[]*gradTGn
+                   // + tp1.lambdav (&ts1h)*gradTLn
+                   // + tp2.lambdav (&ts2h)*gradTGn
 # else
-                 + lambda1*gradTLn
-                 + lambda2*gradTGn
+                   + lambda1*gradTLn
+                   + lambda2*gradTGn
 # endif
-                 ;
+                   ;
 #endif
+  }
 }
 
 int EquationsGsl (const gsl_vector * x, void * params, gsl_vector * f) {
@@ -366,6 +368,10 @@ void ijc_CoupledNls ()
       UserDataNls data;
       data.point = point;
 
+      coord o = {x,y,z};
+      foreach_dimension()
+        data.c.x = o.x;
+
       /**
       Solve the non-linear system of equations. */
 
@@ -420,65 +426,67 @@ double divq_rad_int (double TInti, double Tbulk = 300., double alphacorr = 1.) {
 
 void EqTemperature (const double * xdata, double * fdata, void * params) {
   UserDataNls * data = (UserDataNls *)params;
-  Point point = data->point;
 
-  double TInti = xdata[0];
-  bool success = false;
+  foreach_point (data->c.x, data->c.y, data->c.z) {
 
-  double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true,  TInti, &success);
-  double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TInti, &success);
+    double TInti = xdata[0];
+    bool success = false;
+
+    double gtrgrad = ebmgrad (point, TG, fL, fG, fsL, fsG, true,  TInti, &success);
+    double ltrgrad = ebmgrad (point, TL, fL, fG, fsL, fsG, false, TInti, &success);
 
 #ifdef VARPROP
-  double yl[NLS], yg[NGS];
-  double xl[NLS], xg[NGS];
-  double MWl[NLS], MWg[NGS];
+    double yl[NLS], yg[NGS];
+    double xl[NLS], xg[NGS];
+    double MWl[NLS], MWg[NGS];
 
-  foreach_elem (YLList, jj) {
-    scalar YL = YLList[jj];
-    yl[jj] = YL[];
-    MWl[jj] = inMW[LSI[jj]];
-  }
-  mass2molefrac (xl, yl, MWl, NLS);
+    foreach_elem (YLList, jj) {
+      scalar YL = YLList[jj];
+      yl[jj] = YL[];
+      MWl[jj] = inMW[LSI[jj]];
+    }
+    mass2molefrac (xl, yl, MWl, NLS);
 
-  foreach_elem (YGList, jj) {
-    scalar YG = YGList[jj];
-    yg[jj] = YG[];
-    MWg[jj] = inMW[jj];
-  }
-  mass2molefrac (xg, yg, MWg, NGS);
+    foreach_elem (YGList, jj) {
+      scalar YG = YGList[jj];
+      yg[jj] = YG[];
+      MWg[jj] = inMW[jj];
+    }
+    mass2molefrac (xg, yg, MWg, NGS);
 
-  ThermoState ts1h;
-  ts1h.T = TInti;
-  ts1h.P = Pref;
-  ts1h.x = xl;
+    ThermoState ts1h;
+    ts1h.T = TInti;
+    ts1h.P = Pref;
+    ts1h.x = xl;
 
-  ThermoState ts2h;
-  ts2h.T = TInti;
-  ts2h.P = Pref;
-  ts2h.x = xg;
+    ThermoState ts2h;
+    ts2h.T = TInti;
+    ts2h.P = Pref;
+    ts2h.x = xg;
 #endif
 
-  double vapheat = 0.;
-  for (int jj=0; jj<NLS; jj++) {
-    scalar mEvap = mEvapList[LSI[jj]];
+    double vapheat = 0.;
+    for (int jj=0; jj<NLS; jj++) {
+      scalar mEvap = mEvapList[LSI[jj]];
 #ifdef VARPROP
-    scalar dhevjj = dhevList[jj];
-    vapheat -= mEvap[]*dhevjj[];
+      scalar dhevjj = dhevList[jj];
+      vapheat -= mEvap[]*dhevjj[];
 #else
-    vapheat -= mEvap[]*dhev;
+      vapheat -= mEvap[]*dhev;
 #endif
-  }
+    }
 
-  fdata[0] = vapheat
-      - divq_rad_int (TInti, TG0, RADIATION_INTERFACE)
+    fdata[0] = vapheat
+        - divq_rad_int (TInti, TG0, RADIATION_INTERFACE)
 #ifdef VARPROP
-       + lambda1v[]*ltrgrad
-       + lambda2v[]*gtrgrad
+         + lambda1v[]*ltrgrad
+         + lambda2v[]*gtrgrad
 #else
-       + lambda1*ltrgrad
-       + lambda2*gtrgrad
+         + lambda1*ltrgrad
+         + lambda2*gtrgrad
 #endif
-       ;
+         ;
+  }
 }
 
 int EqTemperatureGsl (const gsl_vector * x, void * params, gsl_vector * f) {
@@ -501,6 +509,11 @@ void ijc_CoupledTemperature ()
       }
       UserDataNls data;
       data.point = point;
+
+      coord o = {x,y,z};
+      foreach_dimension()
+        data.c.x = o.x;
+
 #ifdef USE_GSL
       fsolve (EqTemperatureGsl, arrUnk, &data);
 #endif
