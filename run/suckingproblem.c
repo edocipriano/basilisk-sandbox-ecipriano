@@ -306,43 +306,15 @@ event profiles (t = end) {
   char name[80];
   sprintf (name, "Temperature-%d", maxlevel);
 
-  /**
-  We create an array with the temperature profile
-  for each processor. */
-
-  Array * arrtemp = array_new();
-  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-    double val = interpolate (T, x, 0.5*L0);
-    val = (val == nodata) ? 0. : val;
-    array_append (arrtemp, &val, sizeof(double));
+  FILE * fpp = fopen (name, "w");
+  for (double x = 0; x < L0; x += 0.5*L0/(1 << maxlevel)) {
+    double tempanal = tempexact (x, betaGrowth, t+tshift);
+    double radius = exact (t+tshift);
+    tempanal = (x <= radius) ? Tsat : tempanal;
+    fprintf (fpp, "%g %g %g\n", x, interpolate (T, x, 0.5*L0), tempanal);
   }
-  double * temps = (double *)arrtemp->p;
-
-  /**
-  We sum each element of the arrays in every processor. */
-
-  @if _MPI
-  int size = arrtemp->len/sizeof(double);
-  MPI_Allreduce (MPI_IN_PLACE, temps, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  @endif
-
-  /**
-  The master node writes the temperature profile. */
-
-  if (pid() == 0) {
-    FILE * fpp = fopen (name, "w");
-    int count = 0;
-    for (double x = 0; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-      double tempanal = tempexact (x, betaGrowth, t+tshift);
-      double radius = exact (t+tshift);
-      tempanal = (x <= radius) ? Tsat : tempanal;
-      fprintf (fpp, "%g %g %g\n", x, temps[count], tempanal);
-      count++;
-    }
-    fflush (fpp);
-    fclose (fpp);
-  }
-  array_free (arrtemp);
+  fflush (fpp);
+  fclose (fpp);
 }
 
 /**

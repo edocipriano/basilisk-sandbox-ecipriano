@@ -193,11 +193,13 @@ We adapt the grid according to the mass fractions of the
 mass fraction of n-heptane, the temperature, and the
 velocity field. */
 
+#if TREE
 event adapt (i++) {
   scalar C7 = YList[0];
   adapt_wavelet_leave_interface ({C7,T,u.x,u.y}, {f},
       (double[]){1.e-2,1.e-1,1.e-2,1.e-2}, maxlevel, minlevel, 1);
 }
+#endif
 
 /**
 ## Post-Processing
@@ -237,52 +239,18 @@ We write on a file the temperature and mass fraction
 profiles at different time instants. */
 
 event profiles (t = {3.29e-6, 3.e-5, 1.05e-4, 1.5e-4}) {
+  scalar C7 = YList[0];
+
   char name[80];
   sprintf (name, "Profiles-%d", maxlevel);
 
-  /**
-  We create an array with the temperature and mass
-  fraction profiles for each processor. */
-
-  scalar C7 = YList[0];
-
-  Array * arrtemps = array_new();
-  Array * arrmassf = array_new();
+  static FILE * fpp = fopen (name, "w");
   for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-    double valt = interpolate (T, x, 0.);
-    double valm = interpolate (C7, x, 0.);
-    valt = (valt == nodata) ? 0. : valt;
-    valm = (valm == nodata) ? 0. : valm;
-    array_append (arrtemps, &valt, sizeof(double));
-    array_append (arrmassf, &valm, sizeof(double));
+    fprintf (fpp, "%g %g %g\n",
+        x, interpolate (T, x, 0.), interpolate (C7, x, 0.));
   }
-  double * temps = (double *)arrtemps->p;
-  double * massf = (double *)arrmassf->p;
-
-  /**
-  We sum each element of the arrays in every processor. */
-
-  @if _MPI
-  int size = arrtemps->len/sizeof(double);
-  MPI_Allreduce (MPI_IN_PLACE, temps, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  MPI_Allreduce (MPI_IN_PLACE, massf, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  @endif
-
-  /**
-  The master node writes the profiles on a file. */
-
-  if (pid() == 0) {
-    static FILE * fpp = fopen (name, "w");
-    int count = 0;
-    for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-      fprintf (fpp, "%g %g %g\n", x, temps[count], massf[count]);
-      count++;
-    }
-    fprintf (fpp, "\n\n");
-    fflush (fpp);
-  }
-  array_free (arrtemps);
-  array_free (arrmassf);
+  fprintf (fpp, "\n\n");
+  fflush (fpp);
 }
 
 /**

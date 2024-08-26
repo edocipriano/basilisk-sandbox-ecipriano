@@ -238,39 +238,13 @@ event profiles (t = {1.03e-5, 6.03e-5, 1.40e-4}) {
   }
 
   /**
-  We create an array with the mass fraction profiles
-  for each processor. */
-
-  Array * arrmassf = array_new();
-  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-    double valm = interpolate (Ysum, x, 0.);
-    valm = (valm == nodata) ? 0. : valm;
-    array_append (arrmassf, &valm, sizeof(double));
-  }
-  double * massf = (double *)arrmassf->p;
-
-  /**
-  We sum each element of the arrays in every processor. */
-
-  @if _MPI
-  int size = arrmassf->len/sizeof(double);
-  MPI_Allreduce (MPI_IN_PLACE, massf, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  @endif
-
-  /**
   The master node writes the profiles on a file. */
 
-  if (pid() == 0) {
-    int count = 0;
-    for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
-      fprintf (fp, "%g %g\n", x, massf[count]);
-      count++;
-    }
-    fprintf (fp, "\n\n");
-    fflush (fp);
-  }
+  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel))
+    fprintf (fp, "%g %g\n", x, interpolate (Ysum, x, 0.));
+  fprintf (fp, "\n\n");
+  fflush (fp);
   fclose (fp);
-  array_free (arrmassf);
 }
 
 /**

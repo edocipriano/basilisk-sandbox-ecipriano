@@ -44,7 +44,6 @@ the evaporation source term in the projection step.
 The evporation model is combined with the fixed flux
 mechanism, that imposes a constant vaporization flowrate. */
 
-#include "grid/multigrid.h"
 #if JUMP
 # include "navier-stokes/velocity-jump.h"
 #else
@@ -230,14 +229,8 @@ time step. */
 event profiles (t = 0.005,last) {
   char name[80];
   sprintf (name, "Profiles-%d", maxlevel);
+
   FILE * fp = fopen (name, "w");
-
-  /**
-  We create an array with the mass fraction profiles
-  for each processor. */
-
-  Array * arruf = array_new();
-  Array * arrus = array_new();
   for (double x = 0.; x < 0.5*L0; x += 0.05*L0/(1 << maxlevel)) {
     double val_uf = interpolate (uf.x,  x, 0.);
 #if JUMP
@@ -245,38 +238,11 @@ event profiles (t = 0.005,last) {
 #else
     double val_us = interpolate (ufs.x, x, 0.);
 #endif
-    val_uf = (val_uf == nodata) ? 0. : val_uf;
-    val_us = (val_us == nodata) ? 0. : val_us;
-    array_append (arruf, &val_uf, sizeof(double));
-    array_append (arrus, &val_us, sizeof(double));
+    fprintf (fp, "%g %g %g\n", x, val_uf, val_us);
   }
-  double * val_ufp = (double *)arruf->p;
-  double * val_usp = (double *)arrus->p;
-
-  /**
-  We sum each element of the arrays in every processor. */
-
-  @if _MPI
-  int size = arruf->len/sizeof(double);
-  MPI_Allreduce (MPI_IN_PLACE, val_ufp, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  MPI_Allreduce (MPI_IN_PLACE, val_usp, size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  @endif
-
-  /**
-  The master node writes the profiles on a file. */
-
-  if (pid() == 0) {
-    int count = 0;
-    for (double x = 0.; x < 0.5*L0; x += 0.05*L0/(1 << maxlevel)) {
-      fprintf (fp, "%g %g %g\n", x, val_ufp[count], val_usp[count]);
-      count++;
-    }
-    fprintf (fp, "\n\n");
-    fflush (fp);
-  }
+  fprintf (fp, "\n\n");
+  fflush (fp);
   fclose (fp);
-  array_free (arruf);
-  array_free (arrus);
 }
 
 /**
