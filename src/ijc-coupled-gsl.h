@@ -61,7 +61,7 @@ void Equations (const double * xdata, double * fdata, void * params) {
   double gradTLn;
 #endif
 
-  foreach_point (data->c.x, data->c.y, data->c.z) {
+  foreach_point (data->c.x, data->c.y, data->c.z, serial) {
 
     /**
     Rename unknowns for convenience. */
@@ -366,7 +366,6 @@ void ijc_CoupledNls ()
       non-linear system function. */
 
       UserDataNls data;
-      data.point = point;
 
       coord o = {x,y,z};
       foreach_dimension()
@@ -427,7 +426,7 @@ double divq_rad_int (double TInti, double Tbulk = 300., double alphacorr = 1.) {
 void EqTemperature (const double * xdata, double * fdata, void * params) {
   UserDataNls * data = (UserDataNls *)params;
 
-  foreach_point (data->c.x, data->c.y, data->c.z) {
+  foreach_point (data->c.x, data->c.y, data->c.z, serial) {
 
     double TInti = xdata[0];
     bool success = false;
@@ -508,7 +507,6 @@ void ijc_CoupledTemperature ()
         array_append (arrUnk, &vali, sizeof(double));
       }
       UserDataNls data;
-      data.point = point;
 
       coord o = {x,y,z};
       foreach_dimension()
