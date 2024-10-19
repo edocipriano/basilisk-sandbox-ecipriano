@@ -809,9 +809,9 @@ weight and the mole fractions (if needed). */
 
 void update_mw_moles (void) {
   double MW1[NLS], MW2[NGS];
-  foreach_elem (YLList, jj)
+  for (int jj=0; jj<NLS; jj++)
     MW1[jj] = inMW[LSI[jj]];
-  foreach_elem (YGList, jj)
+  for (int jj=0; jj<NGS; jj++)
     MW2[jj] = inMW[jj];
 
 //#ifdef MOLAR_DIFFUSION
@@ -1008,9 +1008,7 @@ event phasechange (i++)
   We compute the mole fraction fields if the diffusivity is
   molar-based. */
 
-#ifdef MOLAR_DIFFUSION
   update_mw_moles();
-#endif
 
   /**
   The thermodynamic and transport properties are updated at the
@@ -1120,7 +1118,7 @@ event phasechange (i++)
       }
       mass2molefrac (XLIntConv, YLIntConv, inMWL, NLS);
 #ifdef MOLAR_DIFFUSION
-      foreach_elem (XLIntList, jj) {
+      for (int jj=0; jj<NLS; jj++) {
         scalar XLInt = XLIntList[jj];
         XLInt[] = XLIntConv[jj];
       }
@@ -1484,7 +1482,7 @@ event phasechange (i++)
     }
 
     foreach_dimension() {
-      foreach_elem (YGList, jj) {
+      for (int jj=0; jj<NGS; jj++) {
         scalar Dmix2v = Dmix2List[jj];
 # ifdef MOLAR_DIFFUSION
         scalar XG = XGList[jj];
@@ -1496,7 +1494,7 @@ event phasechange (i++)
 # endif
       }
 
-      foreach_elem (YLList, jj) {
+      for (int jj=0; jj<NLS; jj++) {
         scalar Dmix1v = Dmix1List[jj];
 # ifdef MOLAR_DIFFUSION
         scalar XL = XLList[jj];
@@ -1508,7 +1506,7 @@ event phasechange (i++)
 # endif
       }
 
-      foreach_elem (YGList, jj) {
+      for (int jj=0; jj<NGS; jj++) {
         scalar YG = YGList[jj];
         scalar Cp2v = Cp2List[jj];
         scalar Dmix2v = Dmix2List[jj];
@@ -1522,7 +1520,7 @@ event phasechange (i++)
         mde2 += Cp2v[]*(gYGj.x - YG[]*gYGsum.x)*gTG.x;
       }
 
-      foreach_elem (YLList, jj) {
+      for (int jj=0; jj<NLS; jj++) {
         scalar YL = YLList[jj];
         scalar Cp1v = Cp1List[jj];
         scalar Dmix1v = Dmix1List[jj];
@@ -1607,9 +1605,7 @@ event tracer_diffusion (i++)
 #endif
   }
 
-#ifdef MOLAR_DIFFUSION
   update_mw_moles();
-#endif
 
   /**
   We compute the value of volume fraction *f* on the
@@ -1630,16 +1626,15 @@ event tracer_diffusion (i++)
   face vector phicGtot[];
   foreach_face() {
     phicGtot.x[] = 0.;
-    double rho2f = 0.5*(rho2v[] + rho2v[-1]);
     for (int jj=0; jj<NGS; jj++) {
-#ifdef VARPROP
+#ifdef FICK_CORRECTED
+      double rho2f = 0.5*(rho2v[] + rho2v[-1]);
+# ifdef VARPROP
       scalar Dmix2 = Dmix2List[jj];
       double Dmix2f = 0.5*(Dmix2[] + Dmix2[-1]);
-#else
+# else
       double Dmix2f = inDmix2[jj];
-#endif
-
-#ifdef FICK_CORRECTED
+# endif
 # ifdef MOLAR_DIFFUSION
       scalar XG = XGList[jj];
       double MW2mixf = 0.5*(MW2mix[] + MW2mix[-1]);
@@ -1659,16 +1654,15 @@ event tracer_diffusion (i++)
   face vector phicLtot[];
   foreach_face() {
     phicLtot.x[] = 0.;
-    double rho1f = 0.5*(rho1v[] + rho1v[-1]);
     for (int jj=0; jj<NLS; jj++) {
-#ifdef VARPROP
+#ifdef FICK_CORRECTED
+      double rho1f = 0.5*(rho1v[] + rho1v[-1]);
+# ifdef VARPROP
       scalar Dmix1 = Dmix1List[jj];
       double Dmix1f = 0.5*(Dmix1[] + Dmix1[-1]);
-#else
+# else
       double Dmix1f = inDmix1[jj];
-#endif
-
-#ifdef FICK_CORRECTED
+# endif
 # ifdef MOLAR_DIFFUSION
       scalar XL = XLList[jj];
       double MW1mixf = 0.5*(MW1mix[] + MW1mix[-1]);
@@ -1701,7 +1695,7 @@ event tracer_diffusion (i++)
     }
     scalar YG = YGList[jj];
     double (* gradient_backup)(double,double,double) = YG.gradient;
-    YG.gradient = zero;
+    YG.gradient = NULL;
     face vector flux[];
     tracer_fluxes (YG, phicjj, flux, dt, zeroc);
     YG.gradient = gradient_backup;
@@ -1727,7 +1721,7 @@ event tracer_diffusion (i++)
     }
     scalar YL = YLList[jj];
     double (* gradient_backup)(double,double,double) = YL.gradient;
-    YL.gradient = zero;
+    YL.gradient = NULL;
     face vector flux[];
     tracer_fluxes (YL, phicjj, flux, dt, zeroc);
     YL.gradient = gradient_backup;

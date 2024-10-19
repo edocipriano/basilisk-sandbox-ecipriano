@@ -461,14 +461,14 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
     double xl[NLS], xg[NGS];
     double MWl[NLS], MWg[NGS];
 
-    foreach_elem (YLList, jj) {
+    for (int jj=0; jj<NLS; jj++) {
       scalar YL = YLList[jj];
       yl[jj] = YL[];
       MWl[jj] = inMW[LSI[jj]];
     }
     mass2molefrac (xl, yl, MWl, NLS);
 
-    foreach_elem (YGList, jj) {
+    for (int jj=0; jj<NGS; jj++) {
       scalar YG = YGList[jj];
       yg[jj] = YG[];
       MWg[jj] = inMW[jj];
@@ -553,7 +553,7 @@ void EqBoilingTemperature (const double * xdata, double * fdata, void * params) 
   double Tb = xdata[0];
   double * xc = (double *)params;
   double sumKeq = 0.;
-  foreach_elem (YLList, jj) {
+  for (int jj=0; jj<NLS; jj++) {
 #ifdef USE_ANTOINE
     scalar YL = YLList[jj];
     sumKeq += YL.antoine (Tb, Pref)*xc[jj];

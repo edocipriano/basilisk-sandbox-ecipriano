@@ -460,12 +460,14 @@ event defaults (i = 0)
 #else
   fu.tracers = list_append (fu.tracers, TG);
 #endif
+# if TREE
   TL.refine  = refine_linear;
   TL.restriction = restriction_volume_average;
   TL.dirty = true; // boundary conditions need to be updated
   TG.refine  = refine_linear;
   TG.restriction = restriction_volume_average;
   TG.dirty = true; // boundary conditions need to be updated
+# endif
 #endif
 
   /**
@@ -901,7 +903,7 @@ event phasechange (i++)
 
 #ifdef FICK_CORRECTED
   foreach() {
-    foreach_elem (YLList, jj) {
+    for (int jj=0; jj<NLS; jj++) {
       scalar YL = YLList[jj];
       scalar JL = JLList[jj];
 
@@ -911,7 +913,7 @@ event phasechange (i++)
             inDmix1[jj]*face_gradient_x (YL, 0)*fsL.x[]*fm.x[])/Delta;
     }
 
-    foreach_elem (YGList, jj) {
+    for (int jj=0; jj<NGS; jj++) {
       scalar YG = YGList[jj];
       scalar JG = JGList[jj];
 
@@ -984,14 +986,14 @@ event phasechange (i++)
       }
     }
 #ifdef FICK_CORRECTED
-    foreach_elem (YLList, jj) {
+    for (int jj=0; jj<NLS; jj++) {
       scalar YL = YLList[jj];
       scalar slexp = slexpList[jj];
 
       slexp[] += JLtot[]*YL[];
     }
 
-    foreach_elem (YGList, jj) {
+    for (int jj=0; jj<NGS; jj++) {
       scalar YG = YGList[jj];
       scalar sgexp = sgexpList[jj];
 

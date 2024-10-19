@@ -1,10 +1,11 @@
 /**
-## Update Properties
+# Update Properties
 
-Update the thermodynamic properties for the multicomponent phase
-change model, and compute the lagrangian derivative of the density,
-which is used as a sorce term for the velocity divergence, to
-describe low Mach compressibility effects. */
+Update the thermodynamic and transport properties for the
+multicomponent phase change model, and compute the density
+material derivative which is used as a source term for the
+velocity divergence in order to describe low-Mach compressibility
+effects. */
 
 #ifndef T_PROP
 # define T_PROP 0.1
@@ -20,6 +21,10 @@ scalar Hcheck[];
 scalar betaexp1[], betaexp2[];
 scalar rho1vInt[], rho2vInt[];
 
+/**
+## *update_properties_constant()*: update variable property fields setting constant properties (for debug purposes)
+*/
+
 void update_properties_constant (void) {
   foreach() {
     rho1v[] = rho1;
@@ -29,7 +34,7 @@ void update_properties_constant (void) {
     cp1v[] = cp1;
     lambda1v[] = lambda1;
 
-    foreach_elem (YLList, jj) {
+    for (int jj=0; jj<NLS; jj++) {
       scalar dhevjj = dhevList[jj];
       dhevjj[] = dhev;
 
@@ -46,7 +51,7 @@ void update_properties_constant (void) {
     cp2v[] = cp2;
     lambda2v[] = lambda2;
 
-    foreach_elem (Dmix2List, jj) {
+    for (int jj=0; jj<NGS; jj++) {
       scalar Dmix2v = Dmix2List[jj];
       Dmix2v[] = inDmix2[jj];
 
@@ -56,7 +61,12 @@ void update_properties_constant (void) {
   }
 }
 
+/**
+## *update_properties_initial()*: update variable properties with initial conditions
+*/
+
 void update_properties_initial (void) {
+
   foreach() {
     ThermoState ts1h, ts2h;
     ts1h.T = TL0;
@@ -73,7 +83,7 @@ void update_properties_initial (void) {
     cp1v[] = tp1.cpv (&ts1h);
     lambda1v[] = tp1.lambdav (&ts1h);
 
-    foreach_elem (YLList, jj) {
+    for (int jj=0; jj<NLS; jj++) {
       scalar dhevjj = dhevList[jj];
       dhevjj[] = tp1.dhev (&ts1h, jj);
 
@@ -90,7 +100,7 @@ void update_properties_initial (void) {
     cp2v[] = tp2.cpv (&ts2h);
     lambda2v[] = tp2.lambdav (&ts2h);
 
-    foreach_elem (Dmix2List, jj) {
+    for (int jj=0; jj<NGS; jj++) {
       scalar Dmix2v = Dmix2List[jj];
       Dmix2v[] = tp2.diff (&ts2h, jj);
 
@@ -126,6 +136,12 @@ event defaults (i = 0)
 
 double mLiq0 = 0.;
 
+/**
+## Initialization
+
+We set update the variable property fields as a function
+of the initial conditions. */
+
 event init (i = 0)
 {
   update_properties_initial();
@@ -156,6 +172,12 @@ event cleanup (t = end)
   delete (DYDt2), free (DYDt2), DYDt2 = NULL;
 }
 
+/**
+The following event resets the material derivatives, so
+that they can be modified by external modules by adding
+source terms which contribute to the density variations.
+*/
+
 event reset_sources (i++)
 {
   foreach() {
@@ -173,6 +195,21 @@ event reset_sources (i++)
   }
 }
 
+/**
+## *update_properties()*: update variable properties as a function of the thermodynamic state
+
+Every phase property is calculated from expressions and correlations as
+a function of the thermodynamic state of the mixture (in this case temperature,
+thermodynamic pressure, and mole fractions):
+
+$$
+\phi_k = f(T_k, P , x_{i,k})
+$$
+
+These functions can be easily overwritten by assigning the `ThermoProp` 
+functions in [variable-properties.h](/sandbox/ecipriano/src/variable-properties.h#thermodynamic-properties).
+*/
+
 void update_properties (void)
 {
   foreach() {
@@ -181,9 +218,9 @@ void update_properties (void)
   }
 
   double MW1[NLS], MW2[NGS];
-  foreach_elem (YLList, jj)
+  for (int jj=0; jj<NLS; jj++)
     MW1[jj] = inMW[LSI[jj]];
-  foreach_elem (YGList, jj)
+  for (int jj=0; jj<NGS; jj++)
     MW2[jj] = inMW[jj];
 
   foreach() {
@@ -192,7 +229,7 @@ void update_properties (void)
 
     if (f[] > T_PROP) {
       double x1[NLS], y1[NLS];
-      foreach_elem (YLList, jj) {
+      for (int jj=0; jj<NLS; jj++) {
         scalar YL = YLList[jj];
         y1[jj] = (NLS == 1) ? 1. : YL[];
       }
@@ -211,7 +248,7 @@ void update_properties (void)
       lambda1v[] = tp1.lambdav (&ts1h);
       betaexp1[] = liqprop_thermal_expansion (&tp1, &ts1h);
 
-      foreach_elem (YLList, jj) {
+      for (int jj=0; jj<NLS; jj++) {
         // Enthalpy of evaporation
         scalar dhevjj = dhevList[jj];
         dhevjj[] = tp1.dhev (&ts1h, jj);
@@ -225,28 +262,10 @@ void update_properties (void)
         Cp1v[] = tp1.cps (&ts1h, jj);
       }
     }
-    //else {
-    //  //rho1v[] = 0.;
-    //  rho1v0[] = 0.;
-    //  mu1v[] = 0.;
-    //  cp1v[] = 0.;
-    //  cp1v[] = 0.;
-    //  lambda1v[] = 0.;
-    //  betaexp1[] = 0.;
-
-    //  foreach_elem (Dmix1List, jj) {
-    //    scalar Dmix1v = Dmix1List[jj];
-    //    scalar dhevjj = dhevList[jj];
-    //    scalar Cp1v   = Cp1List[jj];
-    //    Dmix1v[] = 0.;
-    //    dhevjj[] = 0.;
-    //    Cp1v[]   = 0.;
-    //  }
-    //}
 
     if ((1. - f[]) > T_PROP) {
       double x2[NGS], y2[NGS];
-      foreach_elem (YGList, jj) {
+      for (int jj=0; jj<NGS; jj++) {
         scalar YG = YGList[jj];
         y2[jj] = YG[];
       }
@@ -265,7 +284,7 @@ void update_properties (void)
       lambda2v[] = tp2.lambdav (&ts2h);
       betaexp2[] = gasprop_thermal_expansion (&ts2h);
 
-      foreach_elem (Dmix2List, jj) {
+      for (int jj=0; jj<NGS; jj++) {
         scalar Dmix2v = Dmix2List[jj];
         Dmix2v[] = tp2.diff (&ts2h, jj);
 
@@ -273,80 +292,7 @@ void update_properties (void)
         Cp2v[] = tp2.cps (&ts2h, jj);
       }
     }
-    //else {
-    //  //rho2v[] = 0.;
-    //  rho2v0[] = 0.;
-    //  mu2v[] = 0.;
-    //  cp2v[] = 0.;
-    //  betaexp2[] = 0.;
-
-    //  foreach_elem (Dmix2List, jj) {
-    //    scalar Dmix2v = Dmix2List[jj];
-    //    scalar Cp2v   = Cp2List[jj];
-    //    Dmix2v[] = 0.;
-    //    Cp2v[] = 0.;
-    //  }
-    //}
   }
-
-  //// Update interface properties
-  //foreach() {
-  //  if (f[] > F_ERR && f[] < 1.-F_ERR) {
-
-  //    // Liquid interface side
-  //    double x1[NLS], y1[NLS];
-  //    foreach_elem (YLIntList, jj) {
-  //      scalar YLInt = YLIntList[jj];
-  //      y1[jj] = YLInt[];
-  //    }
-  //    correctfrac (y1, NLS);
-  //    mass2molefrac (x1, y1, MW1, NLS);
-
-  //    ThermoState ts1h;
-  //    ts1h.T = TInt[];
-  //    ts1h.P = Pref;
-  //    ts1h.x = x1;
-
-  //    //rho1v[] = tp1.rhov (&ts1h);
-  //    //mu1v[] = tp1.muv (&ts1h);
-  //    //cp1v[] = tp1.cpv (&ts1h);
-  //    //lambda1v[] = tp1.lambdav (&ts1h);
-  //    //betaexp1[] = liqprop_thermal_expansion (&tp1, &ts1h);
-
-  //    //foreach_elem (YLIntList, jj) {
-  //    //  scalar dhevjj = dhevList[jj];
-  //    //  dhevjj[] = tp1.dhev (&ts1h, jj);
-
-  //    //  scalar Dmix1v = Dmix1List[jj];
-  //    //  Dmix1v[] = tp1.diff (&ts1h, jj);
-  //    //}
-
-  //    // Gas interface side
-  //    double x2[NGS], y2[NGS];
-  //    foreach_elem (YGIntList, jj) {
-  //      scalar YGInt = YGIntList[jj];
-  //      y2[jj] = YGInt[];
-  //    }
-  //    correctfrac (y2, NGS);
-  //    mass2molefrac (x2, y2, MW2, NGS);
-
-  //    ThermoState ts2h;
-  //    ts2h.T = TInt[];
-  //    ts2h.P = Pref;
-  //    ts2h.x = x2;
-
-  //    rho2vInt[] = tp2.rhov (&ts2h);
-  //    //mu2v[] = tp2.muv (&ts2h);
-  //    //cp2v[] = tp2.cpv (&ts2h);
-  //    //lambda2v[] = tp2.lambdav (&ts2h);
-  //    //betaexp2[] = gasprop_thermal_expansion (&ts2h);
-
-  //    //foreach_elem (YGIntList, jj) {
-  //    //  scalar Dmix2v = Dmix2List[jj];
-  //    //  Dmix2v[] = tp2.diff (&ts2h, jj);
-  //    //}
-  //  }
-  //}
 
   foreach() {
     if (f[] <= T_PROP) {
@@ -424,7 +370,30 @@ void update_properties (void)
   }
 }
 
-void update_divergence_test (void) {
+/**
+## *update_divergence()*: update density material derivative
+
+According to the low-Mach approximation, the density material derivative
+is computed by considering that temperature and composition gradients
+dominate over thermodynamic pressure gradients. The final expression of
+the velocity divergence reads:
+
+$$
+\nabla\cdot\mathbf{u}_k =
+\left. \dfrac{1}{\rho}\dfrac{D\rho}{D t} \right\vert_k = 
+\beta_k\dfrac{D T_k}{D t}
++ M_{w,k} \sum_{i=1}^{NS} \dfrac{1}{M_{w,i}}\dfrac{D\omega_{i,k}}{D t}
+$$
+
+which is used both for the liquid and for the gas phase. However, in
+liquid phase we assume that the density changes due to the temperature
+gradients dominate over composition effects. This is always true for
+pure liquid droplets, but it is generally valid also for multicomponent
+droplets. Relaxing this hypotesis is not complex, it requires the last
+term on the RHS to be computed without the ideal gas approximation.
+*/
+
+void update_divergence (void) {
 
   /**
   We define the variables used to compute the lagrangian derivative

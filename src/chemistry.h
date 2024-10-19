@@ -64,7 +64,7 @@ event chemistry (i++) {
 #else
       double y0ode[NGS];
 #endif
-      foreach_elem (YGList, jj) {
+      for (int jj=0; jj<NGS; jj++) {
         scalar YG = YGList[jj];
         y0ode[jj] = YG[];
       }
@@ -94,7 +94,7 @@ event chemistry (i++) {
       /**
       Recover the results of the ODE system. */
 
-      foreach_elem (YGList, jj) {
+      for (int jj=0; jj<NGS; jj++) {
         scalar YG = YGList[jj];
         YG[] = y0ode[jj];
 
