@@ -1894,11 +1894,11 @@ event tracer_diffusion (i++)
   foreach() {
     for (scalar YL in YLList) {
       YL[] = clamp (YL[], 0., 1.);
-      YL[] = (YL[] > F_ERR) ? YL[] : 0.;
+      YL[] = (YL[] > 1.e-10) ? YL[] : 0.;
     }
     for (scalar YG in YGList) {
       YG[] = clamp (YG[], 0., 1.);
-      YG[] = (YG[] > F_ERR) ? YG[] : 0.;
+      YG[] = (YG[] > 1.e-10) ? YG[] : 0.;
     }
     for (int jj=0; jj<NGOS; jj++) {
       scalar Y  = YList[GOSI[jj]];
