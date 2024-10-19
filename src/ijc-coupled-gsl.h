@@ -6,6 +6,10 @@
 extern scalar * mEvapList;
 extern scalar * YLList;
 extern scalar * YGList;
+#ifdef MOLAR_DIFFUSION
+extern scalar * XLList;
+extern scalar * XGList;
+#endif
 extern scalar * YLIntList;
 extern scalar * YGIntList;
 #ifdef VARPROP
@@ -84,6 +88,7 @@ void Equations (const double * xdata, double * fdata, void * params) {
     /**
     Convert mass-to-mole fractions. */
 
+    double MWmixLInt = 0., MWmixGInt = 0.;
     {
       double inMWG[NGS];
       for (int jj=0; jj<NGS; jj++)
@@ -95,6 +100,9 @@ void Equations (const double * xdata, double * fdata, void * params) {
 
       mass2molefrac (XLInti, YLInti, inMWL, NLS);
       mass2molefrac (XGInti, YGInti, inMWG, NGS);
+
+      MWmixLInt = mass2mw (YLInti, inMWL, NLS);
+      MWmixGInt = mass2mw (YGInti, inMWG, NGS);
     }
 
 #ifdef VARPROP
@@ -129,9 +137,16 @@ void Equations (const double * xdata, double * fdata, void * params) {
       //rho2vh = tp2.rhov (&ts2);
       //Dmix2vh = tp2.diff (&ts2, jj);
 #endif
+
+#ifdef MOLAR_DIFFUSION
+      scalar XG = XGList[jj];
+      double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInti[jj], &success);
+      jG[jj] = -rho2vh*Dmix2vh*inMW[jj]/MWmixGInt*gtrgrad;
+#else
       scalar YG = YGList[jj];
       double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInti[jj], &success);
       jG[jj] = -rho2vh*Dmix2vh*gtrgrad;
+#endif
     }
     for (int jj=0; jj<NLS; jj++) {
       double rho1vh = rho1;
@@ -143,9 +158,16 @@ void Equations (const double * xdata, double * fdata, void * params) {
       //rho1vh = tp1.rhov (&ts1);
       //Dmix1vh = tp1.diff (&ts1, jj);
 #endif
+
+#ifdef MOLAR_DIFFUSION
+      scalar XL = XLList[jj];
+      double ltrgrad = ebmgrad (point, XL, fL, fG, fsL, fsG, false, XLInti[jj], &success);
+      jL[jj] = rho1vh*Dmix1vh*inMW[LSI[jj]]/MWmixLInt*ltrgrad;
+#else
       scalar YL = YLList[jj];
       double ltrgrad = ebmgrad (point, YL, fL, fG, fsL, fsG, false, YLInti[jj], &success);
       jL[jj] = rho1vh*Dmix1vh*ltrgrad;
+#endif
     }
 
     /**
