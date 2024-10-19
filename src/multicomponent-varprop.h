@@ -1047,7 +1047,7 @@ event phasechange (i++)
   We compute the molecular weight of the gas-only
   species mixture. */
 
-  scalar MWGmix[];
+  scalar MWGmix[], MW2mixInt[];
   foreach() {
     MWGmix[] = 0.;
     if (f[] > F_ERR && f[] < 1.-F_ERR) {
@@ -1073,6 +1073,7 @@ event phasechange (i++)
 
   foreach() {
     mEvapTot[] = 0.;
+    MW2mixInt[] = 0.;
 
     /**
     We reset to zero mEvap for every species, and we set to zero
@@ -1190,6 +1191,16 @@ event phasechange (i++)
         }
       }
 
+      {
+        double y2int[NGS];
+        for (int jj=0; jj<NGS; jj++) {
+          scalar YGInt = YGIntList[jj];
+          y2int[jj] = YGInt[];
+        }
+        MW2mixInt[] = mass2mw (y2int, inMW, NGS);
+        assert (MW2mixInt[] > 0.);
+      }
+
       /**
       We repeat the same operations to close the molar fractions of the
       gas-only species in the system. */
@@ -1231,7 +1242,7 @@ event phasechange (i++)
         scalar XGInt = XGIntList[jj];
         scalar XG    = XGList[jj];
         double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInt[], &success);
-        gtrgrad *= (MW2mix[] > 0.) ? inMW[jj]/MW2mix[] : 0.;
+        gtrgrad *= (MW2mixInt[] > 0.) ? inMW[jj]/MW2mixInt[] : 0.;
 # else
         scalar YGInt = YGIntList[jj];
         scalar YG    = YGList[jj];
@@ -1270,7 +1281,7 @@ event phasechange (i++)
         scalar XGInt = XGIntList[LSI[jj]];
         scalar XG    = XGList[LSI[jj]];
         double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInt[], &success);
-        gtrgrad *= (MW2mix[] > 0.) ? inMW[LSI[jj]]/MW2mix[] : 0.;
+        gtrgrad *= (MW2mixInt[] > 0.) ? inMW[LSI[jj]]/MW2mixInt[] : 0.;
 #else
         scalar YG    = YGList[LSI[jj]];
         double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
@@ -1308,7 +1319,7 @@ event phasechange (i++)
         scalar XGInt = XGIntList[jj];
         scalar XG    = XGList[jj];
         double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInt[], &success);
-        gtrgrad *= (MW2mix[] > 0.) ? inMW[jj]/MW2mix[] : 0.;
+        gtrgrad *= (MW2mixInt[] > 0.) ? inMW[jj]/MW2mixInt[] : 0.;
 # else
         scalar YGInt = YGIntList[jj];
         scalar YG    = YGList[jj];
@@ -1334,7 +1345,7 @@ event phasechange (i++)
         scalar XGInt = XGIntList[LSI[jj]];
         scalar XG    = XGList[LSI[jj]];
         double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInt[], &success);
-        gtrgrad *= (MW2mix[] > 0.) ? inMW[LSI[jj]]/MW2mix[] : 0.;
+        gtrgrad *= (MW2mixInt[] > 0.) ? inMW[LSI[jj]]/MW2mixInt[] : 0.;
 #else
         scalar YG    = YGList[LSI[jj]];
         double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInt[], &success);
@@ -1536,7 +1547,6 @@ event phasechange (i++)
 
 #if defined (VARPROP) && !defined (NO_DIVERGENCE)
   update_divergence();
-  //update_divergence_density();
 #endif
 
   /**
