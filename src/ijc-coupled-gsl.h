@@ -101,19 +101,14 @@ void Equations (const double * xdata, double * fdata, void * params) {
       mass2molefrac (XLInti, YLInti, inMWL, NLS);
       mass2molefrac (XGInti, YGInti, inMWG, NGS);
 
+#ifdef MOLAR_DIFFUSION
       MWmixLInt = mass2mw (YLInti, inMWL, NLS);
       MWmixGInt = mass2mw (YGInti, inMWG, NGS);
-    }
-
-#ifdef VARPROP
-    ThermoState ts1h, ts2h;
-    ts1h.T = TInti;
-    ts2h.T = TInti;
-    ts1h.P = Pref;
-    ts2h.P = Pref;
-    ts1h.x = XLInti;
-    ts2h.x = XGInti;
+#else
+      NOT_UNUSED (MWmixLInt);
+      NOT_UNUSED (MWmixGInt);
 #endif
+    }
 
     /**
     Set to zero gas-only species vaporization mass flow-rates. */
@@ -134,8 +129,6 @@ void Equations (const double * xdata, double * fdata, void * params) {
       rho2vh = rho2v[];
       scalar Dmix2 = Dmix2List[jj];
       Dmix2vh = Dmix2[];
-      //rho2vh = tp2.rhov (&ts2);
-      //Dmix2vh = tp2.diff (&ts2, jj);
 #endif
 
 #ifdef MOLAR_DIFFUSION
@@ -155,8 +148,6 @@ void Equations (const double * xdata, double * fdata, void * params) {
       rho1vh = rho1v[];
       scalar Dmix1 = Dmix1List[jj];
       Dmix1vh = Dmix1[];
-      //rho1vh = tp1.rhov (&ts1);
-      //Dmix1vh = tp1.diff (&ts1, jj);
 #endif
 
 #ifdef MOLAR_DIFFUSION
@@ -309,7 +300,6 @@ void Equations (const double * xdata, double * fdata, void * params) {
 #ifdef VARPROP
       scalar dhevjj = dhevList[jj];
       dhevvh = dhevjj[];
-      //dhevvh = tp1.dhev (&ts1h, jj);
 #endif
       vapheat -= dhevvh*mEvapi[jj];
     }
@@ -318,8 +308,6 @@ void Equations (const double * xdata, double * fdata, void * params) {
 # ifdef VARPROP
                    + lambda1v[]*gradTLn
                    + lambda2v[]*gradTGn
-                   // + tp1.lambdav (&ts1h)*gradTLn
-                   // + tp2.lambdav (&ts2h)*gradTGn
 # else
                    + lambda1*gradTLn
                    + lambda2*gradTGn
@@ -474,16 +462,6 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
       MWg[jj] = inMW[jj];
     }
     mass2molefrac (xg, yg, MWg, NGS);
-
-    ThermoState ts1h;
-    ts1h.T = TInti;
-    ts1h.P = Pref;
-    ts1h.x = xl;
-
-    ThermoState ts2h;
-    ts2h.T = TInti;
-    ts2h.P = Pref;
-    ts2h.x = xg;
 #endif
 
     double vapheat = 0.;

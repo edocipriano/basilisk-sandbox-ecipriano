@@ -5,6 +5,8 @@
 #include "opensmoke-properties.h"
 #include "two-phase.h"
 
+ThermoState ts1, ts2;
+
 int main (void) {
   mu1 = 1. , mu2 = 1.;
   kinfolder = "skeletal/methanol";

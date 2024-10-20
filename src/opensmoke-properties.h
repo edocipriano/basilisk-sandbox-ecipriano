@@ -229,7 +229,6 @@ for the thermodynamic states.
 */
 
 ThermoProps tp1, tp2;
-ThermoState ts1, ts2;
 
 /**
 ## Initialization
