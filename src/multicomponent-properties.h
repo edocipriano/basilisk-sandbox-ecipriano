@@ -134,6 +134,8 @@ event defaults (i = 0)
   }
 }
 
+void update_properties (void);
+
 double mLiq0 = 0.;
 
 /**
@@ -144,7 +146,8 @@ of the initial conditions. */
 
 event init (i = 0)
 {
-  update_properties_initial();
+  if (!restored)
+    update_properties_initial();
 
   mLiq0 = 0.;
   foreach(reduction(+:mLiq0))

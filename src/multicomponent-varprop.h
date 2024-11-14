@@ -192,7 +192,7 @@ int inertIndex;
 We initilize other useful fields. */
 
 bool success;
-bool init_fields = true;
+bool init_fields = true, restored = false;
 
 scalar fG[], fL[], fuT[];
 face vector fsL[], fsG[];
@@ -426,7 +426,7 @@ event defaults (i = 0)
     char name[20];
     sprintf (name, "Cp1_%s", liq_species[jj]);
     a.name = strdup (name);
-    a.nodump = true;
+    //a.nodump = true;
     Cp1List = list_append (Cp1List, a);
   }
   for (int jj=0; jj<NGS; jj++) {
@@ -435,7 +435,7 @@ event defaults (i = 0)
     char name[20];
     sprintf (name, "Cp2_%s", gas_species[jj]);
     a.name = strdup (name);
-    a.nodump = true;
+    //a.nodump = true;
     Cp2List = list_append (Cp2List, a);
   }
   reset (Cp1List, 0.);
@@ -448,7 +448,7 @@ event defaults (i = 0)
     char name[20];
     sprintf (name, "XL_%s", liq_species[jj]);
     a.name = strdup (name);
-    a.nodump = true;
+    //a.nodump = true;
     //a.dirty = false;
     a.dirty = true;
     XLList = list_append (XLList, a);
@@ -461,7 +461,7 @@ event defaults (i = 0)
     char name[20];
     sprintf (name, "XG_%s", gas_species[jj]);
     a.name = strdup (name);
-    a.nodump = true;
+    //a.nodump = true;
     //a.dirty = false;
     a.dirty = true;
     XGList = list_append (XGList, a);
@@ -474,7 +474,7 @@ event defaults (i = 0)
     char name[20];
     sprintf (name, "XLInt_%s", liq_species[jj]);
     a.name = strdup (name);
-    a.nodump = true;
+    //a.nodump = true;
     XLIntList = list_append (XLIntList, a);
   }
   reset (XLIntList, 0.);
@@ -485,7 +485,7 @@ event defaults (i = 0)
     char name[20];
     sprintf (name, "XGInt_%s", gas_species[jj]);
     a.name = strdup (name);
-    a.nodump = true;
+    //a.nodump = true;
     XGIntList = list_append (XGIntList, a);
   }
   reset (XGIntList, 0.);
@@ -653,6 +653,8 @@ event defaults (i = 0)
     free (l);
   }
 #endif
+
+  restored = false;
 }
 
 /**
@@ -663,71 +665,73 @@ chemical species and set to zero additional fields. */
 
 event init (i = 0)
 {
-  foreach() {
-    for (int jj=0; jj<NLS; jj++) {
-      scalar s = YLList[jj];
-      if (init_fields)
-        s[] = f[]*liq_start[jj];
-      else
+  if (!restored) {
+    foreach() {
+      for (int jj=0; jj<NLS; jj++) {
+        scalar s = YLList[jj];
+        if (init_fields)
+          s[] = f[]*liq_start[jj];
+        else
+          s[] = 0.;
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar s = YGList[jj];
+        if (init_fields)
+          s[] = (1. - f[])*gas_start[jj];
+        else
+          s[] = 0.;
+      }
+      for (int jj=0; jj<NLS; jj++) {
+        scalar s = YLIntList[jj];
         s[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar s = YGList[jj];
-      if (init_fields)
-        s[] = (1. - f[])*gas_start[jj];
-      else
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar s = YGIntList[jj];
         s[] = 0.;
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar s = mEvapList[jj];
+        s[] = 0.;
+      }
+      for (int jj=0; jj<NGOS; jj++) {
+        scalar s  = YList[GOSI[jj]];
+        scalar sg = YGList[GOSI[jj]];
+        s[] = sg[];
+      }
+      for (int jj=0; jj<NLS; jj++) {
+        scalar s  = YList[LSI[jj]];
+        scalar sg = YGList[LSI[jj]];
+        scalar sl = YLList[jj];
+        s[] = sg[] + sl[];
+      }
+      for (int jj=0; jj<NLS; jj++) {
+        scalar slexp = slexpList[jj];
+        scalar slimp = slimpList[jj];
+        slexp[] = 0.;
+        slimp[] = 0.;
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar sgexp = sgexpList[jj];
+        scalar sgimp = sgimpList[jj];
+        sgexp[] = 0.;
+        sgimp[] = 0.;
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar mEvap = mEvapList[jj];
+        mEvap[] = 0.;
+      }
     }
-    for (int jj=0; jj<NLS; jj++) {
-      scalar s = YLIntList[jj];
-      s[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar s = YGIntList[jj];
-      s[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar s = mEvapList[jj];
-      s[] = 0.;
-    }
-    for (int jj=0; jj<NGOS; jj++) {
-      scalar s  = YList[GOSI[jj]];
-      scalar sg = YGList[GOSI[jj]];
-      s[] = sg[];
-    }
-    for (int jj=0; jj<NLS; jj++) {
-      scalar s  = YList[LSI[jj]];
-      scalar sg = YGList[LSI[jj]];
-      scalar sl = YLList[jj];
-      s[] = sg[] + sl[];
-    }
-    for (int jj=0; jj<NLS; jj++) {
-      scalar slexp = slexpList[jj];
-      scalar slimp = slimpList[jj];
-      slexp[] = 0.;
-      slimp[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar sgexp = sgexpList[jj];
-      scalar sgimp = sgimpList[jj];
-      sgexp[] = 0.;
-      sgimp[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar mEvap = mEvapList[jj];
-      mEvap[] = 0.;
-    }
-  }
 
 #ifdef SOLVE_TEMPERATURE
-  if (init_fields) {
-    foreach() {
-      TL[] = TL0*f[];
-      TG[] = TG0*(1. - f[]);
-      T[]  = TL[] + TG[];
+    if (init_fields) {
+      foreach() {
+        TL[] = TL0*f[];
+        TG[] = TG0*(1. - f[]);
+        T[]  = TL[] + TG[];
+      }
     }
-  }
 #endif
+  }
 }
 
 /**
