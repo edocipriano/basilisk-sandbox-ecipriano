@@ -99,6 +99,10 @@ physical properties as a function of the thermodynamic state of the mixture. */
 # define SPARK_VALUE 1e7
 #endif
 
+#ifndef MAX_D02
+# define MAX_D02 0.005
+#endif
+
 #if COMBUSTION
 char* gas_species[NGS];
 char* liq_species[NLS];
@@ -222,8 +226,9 @@ the initial radius and diameter, and the radius from the
 numerical simulation, and additional data for post-processing. */
 
 int maxlevel, minlevel = 2;
-double D0 = DIAMETER, effective_radius0, d_over_d02 = 1., tad = 0.;
-double volumecorr = 0., volume0 = 0.;
+double D0 = DIAMETER, effective_radius0 = 1., d_over_d02 = 1., tad = 0.;
+double volumecorr = 0., volume0 = 0., d_over_d02_stop = 1.;
+FILE * fp;
 
 int main (void) {
   /**
@@ -274,17 +279,21 @@ diameter decay would not start from 1. */
 scalar qspark[];
 
 event init (i = 0) {
-  refine (circle (x, y, 4.*D0) > 0. && level < maxlevel);
-  fraction (f, circle (x, y, 0.5*D0));
+  if (!restore (file = "restart")) {
+    refine (circle (x, y, 4.*D0) > 0. && level < maxlevel);
+    fraction (f, circle (x, y, 0.5*D0));
 
-  /**
-  We compute initial variables useful for post-processing. */
+    /**
+    We compute initial variables useful for post-processing. */
 
-  effective_radius0 = pow (3.*statsf(f).sum, 1./3.);
-  volume0 = 4./3.*pi*pow (effective_radius0, 3.);
+    effective_radius0 = pow (3.*statsf(f).sum, 1./3.);
+    volume0 = 4./3.*pi*pow (effective_radius0, 3.);
 
-  foreach (reduction(+:mLiq0))
-    mLiq0 += rho1v[]*f[]*dv();
+    foreach (reduction(+:mLiq0))
+      mLiq0 += rho1v[]*f[]*dv();
+  }
+  else
+    restored = true;
 
   /**
   We set the molecular weights of the chemial species
@@ -305,6 +314,17 @@ event init (i = 0) {
   spark.duration = SPARK_TIME;
   spark.temperature = SPARK_VALUE;
 #endif
+
+  /**
+  Set post-processing files. */
+
+  char name[80];
+  sprintf (name, "OutputData-%d", maxlevel);
+
+  if (restored && access (name, F_OK) == 0)
+    fp = fopen (name, "a");
+  else
+    fp = fopen (name, "w");
 }
 
 #if COMBUSTION
@@ -374,31 +394,6 @@ event cleanup (t = end) {
 #endif
 
 /**
-We use the same boundary conditions used by
-[Pathak at al., 2018](#pathak2018steady). */
-
-//event bcs (i = 0) {
-//  scalar fuel  = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(FUEL))];
-//  scalar inert = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(INERT))];
-//
-//  fuel[top] = dirichlet (0.);
-//  fuel[right] = dirichlet (0.);
-//
-//  inert[top] = dirichlet (MASSFRAC_INERT);
-//  inert[right] = dirichlet (MASSFRAC_INERT);
-//
-//#if COMBUSTION
-//  scalar oxidizer = YGList[OpenSMOKE_IndexOfSpecies (TOSTRING(OXIDIZER))];
-//
-//  oxidizer[top] = dirichlet (MASSFRAC_OXIDIZER);
-//  oxidizer[right] = dirichlet (MASSFRAC_OXIDIZER);
-//#endif
-//
-//  TG[top] = dirichlet (TG0);
-//  TG[right] = dirichlet (TG0);
-//}
-
-/**
 We adapt the grid according to the mass fractions of the
 mass fraction of n-heptane, the temperature, and the
 velocity field. */
@@ -423,15 +418,12 @@ We write on a file the squared diameter decay and the
 dimensionless time. */
 
 event output_data (i++) {
-  char name[80];
-  sprintf (name, "OutputData-%d", maxlevel);
-  static FILE * fp = fopen (name, "w");
-
   double effective_radius = pow (3.*statsf(f).sum, 1./3.);
   double d_over_d02_old = d_over_d02;
   double tad_old = tad;
 
   d_over_d02 = sq (effective_radius / effective_radius0);
+  d_over_d02_stop = sq (effective_radius / (0.5*D0));
   tad = t/sq(D0*1e3);
 
   /**
@@ -463,8 +455,8 @@ event output_data (i++) {
   }
   TDropAvg = (counter > 0.) ? TDropAvg/counter : 0.;
 
-  fprintf (fp, "%g %g %g %g %g %g %g %g %g\n", t, tad, effective_radius,
-      d_over_d02, mLiq/mLiq0, kv, TIntAvg, YIntAvg, TDropAvg);
+  fprintf (fp, "%g %g %g %g %g %g %g %g %g %g\n", t, tad, effective_radius0, effective_radius,
+      d_over_d02, mLiq, kv, TIntAvg, YIntAvg, TDropAvg);
 }
 
 /**
@@ -528,7 +520,7 @@ event snapshots (t += 0.005) {
 We stop the simulation when the droplet is almost fully consumed. */
 
 event stop (i++) {
-  if (d_over_d02 <= 0.05)
+  if (d_over_d02_stop <= MAX_D02)
     return 1;
 #if COMBUSTION
   if (t >= (SPARK_START + SPARK_TIME) && statsf(T).max < 1200.) {
@@ -538,6 +530,13 @@ event stop (i++) {
   }
 #endif
 }
+
+#if TEST_RESTART
+event dump (t = 0.05) {
+  dump ("restart");
+  return 1;
+}
+#endif
 
 event end (t = 50.);
 
