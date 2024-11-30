@@ -32,7 +32,7 @@ this test case. */
 #define NGS 2
 #define NLS 1
 
-#define FILTERED
+#define FILTERED 1
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE

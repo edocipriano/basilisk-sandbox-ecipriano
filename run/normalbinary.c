@@ -148,7 +148,7 @@ phase temperature value. */
 #define MOLAR_DIFFUSION
 #define MASS_DIFFUSION_ENTHALPY
 #define NO_ADVECTION_DIV 1
-#define FILTERED
+#define FILTERED 1
 #define CONDENSATION 1
 
 /**
