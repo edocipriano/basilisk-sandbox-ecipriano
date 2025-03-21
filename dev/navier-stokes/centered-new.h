@@ -73,6 +73,7 @@ for which inertia is negligible compared to viscosity. */
 (const) face vector mu = zerof, a = zerof, alpha = unityf;
 (const) scalar rho = unity;
 mgstats mgp = {0}, mgpf = {0}, mgu = {0};
+mgstats * mgplist = NULL, * mgpflist = NULL, * mgulist = NULL;
 bool stokes = false;
 
 /**
@@ -215,7 +216,19 @@ event defaults (i = 0)
     vector u = ulist[i], u0 = ulist[0];
     vector g = glist[i], g0 = glist[0];
     face vector uf = uflist[i], uf0 = uflist[0];
+#if TREE
+    p.refine = p0.refine;
+    pf.refine = pf0.refine;
+    p.prolongation = p0.prolongation ;
+    pf.prolongation = pf0.prolongation ;
 
+    foreach_dimension() {
+      u.x.refine = u0.x.refine;
+      uf.x.refine = uf0.x.refine;
+      u.x.prolongation = u0.x.prolongation ;
+      uf.x.prolongation = uf0.x.prolongation ;
+    }
+#endif
     for (int d = 0; d < nboundary; d++) {
       p.boundary[d] = p0.boundary[d];
       p.boundary_homogeneous[d] = p0.boundary_homogeneous[d];
@@ -266,11 +279,37 @@ event defaults (i = 0)
 #endif
 
   /**
+  We create the lists with convergence statistics. */
+
+  mgplist = (mgstats *)malloc (nv*sizeof (mgstats));
+  mgpflist = (mgstats *)malloc (nv*sizeof (mgstats));
+  mgulist = (mgstats *)malloc (nv*sizeof (mgstats));
+
+  /**
   We reset the multigrid parameters to their default values. */
   
   mgp = (mgstats){0};
   mgpf = (mgstats){0};
   mgu = (mgstats){0};  
+
+  mgplist[0] = mgp;
+  mgpflist[0] = mgpf;
+  mgulist[0] = mgu;
+
+  for (int i = 1; i < nv; i++) {
+    mgstats mgp = mgplist[i];
+    mgstats mgpf = mgpflist[i];
+    mgstats mgu = mgulist[i];
+
+    mgp = (mgstats){0};
+    mgpf = (mgstats){0};
+    mgu = (mgstats){0};
+
+    NOT_UNUSED (mgp);
+    NOT_UNUSED (mgpf);
+    NOT_UNUSED (mgu);
+  }
+
   
   CFL = 0.8;
 
@@ -367,6 +406,10 @@ event init (i = 0)
 }
 
 event cleanup (t = end) {
+  free (mgplist), mgplist = NULL;
+  free (mgpflist), mgpflist = NULL;
+  free (mgulist), mgulist = NULL;
+
   for (int i = 1; i < nv; i++) {
     scalar p = plist[i];
     vector u = ulist[i];
@@ -501,9 +544,12 @@ event advection_term (i++,last)
 #if VELOCITY_JUMP
     mgpf = project (uflist, pflist, alpha, dt/2., mgpf.nrelax);
 #else
-    scalar pf;
-    for (uf,pf in uflist,pflist)
+    for (int i = 0; i < nv; i++) {
+      scalar pf = pflist[i];
+      uf = uflist[i];
+      mgpf = mgpflist[i];
       mgpf = project (uf, pf, alpha, dt/2., mgpf.nrelax);
+    }
 #endif
     for (u,uf,g in ulist,uflist,glist)
       advection ((scalar *){u}, uf, dt, (scalar *){g});
@@ -536,8 +582,11 @@ event viscous_term (i++,last)
 {
   if (constant(mu.x) != 0.) {
     correction (dt);
-    for (vector u in ulist)
+    for (int i = 0; i < nv; i++) {
+      vector u = ulist[i];
+      mgu = mgulist[i];
       mgu = viscosity (u, mu, rho, dt, mgu.nrelax);
+    }
     correction (-dt);
   }
 
@@ -620,9 +669,12 @@ event projection (i++,last)
 #if VELOCITY_JUMP
   mgp = project (uflist, plist, alpha, dt, mgp.nrelax);
 #else
-  face vector uf;
-  for (p,uf in plist,uflist)
+  for (int i = 0; i < nv; i++) {
+    face vector uf = uflist[i];
+    p = plist[i];
+    mgp = mgplist[i];
     mgp = project (uf, p, alpha, dt, mgp.nrelax);
+  }
 #endif
   for (p,g in plist,glist)
     centered_gradient (p, g);

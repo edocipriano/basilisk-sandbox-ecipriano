@@ -338,42 +338,42 @@ void phase_set_properties (Phase * phase,
     double * D = NULL, double * MWs = NULL,
     double * cps = NULL)
 {
-  check_provided (rho);
-  check_provided (mu);
-  //if (!phase->isomassfrac)
-  //  check_provided_list (D);
-  if (!phase->isothermal) {
-    check_provided (lambda);
-    check_provided (cp);
-    check_provided (dhev);
-    //check_provided_list (dhevs);
-    //check_provided_list (cps);
-  }
-
   if (provided_list (MWs))
     foreach_species_in (phase)
       phase->MWs[i] = MWs[i];
 
   foreach() {
-    scalar phase_rho = phase->rho;
-    scalar phase_mu = phase->mu;
-    scalar phase_dhev = phase->dhev;
-    phase_rho[] = rho;
-    phase_mu[] = mu;
-    phase_dhev[] = dhev;
+    if (provided (rho)) {
+      scalar phase_rho = phase->rho;
+      phase_rho[] = rho;
+    }
+    if (provided (mu)) {
+      scalar phase_mu = phase->mu;
+      phase_mu[] = mu;
+    }
+    if (provided (dhev)) {
+      scalar phase_dhev = phase->dhev;
+      phase_dhev[] = dhev;
+    }
 
     if (!phase->isomassfrac) {
       for (size_t i = 0; i < phase->n; i++) {
-        scalar phase_D = phase->DList[i];
-        phase_D[] = D[i];
+        if (provided_list (D)) {
+          scalar phase_D = phase->DList[i];
+          phase_D[] = D[i];
+        }
       }
     }
 
     if (!phase->isothermal) {
-      scalar phase_lambda = phase->lambda;
-      scalar phase_cp = phase->cp;
-      phase_lambda[] = lambda;
-      phase_cp[] = cp;
+      if (provided (lambda)) {
+        scalar phase_lambda = phase->lambda;
+        phase_lambda[] = lambda;
+      }
+      if (provided (cp)) {
+        scalar phase_cp = phase->cp;
+        phase_cp[] = cp;
+      }
     }
 
   }
@@ -383,9 +383,11 @@ void phase_tracers_to_scalars (Phase * phase, scalar f, double tol = 1e-10) {
   foreach() {
     double ff = phase->inverse ? 1. - f[] : f[];
     foreach_scalar_in (phase) {
-      T[] = (ff > tol) ? T[]/ff : 0.;
+      if (!phase->isothermal)
+        T[] = (ff > tol) ? T[]/ff : 0.;
       foreach_species_in (phase)
-        Y[] = (ff > tol) ? Y[]/ff : 0.;
+        if (!phase->isomassfrac)
+          Y[] = (ff > tol) ? Y[]/ff : 0.;
     }
   }
 }
@@ -394,9 +396,11 @@ void phase_scalars_to_tracers (Phase * phase, scalar f) {
   foreach() {
     double ff = phase->inverse ? 1. - f[] : f[];
     foreach_scalar_in (phase) {
-      T[] *= ff;
+      if (!phase->isothermal)
+        T[] *= phase->isothermal ? 1. : ff;
       foreach_species_in (phase)
-        Y[] *= ff;
+        if (!phase->isomassfrac)
+          Y[] *= ff;
     }
   }
 }

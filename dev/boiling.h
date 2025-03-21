@@ -10,8 +10,10 @@ simplifies setting up boiling simulations by automatically adding the `pcm`
 #include "phasechange.h"
 #include "temperature-gradient.h"
 
+// fixme: check compatibility with restore
 event init (i = 0) {
   pcm.shifting = SHIFT_TO_GAS;
   pcm.boiling = true;
   pcm.byrhogas = false;
 }
+

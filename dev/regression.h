@@ -47,8 +47,8 @@ PDE-based extrapolation techniques.
 void vof_advection_phasechange (
     scalar f,                   // VOF volume fraction
     scalar mEvapTot,            // Total evaporation rate per unit of surface
+    scalar rho,                 // Density field
     int i,                      // Iteration index
-    bool byrhogas = false,      // Use the gas phase density instead of liquid
     bool extrapolation = false  // Use PDE-based extrapolation
 )
 {
@@ -63,10 +63,7 @@ void vof_advection_phasechange (
     foreach_dimension()
       n.x[] = m.x/sqrt (nn);
     foreach_dimension()
-      if (byrhogas)
-        n.x[] *= (rho2 > 0.) ? mEvapTot[]/rho2 : 0.;
-      else
-        n.x[] *= (rho1 > 0.) ? mEvapTot[]/rho1 : 0.;
+      n.x[] *= (rho[] > 0.) ? mEvapTot[]/rho[] : 0.;
   }
 
   if (extrapolation) {
@@ -122,16 +119,12 @@ term in the VOF transport equation.
 void vof_expl_sources (
     scalar f,               // VOF volume fraction
     scalar mEvapTot,        // Total evaporation rate per unit of surface
-    double dt,              // Time step
-    bool byrhogas = false   // Use the gas phase density instead of liquid
+    scalar rho,             // Density field
+    double dt               // Time step
 )
 {
-  foreach_interfacial_plic (f, F_ERR) {
-    if (byrhogas)
-      f[] += (rho2 > 0.) ? dt*mEvapTot[]/rho2*area/Delta : 0.;
-    else
-      f[] += (rho1 > 0.) ? dt*mEvapTot[]/rho1*area/Delta : 0.;
-  }
+  foreach_interfacial_plic (f, F_ERR)
+    f[] += (rho[] > 0.) ? dt*mEvapTot[]/rho[]*area/Delta : 0.;
 }
 
 /**
@@ -144,18 +137,14 @@ interface along its normal direction.
 void vof_plane_shifting (
     scalar f,               // VOF volume fraction
     scalar mEvapTot,        // Total evaporation rate per unit of surface
-    double dt,              // Time step
-    bool byrhogas = false   // Use the gas phase density instead of liquid
+    scalar rho,             // Density field
+    double dt               // Time step
 )
 {
   foreach_interfacial_plic (f, F_ERR) {
     double delta_alpha = 0.;
     double magn = sqrt (sq (m.x) + sq (m.y) + sq (m.z));
-    if (byrhogas)
-      delta_alpha = (rho2 > 0.) ? dt*mEvapTot[]*magn/rho2/Delta : 0.;
-    else
-      delta_alpha = (rho1 > 0.) ? dt*mEvapTot[]*magn/rho1/Delta : 0.;
-
+    delta_alpha = (rho[] > 0.) ? dt*mEvapTot[]*magn/rho[]/Delta : 0.;
     double ff = plane_volume (m, alpha + delta_alpha);
     f[] = (ff > F_ERR && ff < 1.-F_ERR) ? ff : (ff <= F_ERR) ? 0. : 1.;
   }
