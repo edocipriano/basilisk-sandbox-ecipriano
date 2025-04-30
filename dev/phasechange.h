@@ -8,6 +8,7 @@ int NLS = 0, NGS = 0;
 double lambda1 = 1., lambda2 = 1., dhev = 1., cp1 = 1., cp2 = 1.;
 double TG0 = 300., TL0 = 300., TIntVal = 300., Pref = 101325.;
 double Dmix1 = 0., Dmix2 = 1., YIntVal = 0., YG0 = 0., YL0 = 1.;
+double MW1 = 1., MW2 = 1.;
 
 Phase * liq, * gas;
 
@@ -28,19 +29,31 @@ enum velocity_policy {
   WITHOUT_EXPANSION, WITH_EXPANSION
 };
 
+enum diffusion_policy {
+  EXPLICIT_ONLY, EXPLICIT_IMPLICIT
+};
+
 struct PhaseChangeModel {
   enum advection_policy advection;
   enum shifting_policy shifting;
   enum velocity_policy velocity;
+  enum diffusion_policy diffusion;
   bool boiling;
   bool byrhogas;
+  bool expansion;
   bool consistent;
   bool isothermal;
   bool isomassfrac;
+  bool isothermal_interface;
+  bool fick_corrected;
 } pcm = {
   ADVECTION_VELOCITY,
   SHIFT_TO_LIQUID,
   WITHOUT_EXPANSION,
+  EXPLICIT_ONLY,
+  false,
+  false,
+  true,
   false,
   false,
   false,
@@ -55,6 +68,8 @@ void intexp_explicit (scalar intexp, scalar f, scalar mEvapTot) {
       mEvapTot[]*(1./rhog[] - 1./rhol[])*dirac : 0.;
 }
 
+static scalar * f_tracers = NULL;
+
 event defaults (i = 0) {
   liq = new_phase ("L", NLS, false);
   gas = new_phase ("G", NGS, true);
@@ -64,91 +79,128 @@ event defaults (i = 0) {
   liq->isomassfrac = pcm.isomassfrac;
   gas->isomassfrac = pcm.isomassfrac;
 
-  ThermoState tsl, tsg;
-  tsl.T = TL0, tsl.P = Pref, tsl.x = (double[]){1};
-  tsg.T = TG0, tsg.P = Pref, tsg.x = (double[]){1};
-
-  phase_set_thermo_state (liq, &tsl);
-  phase_set_thermo_state (gas, &tsg);
-
+  double * xl = malloc (liq->n*sizeof (double));
+  double * xg = malloc (gas->n*sizeof (double));
   double * Dl = malloc (liq->n*sizeof (double));
   double * Dg = malloc (gas->n*sizeof (double));
   double * dhevsl = malloc (liq->n*sizeof (double));
   double * dhevsg = malloc (gas->n*sizeof (double));
   double * cpsl = malloc (liq->n*sizeof (double));
   double * cpsg = malloc (gas->n*sizeof (double));
+  double * MWl = malloc (liq->n*sizeof (double));
+  double * MWg = malloc (gas->n*sizeof (double));
+
+  foreach_species_in (liq)
+    xl[i] = 1.;
+  correctfrac (xl, liq->n);
+
+  foreach_species_in (gas)
+    xg[i] = 1.;
+  correctfrac (xg, gas->n);
+
+  if (NLS == 1)
+    xl[0] = 1.;
+
+  if (NGS == 1)
+    xg[0] = 1.;
+  else if (NGS == 2)
+    xg[0] = YG0, xg[1] = 1. - YG0;
+
+  ThermoState tsl, tsg;
+  tsl.T = TL0, tsl.P = Pref, tsl.x = xl;
+  tsg.T = TG0, tsg.P = Pref, tsg.x = xg;
+
+  phase_set_thermo_state (liq, &tsl);
+  phase_set_thermo_state (gas, &tsg);
 
   foreach_species_in (liq) {
     Dl[i] = Dmix1;
     dhevsl[i] = dhev;
     cpsl[i] = cp1;
+    MWl[i] = MW1;
   }
 
   foreach_species_in (gas) {
     Dg[i] = Dmix2;
     dhevsg[i] = dhev;
     cpsg[i] = cp2;
+    MWg[i] = MW2;
   }
 
   phase_set_properties (liq,
       rho = rho1, mu = mu1,
       lambda = lambda1, cp = cp1,
       dhev = dhev, dhevs = dhevsl,
-      D = Dl, cps = cpsl);
+      D = Dl, cps = cpsl, MWs = MWl);
 
   phase_set_properties (gas,
       rho = rho2, mu = mu2,
       lambda = lambda2, cp = cp2,
       dhev = dhev, dhevs = dhevsg,
-      D = Dg, cps = cpsg);
+      D = Dg, cps = cpsg, MWs = MWg);
 
+  free (xl);
+  free (xg);
   free (Dl);
   free (Dg);
   free (dhevsl);
   free (dhevsg);
   free (cpsl);
   free (cpsg);
-
-  phase_scalars_to_tracers (liq, f);
-  phase_scalars_to_tracers (gas, f);
+  free (MWl);
+  free (MWg);
 
   phase_set_tracers (liq);
   phase_set_tracers (gas);
 
-  if (nv == 1) {
-    scalar fug = fulist[0];
-    fug.tracers = list_concat (fug.tracers, liq->tracers);
-    fug.tracers = list_concat (fug.tracers, gas->tracers);
+  if (pcm.consistent) {
+    f_tracers = f.tracers;
+    f.tracers = list_concat (f.tracers, liq->tracers);
+    f.tracers = list_concat (f.tracers, gas->tracers);
   }
-  else if (nv == 2) {
-    scalar ful = fulist[1], fug = fulist[0];
-    ful.tracers = list_concat (ful.tracers, liq->tracers);
-    fug.tracers = list_concat (fug.tracers, gas->tracers);
-  }
-
-  for (scalar c in fulist) {
-    c.refine = c.prolongation = fraction_refine;
-    c.dirty = true;
-    scalar * tracers = c.tracers;
-    for (scalar t in tracers) {
-      t.restriction = restriction_volume_average;
-      t.refine = t.prolongation = vof_concentration_refine;
-      t.dirty = true;
-      t.c = c;
+  else {
+    if (nv == 1) {
+      scalar fug = fulist[0];
+      fug.tracers = list_concat (fug.tracers, liq->tracers);
+      fug.tracers = list_concat (fug.tracers, gas->tracers);
+    }
+    else if (nv == 2) {
+      scalar ful = fulist[1], fug = fulist[0];
+      ful.tracers = list_concat (ful.tracers, liq->tracers);
+      fug.tracers = list_concat (fug.tracers, gas->tracers);
     }
   }
+
+  //for (scalar c in fulist) {
+  //  c.refine = c.prolongation = fraction_refine;
+  //  c.dirty = true;
+  //  scalar * tracers = c.tracers;
+  //  for (scalar t in tracers) {
+  //    t.restriction = restriction_volume_average;
+  //    t.refine = t.prolongation = vof_concentration_refine;
+  //    t.dirty = true;
+  //    t.c = c;
+  //  }
+  //}
 }
 
 event init (i = 0) {
 #if VELOCITY_JUMP
   _boiling = pcm.boiling;
 #endif
+
+  if (phase_is_uniform (liq))
+    phase_scalars_to_tracers (liq, f);
+  if (phase_is_uniform (gas))
+    phase_scalars_to_tracers (gas, f);
 }
 
 event cleanup (t = end) {
   for (scalar fu in fulist)
     free (fu.tracers), fu.tracers = NULL;
-  free (fulist), fulist = NULL;
+
+  if (pcm.consistent)
+    free (f.tracers), f.tracers = f_tracers;
 
   delete_phase (liq);
   delete_phase (gas);
@@ -201,12 +253,14 @@ event phasechange (i++) {
             nointerface=true, inverse=true, tol=1e-4);
 #else
   scalar intexp = (pcm.boiling && nv > 1) ? intexplist[1] : intexplist[0];
-  intexp_explicit (intexp, f, mEvapTot);
+  if (pcm.expansion) {
+    intexp_explicit (intexp, f, mEvapTot);
 
-  switch (pcm.shifting) {
-    case NO_SHIFTING: break;
-    case SHIFT_TO_LIQUID: shift_field (intexp, f, 1); break;
-    case SHIFT_TO_GAS: shift_field (intexp, f, 0); break;
+    switch (pcm.shifting) {
+      case NO_SHIFTING: break;
+      case SHIFT_TO_LIQUID: shift_field (intexp, f, 1); break;
+      case SHIFT_TO_GAS: shift_field (intexp, f, 0); break;
+    }
   }
 #endif
 }
@@ -215,6 +269,7 @@ face vector ufsave[];
 
 event vof (i++) {
   // Transport due to the phase change
+  // fixme: add consistency also for source and plane shifting
   scalar rhoh = pcm.byrhogas ? gas->rho : liq->rho;
   switch (pcm.advection) {
     case NO_ADVECTION:
@@ -259,14 +314,20 @@ event vof_sources (i++) {
 event tracer_advection (i++);
 
 event tracer_diffusion (i++) {
-  if (nv == 1) {
-    phase_tracers_to_scalars (liq, fu, tol = F_ERR);
-    phase_tracers_to_scalars (gas, fu, tol = F_ERR);
+  if (pcm.consistent) {
+    phase_tracers_to_scalars (liq, f, tol = F_ERR);
+    phase_tracers_to_scalars (gas, f, tol = F_ERR);
   }
-  else if (nv == 2) {
-    scalar ful = fulist[1], fug = fulist[0];
-    phase_tracers_to_scalars (liq, ful, tol = F_ERR);
-    phase_tracers_to_scalars (gas, fug, tol = F_ERR);
+  else {
+    if (nv == 1) {
+      phase_tracers_to_scalars (liq, fu, tol = F_ERR);
+      phase_tracers_to_scalars (gas, fu, tol = F_ERR);
+    }
+    else if (nv == 2) {
+      scalar ful = fulist[1], fug = fulist[0];
+      phase_tracers_to_scalars (liq, ful, tol = F_ERR);
+      phase_tracers_to_scalars (gas, fug, tol = F_ERR);
+    }
   }
 
 #if TWO_PHASE_VARPROP
@@ -283,6 +344,16 @@ event tracer_diffusion (i++) {
   scalar TL = liq->T, TG = gas->T;
   foreach()
     T[] = TL[] + TG[];
+
+  // fixme: make it general choosing the right gas species
+  foreach() {
+    double Ysum = 0.;
+    foreach_species_in (liq) {
+      scalar YL = liq->YList[i], YG = gas->YList[i];
+      Ysum += YL[] + YG[];
+    }
+    Y[] = Ysum;
+  }
 }
 
 #if TWO_PHASE_VARPROP

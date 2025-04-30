@@ -199,8 +199,9 @@ coord normal (Point point, scalar c)
 double avg_neighbor (Point point, scalar Y, scalar f) {
   double fYnei = 0., fnei = 0.;
   foreach_neighbor(1) {
-    fYnei += f[]*Y[];
-    fnei  += f[];
+    double ff = Y.inverse ? 1. - f[] : f[];
+    fYnei += ff*Y[];
+    fnei  += ff;
   }
   return fYnei / fnei;
 }

@@ -11,6 +11,8 @@ structures and functions that help to setup such cases.
 
 #define VARPROP 1
 
+#include "thermodynamics.h"
+
 /**
 ## Fields Allocations
 
@@ -52,12 +54,36 @@ typedef struct {
   double (* lambdav) (void *);
   double (* cpv) (void *);
   // Species properties
-  double (* pvap) (void *, int);
-  double (* dhev) (void *, int);
-  double (* diff) (void *, int);
-  double (* cps)  (void *, int);
-  double (* sigmas) (void *, int);
+  void (* dhev) (void *, double *);
+  void (* diff) (void *, double *);
+  void (* cps) (void *, double *);
+  void (* sigmas) (void *, double *);
+  // Expansion functions
+  double (* betaT) (const void *, void *);
+  void (* betaY) (const void *, void *, double *);
 } ThermoProps;
+
+// Functions for simpler use of ThermoState
+
+ThermoState * new_thermo_state (size_t n) {
+  ThermoState * ts = malloc (sizeof (ThermoState));
+  ts->x = malloc (n*sizeof (double));
+  return ts;
+}
+
+void free_thermo_state (ThermoState * ts) {
+  free (ts->x), ts->x = NULL;
+  free (ts), ts = NULL;
+}
+
+void copy_thermo_state (ThermoState * dest, const ThermoState * orig,
+    size_t n)
+{
+  dest->T = orig->T;
+  dest->P = orig->P;
+  for (size_t i = 0; i < n; i++)
+    dest->x[i] = orig->x[i];
+}
 
 /**
 ## Overwrite Two-Phase Properties
@@ -148,24 +174,50 @@ void print_thermostate (ThermoState * ts, int NS, FILE * fp = stdout) {
 ### *gasprop_thermal_expansion()*: Thermal expansion coefficient of an ideal gas
 */
 
-double gasprop_thermal_expansion (ThermoState * ts) {
-  return ts->T > 0. ? 1./ts->T : 0.;
-}
+//double gasprop_thermal_expansion (ThermoProps * tp, ThermoState * ts) {
+//  return ts->T > 0. ? 1./ts->T : 0.;
+//}
+
+//double gasprop_thermal_expansion (void * p, void * s) {
+//  ThermoState * ts = (ThermoState *)s;
+//  return ts->T > 0. ? 1./ts->T : 0.;
+//}
+
+/**
+### *gasprop_species_expansion()*: Thermal expansion coefficient of an ideal gas
+*/
+
+//void gasprop_species_expansion (void * p, void * s, double * r) {
+//}
 
 /**
 ### *liqprop_thermal_expansion()*: Thermal expansion coefficient of a liquid
 */
 
-double liqprop_thermal_expansion (ThermoProps * tp, ThermoState * ts) {
-  double epsT = 1.e-3;
-  double Ttop = ts->T + epsT, Tbot = ts->T - epsT;
-  ThermoState tstop, tsbot;
-  tstop.T = Ttop, tstop.P = ts->P, tstop.x = ts->x;
-  tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
-  double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
-  double rhoval = tp->rhov (ts);
-  return (rhoval > 0.) ? -1./rhoval*(rhotop - rhobot)/(2.*epsT) : 0.;
-}
+//double liqprop_thermal_expansion (ThermoProps * tp, ThermoState * ts) {
+//  double epsT = 1.e-3;
+//  double Ttop = ts->T + epsT, Tbot = ts->T - epsT;
+//  ThermoState tstop, tsbot;
+//  tstop.T = Ttop, tstop.P = ts->P, tstop.x = ts->x;
+//  tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
+//  double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
+//  double rhoval = tp->rhov (ts);
+//  return (rhoval > 0.) ? -1./rhoval*(rhotop - rhobot)/(2.*epsT) : 0.;
+//}
+
+//double liqprop_thermal_expansion (void * p, void * s) {
+//  ThermoProps * tp = (ThermoProps *)p;
+//  ThermoState * ts = (ThermoState *)s;
+//
+//  double epsT = 1.e-3;
+//  double Ttop = ts->T + epsT, Tbot = ts->T - epsT;
+//  ThermoState tstop, tsbot;
+//  tstop.T = Ttop, tstop.P = ts->P, tstop.x = ts->x;
+//  tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
+//  double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
+//  double rhoval = tp->rhov (ts);
+//  return (rhoval > 0.) ? -1./rhoval*(rhotop - rhobot)/(2.*epsT) : 0.;
+//}
 
 /**
 ## *mass2molefrac()*: Compute mole fractions from mass fractions
