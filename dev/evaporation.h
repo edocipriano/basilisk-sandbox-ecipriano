@@ -15,4 +15,6 @@ parameters.
 event init (i = 0) {
   pcm.shifting = SHIFT_TO_LIQUID;
   pcm.diffusion = EXPLICIT_IMPLICIT;
+  if (nv == 1)
+    pcm.byrhogas = true;
 }

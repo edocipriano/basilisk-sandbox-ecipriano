@@ -10,6 +10,9 @@ for evaporation models. */
 #ifndef F_ERR
 # define F_ERR 1.e-10
 #endif
+#ifndef P_ERR
+# define P_ERR 1.e-10
+#endif
 #ifndef T_ERR
 # define T_ERR 0.
 #endif

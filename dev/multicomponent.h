@@ -16,6 +16,10 @@ typedef struct {
   coord c;
 } EnergyBalanceData;
 
+double divq_rad_int (double TInti, double Tbulk = 300., double alphacorr = 0) {
+  return alphacorr*5.670373e-8*(pow (Tbulk, 4.) - pow (TInti, 4.));
+}
+
 void energy_balance (const double * xdata, double * fdata, void * params) {
   EnergyBalanceData * data = params;
 
@@ -32,17 +36,17 @@ void energy_balance (const double * xdata, double * fdata, void * params) {
     double gtrgrad = ebmgrad (point, TG, fl, fg, fsl, fsg, true,  TInti, &success);
     double ltrgrad = ebmgrad (point, TL, fl, fg, fsl, fsg, false, TInti, &success);
 
-    scalar dhev = liq->dhev;
     scalar lambda1 = liq->lambda, lambda2 = gas->lambda;
 
     double vapheat = 0.;
     for (size_t i = 0; i < liq->n; i++) {
       scalar mEvap = mEvapList[LSI[i]];
+      scalar dhev = liq->dhevList[i];
       vapheat -= mEvap[]*dhev[];
     }
 
     fdata[0] = vapheat
-      //- divq_rad_int (TInti, TG0, RADIATION_INTERFACE)
+      - divq_rad_int (TInti, TG0, pcm.emissivity)
       + lambda1[]*ltrgrad
       + lambda2[]*gtrgrad
       ;
@@ -60,11 +64,15 @@ int energy_balance_gsl (const gsl_vector * x, void * params, gsl_vector * f) {
 // Antoine functions and default condition
 
 double antoine_default (double T, double P, int i) {
-  scalar YL = liq->YList[i];
-  if (YL.antoine)
-    return YL.antoine (T, P);
-  else
-    return YIntVals[i];
+  if (YIntVal)
+    return YIntVal;
+  else {
+    scalar YL = liq->YList[i];
+    if (YL.antoine)
+      return YL.antoine (T, P);
+    else
+      return YIntVals[i];
+  }
 }
 
 double (* antoine) (double, double, int) = &antoine_default;
@@ -178,10 +186,8 @@ event phasechange (i++) {
   // Update mole fractions and moles
   liq_int->MWs = liq->MWs;
   gas_int->MWs = gas->MWs;
-  phase_update_mw_moles (liq_int, f);
-  phase_update_mw_moles (gas_int, f);
-  phase_update_mw_moles (liq, f);
-  phase_update_mw_moles (gas, f);
+  phase_update_mw_moles (liq_int);
+  phase_update_mw_moles (gas_int);
 
   // Variables for interfacial mole fractions
   double * ygcorr = malloc ((NLS + 1)*sizeof (double));
@@ -258,11 +264,20 @@ event phasechange (i++) {
     double jGtot = 0.;
     if (pcm.fick_corrected) {
       for (int i = 0; i < NGS; i++) {
-        scalar YGInt = gas_int->YList[i];
-        scalar YG = gas->YList[i];
         scalar DG = gas->DList[i];
-
-        double gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
+        double gtrgrad = 0.;
+        if (pcm.molar_diffusion) {
+          scalar XG = gas->XList[i];
+          scalar XGInt = gas_int->XList[i];
+          scalar MWGInt = gas_int->MW;
+          gtrgrad = ebmgrad (point, XG, fl, fg, fsl, fsg, true, XGInt[], false);
+          gtrgrad *= (MWGInt[] > 0) ? gas_int->MWs[i]/MWGInt[] : 0.;
+        }
+        else {
+          scalar YGInt = gas_int->YList[i];
+          scalar YG = gas->YList[i];
+          gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
+        }
         jGtot += -rhoG[]*DG[]*gtrgrad;
       }
     }
@@ -270,10 +285,20 @@ event phasechange (i++) {
     double sum_jG = 0., sum_YGInt = 0.;
     for (int i = 0; i < NLS; i++) {
       scalar YGInt = gas_int->YList[LSI[i]];
-      scalar YG = gas->YList[LSI[i]];
       scalar DG = gas->DList[LSI[i]];
+      double gtrgrad = 0.;
+      if (pcm.molar_diffusion) {
+        scalar XGInt = gas_int->XList[LSI[i]];
+        scalar XG = gas->XList[LSI[i]];
+        scalar MWGInt = gas_int->MW;
 
-      double gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
+        gtrgrad = ebmgrad (point, XG, fl, fg, fsl, fsg, true, XGInt[], false);
+        gtrgrad *= (MWGInt[] > 0) ? gas_int->MWs[LSI[i]]/MWGInt[] : 0.;
+      }
+      else {
+        scalar YG = gas->YList[LSI[i]];
+        gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
+      }
       sum_jG += -rhoG[]*DG[]*gtrgrad - YGInt[]*jGtot;
       sum_YGInt += YGInt[];
     }
@@ -282,10 +307,20 @@ event phasechange (i++) {
     for (int i = 0; i < NLS; i++) {
       scalar mEvap = mEvapList[LSI[i]];
       scalar YGInt = gas_int->YList[LSI[i]];
-      scalar YG = gas->YList[LSI[i]];
       scalar DG = gas->DList[LSI[i]];
+      double gtrgrad = 0.;
+      if (pcm.molar_diffusion) {
+        scalar XGInt = gas_int->XList[LSI[i]];
+        scalar XG = gas->XList[LSI[i]];
+        scalar MWGInt = gas_int->MW;
 
-      double gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
+        gtrgrad = ebmgrad (point, XG, fl, fg, fsl, fsg, true, XGInt[], false);
+        gtrgrad *= (MWGInt[] > 0) ? gas_int->MWs[LSI[i]]/MWGInt[] : 0.;
+      }
+      else {
+        scalar YG = gas->YList[LSI[i]];
+        gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
+      }
       mEvap[] = mEvapTot[]*YGInt[] - rhoG[]*DG[]*gtrgrad - YGInt[]*jGtot;
     }
   }
@@ -358,6 +393,12 @@ event phasechange (i++) {
 
     slT[] += lambdal[]*ltrgrad*dirac;
     sgT[] += lambdag[]*gtrgrad*dirac;
+  }
+
+  // We add the heat from the mass diffusion process
+  if (pcm.mass_diffusion_enthalpy) {
+    phase_add_heat_species_diffusion (liq, f, pcm.molar_diffusion, F_ERR);
+    phase_add_heat_species_diffusion (gas, f, pcm.molar_diffusion, F_ERR);
   }
 
   phase_scalars_to_tracers (liq, f);

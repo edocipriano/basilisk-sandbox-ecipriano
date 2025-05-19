@@ -24,7 +24,7 @@ external dependencies:
 #include "OpenSMOKE_Interface.h"
 #define OPENSMOKE 1
 
-#pragma autolink -L$OPENSMOKE_INTERFACE/build -lopensmoke
+#pragma autolink -L$OPENSMOKE_INTERFACE_NEW/build -lopensmoke
 
 /**
 ## User Data
@@ -63,21 +63,25 @@ void species_names_liquid (size_t ns, char ** names) {
 
 #define MAX_KINFOLDER_LEN 1200
 
-void kinetics (char * kinfolder) {
+void kinetics (char * kinfolder, int * NS = NULL) {
   char kinfolder_root[MAX_KINFOLDER_LEN];
   sprintf (kinfolder_root, "%s/kinetics/%s/kinetics",
       getenv ("OPENSMOKE_INTERFACE"), kinfolder);
 
   OpenSMOKE_Init();
   OpenSMOKE_ReadKinetics (kinfolder_root);
+
+  if (NS) *NS = OpenSMOKE_NumberOfSpecies();
 }
 
-void kinetics_liquid (char * kinfolder) {
+void kinetics_liquid (char * kinfolder, int * NS = NULL) {
   char kinfolder_root[MAX_KINFOLDER_LEN];
   sprintf (kinfolder_root, "%s/kinetics/%s/kinetics",
       getenv ("OPENSMOKE_INTERFACE"), kinfolder);
 
   OpenSMOKE_ReadLiquidKinetics (kinfolder_root);
+
+  if (NS) *NS = OpenSMOKE_NumberOfLiquidSpecies();
 }
 
 void properties_liquid (char * liqfolder) {

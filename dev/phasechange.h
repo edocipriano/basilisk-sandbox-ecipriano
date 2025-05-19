@@ -46,6 +46,10 @@ struct PhaseChangeModel {
   bool isomassfrac;
   bool isothermal_interface;
   bool fick_corrected;
+  bool molar_diffusion;
+  bool mass_diffusion_enthalpy;
+  bool divergence_free;
+  double emissivity;
 } pcm = {
   ADVECTION_VELOCITY,
   SHIFT_TO_LIQUID,
@@ -59,6 +63,10 @@ struct PhaseChangeModel {
   false,
   false,
   false,
+  false,
+  false,
+  false,
+  0.,
 };
 
 void intexp_explicit (scalar intexp, scalar f, scalar mEvapTot) {
@@ -189,6 +197,14 @@ event init (i = 0) {
   _boiling = pcm.boiling;
 #endif
 
+#if TWO_PHASE_VARPROP
+  no_advection_div = true;
+  pcm.divergence_free = false;
+  pcm.fick_corrected = true;
+  pcm.molar_diffusion = true;
+  pcm.mass_diffusion_enthalpy = true;
+#endif
+
   if (phase_is_uniform (liq))
     phase_scalars_to_tracers (liq, f);
   if (phase_is_uniform (gas))
@@ -225,6 +241,27 @@ event reset_sources (i++) {
 event end_init (i = 0);
 
 event reset_sources (i++);
+
+// fixme: I should be able to compute MW and Moles for the molar diffusion even
+// if the model is used with constant properties
+#if TWO_PHASE_VARPROP
+event phase_properties (i++) {
+  phase_tracers_to_scalars (liq, f, tol = F_ERR);
+  phase_tracers_to_scalars (gas, f, tol = F_ERR);
+
+  phase_update_mw_moles (liq, f, tol = P_ERR, extend = true);
+  phase_update_mw_moles (gas, f, tol = P_ERR, extend = true);
+
+  phase_update_properties (liq, &tp1, f, P_ERR);
+  phase_update_properties (gas, &tp2, f, P_ERR);
+
+  phase_extend_properties (liq, f, P_ERR);
+  phase_extend_properties (gas, f, P_ERR);
+
+  phase_scalars_to_tracers (liq, f);
+  phase_scalars_to_tracers (gas, f);
+}
+#endif
 
 event chemistry (i++);
 
@@ -264,6 +301,31 @@ event phasechange (i++) {
   }
 #endif
 }
+
+#if TWO_PHASE_VARPROP
+event divergence (i++) {
+  if (!pcm.divergence_free) {
+    phase_tracers_to_scalars (liq, f, tol = F_ERR);
+    phase_tracers_to_scalars (gas, f, tol = F_ERR);
+
+    phase_update_divergence (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
+    phase_update_divergence (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
+
+    scalar divu1 = liq->divu, divu2 = gas->divu;
+    foreach()
+      drhodt[] = divu1[] + divu2[];
+
+    if (nv > 1) {
+      scalar drhodt1 = drhodtlist[1];
+      foreach()
+        drhodt1[] = divu1[];
+    }
+
+    phase_scalars_to_tracers (liq, f);
+    phase_scalars_to_tracers (gas, f);
+  }
+}
+#endif
 
 face vector ufsave[];
 
@@ -314,6 +376,7 @@ event vof_sources (i++) {
 event tracer_advection (i++);
 
 event tracer_diffusion (i++) {
+
   if (pcm.consistent) {
     phase_tracers_to_scalars (liq, f, tol = F_ERR);
     phase_tracers_to_scalars (gas, f, tol = F_ERR);
@@ -330,6 +393,13 @@ event tracer_diffusion (i++) {
     }
   }
 
+  phase_update_mw_moles (liq, f, tol = P_ERR, extend = true);
+  phase_update_mw_moles (gas, f, tol = P_ERR, extend = true);
+
+  // Let's perform the velocity correction step
+  phase_diffusion_velocity (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
+  phase_diffusion_velocity (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
+
 #if TWO_PHASE_VARPROP
   phase_diffusion (gas, f, varcoeff = true);
   phase_diffusion (liq, f, varcoeff = true);
@@ -337,6 +407,9 @@ event tracer_diffusion (i++) {
   phase_diffusion (gas, f, varcoeff = false);
   phase_diffusion (liq, f, varcoeff = false);
 #endif
+
+  phase_normalize_fractions (liq);
+  phase_normalize_fractions (gas);
 
   phase_scalars_to_tracers (liq, f);
   phase_scalars_to_tracers (gas, f);

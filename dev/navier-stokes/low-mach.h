@@ -40,6 +40,8 @@ attribute {
 scalar drhodt[], * drhodtlist = NULL;
 scalar intexp[], * intexplist = NULL;
 
+bool no_advection_div = false;
+
 /**
 ## Projection Function
 
@@ -122,15 +124,14 @@ void advection_div (scalar * tracers, face vector u, double dt,
     tracer_fluxes (f, u, flux, dt, source);
 #if !EMBED
     foreach() {
-#if NO_ADVECTION_DIV
       double fold = f[];
-#endif
-      foreach_dimension()
-#if NO_ADVECTION_DIV
-        f[] += dt*(flux.x[] - flux.x[1] + fold*(u.x[1] - u.x[]))/(Delta*cm[]);
-#else
-        f[] += dt*(flux.x[] - flux.x[1])/(Delta*cm[]);
-#endif
+      NOT_UNUSED (fold);
+      foreach_dimension() {
+        if (no_advection_div)
+          f[] += dt*(flux.x[] - flux.x[1] + fold*(u.x[1] - u.x[]))/(Delta*cm[]);
+        else
+          f[] += dt*(flux.x[] - flux.x[1])/(Delta*cm[]);
+      }
     }
 #else // EMBED
     update_tracer (f, u, flux, dt);
