@@ -441,6 +441,14 @@ void phase_set_properties (Phase * phase,
           scalar phase_D = phase->DList[i];
           phase_D[] = D[i];
         }
+        if (provided_list (dhevs)) {
+          scalar phase_dhev = phase->dhevList[i];
+          phase_dhev[] = dhevs[i];
+        }
+        if (provided_list (cps)) {
+          scalar phase_cp = phase->cpList[i];
+          phase_cp[] = cps[i];
+        }
       }
     }
 
