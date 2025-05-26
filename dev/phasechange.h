@@ -54,7 +54,7 @@ struct PhaseChangeModel {
   ADVECTION_VELOCITY,
   SHIFT_TO_LIQUID,
   WITHOUT_EXPANSION,
-  EXPLICIT_ONLY,
+  EXPLICIT_IMPLICIT,
   false,
   false,
   true,
