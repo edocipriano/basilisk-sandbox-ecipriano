@@ -6,6 +6,10 @@
 extern scalar * mEvapList;
 extern scalar * YLList;
 extern scalar * YGList;
+#ifdef MOLAR_DIFFUSION
+extern scalar * XLList;
+extern scalar * XGList;
+#endif
 extern scalar * YLIntList;
 extern scalar * YGIntList;
 #ifdef VARPROP
@@ -84,6 +88,7 @@ void Equations (const double * xdata, double * fdata, void * params) {
     /**
     Convert mass-to-mole fractions. */
 
+    double MWmixLInt = 0., MWmixGInt = 0.;
     {
       double inMWG[NGS];
       for (int jj=0; jj<NGS; jj++)
@@ -95,17 +100,15 @@ void Equations (const double * xdata, double * fdata, void * params) {
 
       mass2molefrac (XLInti, YLInti, inMWL, NLS);
       mass2molefrac (XGInti, YGInti, inMWG, NGS);
-    }
 
-#ifdef VARPROP
-    ThermoState ts1h, ts2h;
-    ts1h.T = TInti;
-    ts2h.T = TInti;
-    ts1h.P = Pref;
-    ts2h.P = Pref;
-    ts1h.x = XLInti;
-    ts2h.x = XGInti;
+#ifdef MOLAR_DIFFUSION
+      MWmixLInt = mass2mw (YLInti, inMWL, NLS);
+      MWmixGInt = mass2mw (YGInti, inMWG, NGS);
+#else
+      NOT_UNUSED (MWmixLInt);
+      NOT_UNUSED (MWmixGInt);
 #endif
+    }
 
     /**
     Set to zero gas-only species vaporization mass flow-rates. */
@@ -126,12 +129,17 @@ void Equations (const double * xdata, double * fdata, void * params) {
       rho2vh = rho2v[];
       scalar Dmix2 = Dmix2List[jj];
       Dmix2vh = Dmix2[];
-      //rho2vh = tp2.rhov (&ts2);
-      //Dmix2vh = tp2.diff (&ts2, jj);
 #endif
+
+#ifdef MOLAR_DIFFUSION
+      scalar XG = XGList[jj];
+      double gtrgrad = ebmgrad (point, XG, fL, fG, fsL, fsG, true, XGInti[jj], &success);
+      jG[jj] = -rho2vh*Dmix2vh*inMW[jj]/MWmixGInt*gtrgrad;
+#else
       scalar YG = YGList[jj];
       double gtrgrad = ebmgrad (point, YG, fL, fG, fsL, fsG, true, YGInti[jj], &success);
       jG[jj] = -rho2vh*Dmix2vh*gtrgrad;
+#endif
     }
     for (int jj=0; jj<NLS; jj++) {
       double rho1vh = rho1;
@@ -140,12 +148,17 @@ void Equations (const double * xdata, double * fdata, void * params) {
       rho1vh = rho1v[];
       scalar Dmix1 = Dmix1List[jj];
       Dmix1vh = Dmix1[];
-      //rho1vh = tp1.rhov (&ts1);
-      //Dmix1vh = tp1.diff (&ts1, jj);
 #endif
+
+#ifdef MOLAR_DIFFUSION
+      scalar XL = XLList[jj];
+      double ltrgrad = ebmgrad (point, XL, fL, fG, fsL, fsG, false, XLInti[jj], &success);
+      jL[jj] = rho1vh*Dmix1vh*inMW[LSI[jj]]/MWmixLInt*ltrgrad;
+#else
       scalar YL = YLList[jj];
       double ltrgrad = ebmgrad (point, YL, fL, fG, fsL, fsG, false, YLInti[jj], &success);
       jL[jj] = rho1vh*Dmix1vh*ltrgrad;
+#endif
     }
 
     /**
@@ -287,7 +300,6 @@ void Equations (const double * xdata, double * fdata, void * params) {
 #ifdef VARPROP
       scalar dhevjj = dhevList[jj];
       dhevvh = dhevjj[];
-      //dhevvh = tp1.dhev (&ts1h, jj);
 #endif
       vapheat -= dhevvh*mEvapi[jj];
     }
@@ -296,8 +308,6 @@ void Equations (const double * xdata, double * fdata, void * params) {
 # ifdef VARPROP
                    + lambda1v[]*gradTLn
                    + lambda2v[]*gradTGn
-                   // + tp1.lambdav (&ts1h)*gradTLn
-                   // + tp2.lambdav (&ts2h)*gradTGn
 # else
                    + lambda1*gradTLn
                    + lambda2*gradTGn
@@ -439,29 +449,19 @@ void EqTemperature (const double * xdata, double * fdata, void * params) {
     double xl[NLS], xg[NGS];
     double MWl[NLS], MWg[NGS];
 
-    foreach_elem (YLList, jj) {
+    for (int jj=0; jj<NLS; jj++) {
       scalar YL = YLList[jj];
       yl[jj] = YL[];
       MWl[jj] = inMW[LSI[jj]];
     }
     mass2molefrac (xl, yl, MWl, NLS);
 
-    foreach_elem (YGList, jj) {
+    for (int jj=0; jj<NGS; jj++) {
       scalar YG = YGList[jj];
       yg[jj] = YG[];
       MWg[jj] = inMW[jj];
     }
     mass2molefrac (xg, yg, MWg, NGS);
-
-    ThermoState ts1h;
-    ts1h.T = TInti;
-    ts1h.P = Pref;
-    ts1h.x = xl;
-
-    ThermoState ts2h;
-    ts2h.T = TInti;
-    ts2h.P = Pref;
-    ts2h.x = xg;
 #endif
 
     double vapheat = 0.;
@@ -531,7 +531,7 @@ void EqBoilingTemperature (const double * xdata, double * fdata, void * params) 
   double Tb = xdata[0];
   double * xc = (double *)params;
   double sumKeq = 0.;
-  foreach_elem (YLList, jj) {
+  for (int jj=0; jj<NLS; jj++) {
 #ifdef USE_ANTOINE
     scalar YL = YLList[jj];
     sumKeq += YL.antoine (Tb, Pref)*xc[jj];

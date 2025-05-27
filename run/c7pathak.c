@@ -32,7 +32,7 @@ this test case. */
 #define NGS 2
 #define NLS 1
 
-#define FILTERED
+#define FILTERED 1
 #define SOLVE_TEMPERATURE
 #define USE_GSL 0
 #define USE_ANTOINE
@@ -109,7 +109,8 @@ the initial radius and diameter, and the radius from the
 numerical simulation. */
 
 int maxlevel, minlevel = 2;
-double D0 = 5.e-6, effective_radius0;
+double D0 = 5.e-6, effective_radius0 = 1.;
+FILE * fp, * fpp;
 
 int main (void) {
   /**
@@ -152,8 +153,12 @@ because for small errors of initialization the squared
 diameter decay would not start from 1. */
 
 event init (i = 0) {
-  fraction (f, circle (x, y, 0.5*D0));
-  effective_radius0 = pow(3.*statsf(f).sum, 1./3.);
+  if (!restore (file = "restart")) {
+    fraction (f, circle (x, y, 0.5*D0));
+    effective_radius0 = pow(3.*statsf(f).sum, 1./3.);
+  }
+  else
+    restored = true;
 
   /**
   We set the molecular weights of the chemial species
@@ -168,13 +173,12 @@ event init (i = 0) {
 
   scalar YL = YLList[0];
   YL.antoine = antoine_heptane;
-}
 
-/**
-We use the same boundary conditions used by
-[Pathak at al., 2018](#pathak2018steady). */
+  /**
+  We use the same boundary conditions used by
+  [Pathak at al., 2018](#pathak2018steady). */
 
-event bcs (i = 0) {
+
   scalar C7 = YGList[0];
   scalar N2 = YGList[1];
 
@@ -186,6 +190,24 @@ event bcs (i = 0) {
 
   TG[top] = dirichlet (TG0);
   TG[right] = dirichlet (TG0);
+
+  /**
+  Set post-processing files. */
+
+  char name[80];
+  sprintf (name, "OutputData-%d", maxlevel);
+
+  char name2[80];
+  sprintf (name2, "Profiles-%d", maxlevel);
+
+  if (restored && access (name, F_OK) == 0) {
+    fp = fopen (name, "a");
+    fpp = fopen (name2, "a");
+  }
+  else {
+    fp = fopen (name, "w");
+    fpp = fopen (name2, "w");
+  }
 }
 
 /**
@@ -213,10 +235,6 @@ We write on a file the squared diameter decay and the
 dimensionless time. */
 
 event output_data (i++) {
-  char name[80];
-  sprintf (name, "OutputData-%d", maxlevel);
-  static FILE * fp = fopen (name, "w");
-
   scalar YInt_c7 = YGIntList[0];
   scalar Y_c7 = YList[0];
   double effective_radius = pow(3.*statsf(f).sum, 1./3.);
@@ -227,8 +245,8 @@ event output_data (i++) {
   double Tavg = avg_interface (T, f);
   double Yavg = avg_interface (Y_c7, f);
 
-  fprintf (fp, "%g %g %g %g %g %g %g\n",
-      t, effective_radius, d_over_d02, TIntavg, YIntavg, Tavg, Yavg);
+  fprintf (fp, "%g %g %g %g %g %g %g %g\n",
+      t, effective_radius0, effective_radius, d_over_d02, TIntavg, YIntavg, Tavg, Yavg);
   fflush (fp);
 }
 
@@ -241,10 +259,6 @@ profiles at different time instants. */
 event profiles (t = {3.29e-6, 3.e-5, 1.05e-4, 1.5e-4}) {
   scalar C7 = YList[0];
 
-  char name[80];
-  sprintf (name, "Profiles-%d", maxlevel);
-
-  static FILE * fpp = fopen (name, "w");
   for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel)) {
     fprintf (fpp, "%g %g %g\n",
         x, interpolate (T, x, 0.), interpolate (C7, x, 0.));
@@ -273,6 +287,13 @@ event movie (t += 2.e-6; t <= 1.6e-4) {
   save ("movie.mp4");
 }
 
+#if TEST_RESTART
+event stop (t = 8.e-5) {
+  dump ("restart");
+  return 1;
+}
+#endif
+
 /**
 ## Results
 
@@ -288,7 +309,7 @@ set key top right
 set grid
 
 plot "../data/pathak-heptane-T563-diam.csv" w p ps 2 t "Pathank et al., 2018", \
-     "OutputData-6" u 1:3 w l lw 2 t "LEVEL 6"
+     "OutputData-6" u 1:($3/2.5e-6)**2 w l lw 2 t "LEVEL 6"
 ~~~
 
 ~~~gnuplot Evolution of the interface temperature
@@ -299,7 +320,7 @@ set key bottom right
 set grid
 
 plot "../data/pathak-heptane-T563-temp.csv" w p ps 2 t "Pathank et al., 2018", \
-     "OutputData-6" u 1:4 w l lw 2 t "LEVEL 6"
+     "OutputData-6" u 1:5 w l lw 2 t "LEVEL 6"
 ~~~
 
 ~~~gnuplot Evolution of the temperature profiles

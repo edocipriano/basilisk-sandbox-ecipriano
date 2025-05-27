@@ -31,7 +31,7 @@ different for each chemical species. */
 
 #define NGS 3
 #define NLS 2
-#define FILTERED
+#define FILTERED 1
 
 /**
 ## Simulation Setup

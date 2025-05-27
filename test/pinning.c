@@ -22,7 +22,7 @@ given by the balance between gravity and surface tension force.
 #endif
 #include "navier-stokes/centered.h"
 #include "pinning.h"
-#define FILTERED
+#define FILTERED 1
 #include "two-phase.h"
 #include "tension.h"
 #include "reduced.h"

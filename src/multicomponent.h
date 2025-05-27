@@ -182,7 +182,7 @@ int inertIndex;
 We initilize other useful fields. */
 
 bool success;
-bool init_fields;
+bool init_fields, restored = false;
 
 scalar fG[], fL[], fuT[];
 face vector fsL[], fsG[];
@@ -460,12 +460,14 @@ event defaults (i = 0)
 #else
   fu.tracers = list_append (fu.tracers, TG);
 #endif
+# if TREE
   TL.refine  = refine_linear;
   TL.restriction = restriction_volume_average;
   TL.dirty = true; // boundary conditions need to be updated
   TG.refine  = refine_linear;
   TG.restriction = restriction_volume_average;
   TG.dirty = true; // boundary conditions need to be updated
+# endif
 #endif
 
   /**
@@ -475,6 +477,7 @@ event defaults (i = 0)
     inMW[jj] = 1.;
 
   init_fields = true;
+  restored = false;
 }
 
 /**
@@ -485,69 +488,71 @@ chemical species and set to zero additional fields. */
 
 event init (i = 0)
 {
-  foreach() {
-    for (int jj=0; jj<NLS; jj++) {
-      scalar s = YLList[jj];
-      if (init_fields)
-        s[] = f[]*liq_start[jj];
-      else
+  if (!restored) {
+    foreach() {
+      for (int jj=0; jj<NLS; jj++) {
+        scalar s = YLList[jj];
+        if (init_fields)
+          s[] = f[]*liq_start[jj];
+        else
+          s[] = 0.;
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar s = YGList[jj];
+        if (init_fields)
+          s[] = (1. - f[])*gas_start[jj];
+        else
+          s[] = 0.;
+      }
+      for (int jj=0; jj<NLS; jj++) {
+        scalar s = YLIntList[jj];
         s[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar s = YGList[jj];
-      if (init_fields)
-        s[] = (1. - f[])*gas_start[jj];
-      else
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar s = YGIntList[jj];
         s[] = 0.;
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar s = mEvapList[jj];
+        s[] = 0.;
+      }
+      for (int jj=0; jj<NGOS; jj++) {
+        scalar s  = YList[GOSI[jj]];
+        scalar sg = YGList[GOSI[jj]];
+        s[] = sg[];
+      }
+      for (int jj=0; jj<NLS; jj++) {
+        scalar s  = YList[LSI[jj]];
+        scalar sg = YGList[LSI[jj]];
+        scalar sl = YLList[jj];
+        s[] = sg[] + sl[];
+      }
+      for (int jj=0; jj<NLS; jj++) {
+        scalar slexp = slexpList[jj];
+        scalar slimp = slimpList[jj];
+        slexp[] = 0.;
+        slimp[] = 0.;
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar sgexp = sgexpList[jj];
+        scalar sgimp = sgimpList[jj];
+        sgexp[] = 0.;
+        sgimp[] = 0.;
+      }
+      for (int jj=0; jj<NGS; jj++) {
+        scalar mEvap = mEvapList[jj];
+        mEvap[] = 0.;
+      }
     }
-    for (int jj=0; jj<NLS; jj++) {
-      scalar s = YLIntList[jj];
-      s[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar s = YGIntList[jj];
-      s[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar s = mEvapList[jj];
-      s[] = 0.;
-    }
-    for (int jj=0; jj<NGOS; jj++) {
-      scalar s  = YList[GOSI[jj]];
-      scalar sg = YGList[GOSI[jj]];
-      s[] = sg[];
-    }
-    for (int jj=0; jj<NLS; jj++) {
-      scalar s  = YList[LSI[jj]];
-      scalar sg = YGList[LSI[jj]];
-      scalar sl = YLList[jj];
-      s[] = sg[] + sl[];
-    }
-    for (int jj=0; jj<NLS; jj++) {
-      scalar slexp = slexpList[jj];
-      scalar slimp = slimpList[jj];
-      slexp[] = 0.;
-      slimp[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar sgexp = sgexpList[jj];
-      scalar sgimp = sgimpList[jj];
-      sgexp[] = 0.;
-      sgimp[] = 0.;
-    }
-    for (int jj=0; jj<NGS; jj++) {
-      scalar mEvap = mEvapList[jj];
-      mEvap[] = 0.;
-    }
-  }
 
 #ifdef SOLVE_TEMPERATURE
-  foreach() {
-    TL[] = TL0*f[];
-    TG[] = TG0*(1. - f[]);
-    T[]  = TL[] + TG[];
-  }
+    foreach() {
+      TL[] = TL0*f[];
+      TG[] = TG0*(1. - f[]);
+      T[]  = TL[] + TG[];
+    }
 #endif
+  }
 }
 
 /**
@@ -901,7 +906,7 @@ event phasechange (i++)
 
 #ifdef FICK_CORRECTED
   foreach() {
-    foreach_elem (YLList, jj) {
+    for (int jj=0; jj<NLS; jj++) {
       scalar YL = YLList[jj];
       scalar JL = JLList[jj];
 
@@ -911,7 +916,7 @@ event phasechange (i++)
             inDmix1[jj]*face_gradient_x (YL, 0)*fsL.x[]*fm.x[])/Delta;
     }
 
-    foreach_elem (YGList, jj) {
+    for (int jj=0; jj<NGS; jj++) {
       scalar YG = YGList[jj];
       scalar JG = JGList[jj];
 
@@ -984,14 +989,14 @@ event phasechange (i++)
       }
     }
 #ifdef FICK_CORRECTED
-    foreach_elem (YLList, jj) {
+    for (int jj=0; jj<NLS; jj++) {
       scalar YL = YLList[jj];
       scalar slexp = slexpList[jj];
 
       slexp[] += JLtot[]*YL[];
     }
 
-    foreach_elem (YGList, jj) {
+    for (int jj=0; jj<NGS; jj++) {
       scalar YG = YGList[jj];
       scalar sgexp = sgexpList[jj];
 

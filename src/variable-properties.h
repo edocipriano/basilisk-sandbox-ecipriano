@@ -75,7 +75,7 @@ fields after the calculation in [two-phase.h](/src/two-phase-generic.h). */
 extern scalar f;
 extern face vector alphav;
 extern scalar rhov;
-#ifdef FILTERED
+#if FILTERED
 extern scalar sf;
 #else
 # define sf f
