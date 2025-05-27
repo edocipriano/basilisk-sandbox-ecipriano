@@ -304,9 +304,12 @@ void update_properties (void)
       double cp1vgh = 0.;
       double lambda1vgh = 0.;
       double dhevgh[NLS];
+      double Dmixvgh[NLS];
       double beta1vgh = 0.;
-      for (int jj=0; jj<NLS; jj++)
+      for (int jj=0; jj<NLS; jj++) {
         dhevgh[jj] = 0.;
+        Dmixvgh[jj] = 0.;
+      }
 
       int counter = 0;
       foreach_neighbor(1) {
@@ -321,6 +324,9 @@ void update_properties (void)
           for (int jj=0; jj<NLS; jj++) {
             scalar dhevjj = dhevList[jj];
             dhevgh[jj] += dhevjj[];
+
+            scalar Dmix1jj = Dmix1List[jj];
+            Dmixvgh[jj] += Dmix1jj[];
           }
         }
       }
@@ -333,6 +339,9 @@ void update_properties (void)
       for (int jj=0; jj<NLS; jj++) {
         scalar dhevjj = dhevList[jj];
         dhevjj[] = (counter != 0) ? dhevgh[jj]/counter : 0.;
+
+        scalar Dmix1jj = Dmix1List[jj];
+        Dmix1jj[] = (counter != 0) ? Dmixvgh[jj]/counter : 0.;
       }
     }
 
