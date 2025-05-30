@@ -179,17 +179,24 @@ event defaults (i = 0) {
     }
   }
 
-  //for (scalar c in fulist) {
-  //  c.refine = c.prolongation = fraction_refine;
-  //  c.dirty = true;
-  //  scalar * tracers = c.tracers;
-  //  for (scalar t in tracers) {
-  //    t.restriction = restriction_volume_average;
-  //    t.refine = t.prolongation = vof_concentration_refine;
-  //    t.dirty = true;
-  //    t.c = c;
-  //  }
-  //}
+#if TREE
+  // Only f.tracers are set to the correct refine functions in
+  // [vof.h](src/vof.h). Other helper fractions with their tracers must be
+  // set here. Do not remove.
+  for (scalar c in fulist) {
+    c.refine = c.prolongation = fraction_refine;
+    c.dirty = true;
+    scalar * tracers = c.tracers;
+    for (scalar t in tracers) {
+      t.restriction = restriction_volume_average;
+      t.refine = t.prolongation = vof_concentration_refine;
+      t.dirty = true;
+      t.c = c;
+
+      t.depends = list_add (t.depends, c);
+    }
+  }
+#endif
 }
 
 event init (i = 0) {
