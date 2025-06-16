@@ -21,8 +21,11 @@ external dependencies:
 [libconfig++](https://github.com/hyperrealm/libconfig).
 */
 
-#include "OpenSMOKE_Interface.h"
+#ifndef OPENSMOKE_H
+#define OPENSMOKE_H
 #define OPENSMOKE 1
+
+#include "OpenSMOKE_Interface.h"
 
 #pragma autolink -L$OPENSMOKE_INTERFACE_NEW/build -lopensmoke
 
@@ -45,20 +48,30 @@ int index_species (char * name) {
   return OpenSMOKE_IndexOfSpecies (name);
 }
 
-void species_names (size_t ns, char ** names) {
-  for (int i = 0; i < ns; i++)
-    names[i] = strdup (OpenSMOKE_NamesOfSpecies (i));
+char ** new_species_names (size_t ns) {
+  char ** species = (char **)malloc (ns*sizeof (char *));
+  for (size_t i = 0; i < ns; i++)
+    species[i] = strdup (OpenSMOKE_NamesOfSpecies (i));
+  return species;
 }
 
-void species_names_liquid (size_t ns, char ** names) {
+char ** new_species_names_liquid (size_t ns) {
+  char ** species = (char **)malloc (ns*sizeof (char *));
   for (int i = 0; i < ns; i++) {
-    const char * species = OpenSMOKE_NamesOfLiquidSpecies (i);
-    int len = strlen (species);
+    const char * name = OpenSMOKE_NamesOfLiquidSpecies (i);
+    int len = strlen (name);
     char corrname[len+1];
-    strcpy (corrname, species);
+    strcpy (corrname, name);
     corrname[3 <= len ? len-3 : 0] = '\0';
-    names[i] = strdup (corrname);
+    species[i] = strdup (corrname);
   }
+  return species;
+}
+
+void free_species_names (size_t ns, char ** species) {
+  for (size_t i = 0; i < ns; i++)
+    free (species[i]);
+  free (species);
 }
 
 #define MAX_KINFOLDER_LEN 1200
@@ -96,6 +109,8 @@ event cleanup (t = end)
 {
   OpenSMOKE_Clean ();
 }
+
+#endif
 
 /**
 ## References
