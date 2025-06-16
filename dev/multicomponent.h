@@ -78,8 +78,8 @@ double antoine_default (double T, double P, int i) {
 double (* antoine) (double, double, int) = &antoine_default;
 
 event defaults (i = 0) {
-  liq_int = new_phase_minimal ("LInt", NLS, false);
-  gas_int = new_phase_minimal ("GInt", NGS, true);
+  liq_int = new_phase_minimal ("LInt", NLS, false, NULL);
+  gas_int = new_phase_minimal ("GInt", NGS, true, NULL);
 
   foreach_species_in (gas_int) {
     scalar mEvap = new scalar;

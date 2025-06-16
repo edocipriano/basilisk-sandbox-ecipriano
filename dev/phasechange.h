@@ -48,7 +48,8 @@ struct PhaseChangeModel {
   bool fick_corrected;
   bool molar_diffusion;
   bool mass_diffusion_enthalpy;
-  bool divergence_free;
+  bool divergence;
+  bool chemistry;
   double emissivity;
 } pcm = {
   ADVECTION_VELOCITY,
@@ -65,6 +66,7 @@ struct PhaseChangeModel {
   false,
   false,
   false,
+  true,
   false,
   0.,
 };
@@ -79,8 +81,8 @@ void intexp_explicit (scalar intexp, scalar f, scalar mEvapTot) {
 static scalar * f_tracers = NULL;
 
 event defaults (i = 0) {
-  liq = new_phase ("L", NLS, false);
-  gas = new_phase ("G", NGS, true);
+  liq = new_phase ("L", NLS, false, NULL);
+  gas = new_phase ("G", NGS, true, NULL);
 
   liq->isothermal = pcm.isothermal;
   gas->isothermal = pcm.isothermal;
@@ -206,11 +208,14 @@ event init (i = 0) {
 
 #if TWO_PHASE_VARPROP
   no_advection_div = true;
-  pcm.divergence_free = false;
+  pcm.divergence = true;
   pcm.fick_corrected = true;
-  pcm.molar_diffusion = true;
-  pcm.mass_diffusion_enthalpy = true;
+  pcm.molar_diffusion = false;
+  pcm.mass_diffusion_enthalpy = false;
 #endif
+
+  if (nv == 1)
+    pcm.consistent = true;
 
   if (phase_is_uniform (liq))
     phase_scalars_to_tracers (liq, f);
@@ -270,7 +275,19 @@ event phase_properties (i++) {
 }
 #endif
 
-event chemistry (i++);
+#if CHEMISTRY
+event chemistry (i++) {
+  if (pcm.chemistry) {
+    ode_function batch = batch_isothermal_constantpressure;
+    unsigned int NEQ = gas->n;
+    if (!phase->isothermal) {
+      batch = batch_nonisothermal_constantpressure;
+      NEQ++;
+    }
+    phase_chemistry_direct (gas, dt, batch, NEQ, f, tol = 1-F_ERR);
+  }
+}
+#endif
 
 event phasechange (i++) {
   foreach() {
@@ -311,12 +328,22 @@ event phasechange (i++) {
 
 #if TWO_PHASE_VARPROP
 event divergence (i++) {
-  if (!pcm.divergence_free) {
+  if (pcm.divergence) {
     phase_tracers_to_scalars (liq, f, tol = F_ERR);
     phase_tracers_to_scalars (gas, f, tol = F_ERR);
 
+    //// [DIFF] Let's perform the velocity correction step
+    //phase_diffusion_velocity (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
+    //phase_diffusion_velocity (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
+
     phase_update_divergence (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
     phase_update_divergence (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
+
+    //vector ul = (nv > 1) ? ulist[1] : ulist[0];
+    //vector ug = ulist[0];
+
+    //phase_update_divergence_density (liq, ul, f);
+    //phase_update_divergence_density (gas, ug, f);
 
     scalar divu1 = liq->divu, divu2 = gas->divu;
     foreach()
@@ -403,7 +430,8 @@ event tracer_diffusion (i++) {
   phase_update_mw_moles (liq, f, tol = P_ERR, extend = true);
   phase_update_mw_moles (gas, f, tol = P_ERR, extend = true);
 
-  // Let's perform the velocity correction step
+  // [DIFF]
+  //// Let's perform the velocity correction step
   phase_diffusion_velocity (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
   phase_diffusion_velocity (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
 

@@ -1,4 +1,5 @@
 #include "variable-properties.h"
+#include "common-evaporation.h"
 #include "fracface.h"
 #include "diffusion.h"
 
@@ -45,6 +46,8 @@ typedef struct {
   scalar * DYDtList;
 } Phase;
 
+scalar rho0[];
+
 macro foreach_scalar_in (Phase * phase) {
   {
     scalar T = phase->T; NOT_UNUSED (T);
@@ -80,6 +83,8 @@ macro foreach_species_in (Phase * phase) {
   }
 }
 
+// fixme: name has a size of 80 chars: using snprintf can avoid buffer overflow
+
 #define new_field_scalar(Y, phase)                                  \
   {                                                                 \
     scalar Y = new scalar;                                          \
@@ -94,11 +99,17 @@ macro foreach_species_in (Phase * phase) {
 #define new_field_type(type, Y, phase)                              \
   new_field_##type(Y, phase);
 
+#define scalar_name(name, Y, phase, i)                              \
+  sprintf (name, "%s%s%s", #Y, phase->name, phase->species[i]);     \
+
+#define vector_name(name, Y, phase, i, ext)                             \
+  sprintf (name, "%s%s%s%s", #Y, phase->name, phase->species[i], ext.x) \
+
 #define new_field_scalar_name(Y, phase)                             \
   scalar Y = new scalar;                                            \
   Y.inverse = phase->inverse;                                       \
   char name[80];                                                    \
-  sprintf (name, "%s%s%zu", #Y, phase->name, i+1);                  \
+  scalar_name (name, Y, phase, i);                                  \
   free (Y.name);                                                    \
   Y.name = strdup (name);
 
@@ -113,7 +124,7 @@ macro foreach_species_in (Phase * phase) {
   char name[80];                                                    \
   foreach_dimension() {                                             \
     Y.x.inverse = phase->inverse;                                   \
-    sprintf (name, "%s%s%zu%s", #Y, phase->name, i+1, ext.x);       \
+    vector_name (name, Y, phase, i, ext);                           \
     free (Y.x.name);                                                \
     Y.x.name = strdup (name);                                       \
   }                                                                 \
@@ -130,11 +141,12 @@ macro foreach_species_in (Phase * phase) {
 
 void phase_species_names (Phase * phase, char ** names = NULL) {
   if (names) {
+    phase->species = (char **)malloc (phase->n*sizeof (char *));
     foreach_species_in (phase)
       phase->species[i] = strdup (names[i]);
   }
   else {
-    phase->species = malloc (phase->n*sizeof (char *));
+    phase->species = (char **)malloc (phase->n*sizeof (char *));
     foreach_species_in (phase) {
       char name[80];
       sprintf (name, "%zu", i+1);
@@ -161,13 +173,13 @@ Phase * new_phase_empty (char * name = "", bool inverse = false) {
 }
 
 Phase * new_phase_minimal (char * name = "", size_t ns = 0,
-    bool inverse = false)
+    bool inverse = false, char ** species = NULL)
 {
   Phase * phase = new_phase_empty (name, inverse);
   phase->n = ns;
 
   // Default set of names
-  phase_species_names (phase);
+  phase_species_names (phase, species);
 
   // Create minimal set of scalar fields
   new_list_type_name (scalar, Y, phase, phase->YList);
@@ -191,14 +203,16 @@ Phase * new_phase_minimal (char * name = "", size_t ns = 0,
   return phase;
 }
 
-Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false) {
+Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
+    char ** species = NULL)
+{
   Phase * phase = new_phase_empty (name, inverse);
   phase->n = ns;
   phase->isothermal = false;
   phase->isomassfrac = false;
 
   // Default set of names
-  phase_species_names (phase);
+  phase_species_names (phase, species);
 
   // Create scalar fields
   new_field_type (scalar, T, phase);
@@ -324,6 +338,8 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
 
   face vector fs[];
   face_fraction (ff, fs); // fixme: can't use f in this function
+  //foreach_face()
+  //  fs.x[] = 1.;
 
   foreach_scalar_in (phase) {
     if (!phase->isothermal) {
@@ -467,13 +483,20 @@ void phase_set_properties (Phase * phase,
 }
 
 size_t phase_species_index (Phase * phase, char * species) {
-  foreach_species_in (phase) {
-    if (strcmp (Y.name, species) == 0)
-      return i;
+  if (phase->species) {
+    foreach_species_in (phase) {
+      if (strcmp (phase->species[i], species) == 0)
+        return i;
+    }
+    fprintf (ferr, "src/phase.h:%d: error: species %s not found\n",
+        LINENO, species), fflush (ferr);
+    exit(1);
   }
-  fprintf (ferr, "src/phase.h:%d: error: species %s not found\n",
-      LINENO, species), fflush (ferr);
-  exit(1);
+  else {
+    fprintf (ferr, "src/phase.h:%d: error: species names not provided\n",
+        LINENO), fflush (ferr);
+    exit(1);
+  }
 }
 
 // Usage: phase_set_composition_from_string (phase, "NC7H16 0.2 N2 0.8");
@@ -603,6 +626,10 @@ void phase_normalize_fractions (Phase * phase) {
 void phase_update_properties (Phase * phase, const ThermoProps * tp,
     (const) scalar f = unity, double tol = 1e-10)
 {
+  foreach_scalar_in (phase)
+    foreach()
+      rho0[] = rho[];
+
   double * xmole = (double *)malloc (phase->n*sizeof (double));
   double * arrdiff = (double *)malloc (phase->n*sizeof (double));
   double * arrbetaY = (double *)malloc (phase->n*sizeof (double));
@@ -747,7 +774,7 @@ void phase_update_divergence (Phase * phase,
     foreach() {
       foreach_dimension()
         DTDt[] += (lambdagrad.x[1] - lambdagrad.x[])/Delta;
-      DTDt[] += STexp[];
+      DTDt[] += STexp[];  // fixme: + STimp[]*T[];
     }
 
     /**
@@ -839,7 +866,26 @@ void phase_update_divergence (Phase * phase,
   }
 }
 
-void phase_add_heat_species_diffusion (Phase * phase, const scalar f = unity,
+void phase_update_divergence_density (Phase * phase, vector u,
+    (const) scalar f = unity)
+{
+  foreach_scalar_in (phase) {
+    vector grho[];
+    gradients ({rho}, {grho});
+
+    foreach() {
+      divu[] = (rho[] - rho0[])/dt;
+
+      foreach_dimension()
+        divu[] += u.x[]*grho.x[];
+
+      double ff = phase->inverse ? 1. - f[] : f[];
+      divu[] *= (rho[] > 0.) ? cm[]/rho[]*ff : 0.;
+    }
+  }
+}
+
+void phase_add_heat_species_diffusion (Phase * phase, (const) scalar f = unity,
     bool molar_diffusion = false, double tol = 1e-10)
 {
   if (!phase->isothermal) {
@@ -880,7 +926,7 @@ void phase_add_heat_species_diffusion (Phase * phase, const scalar f = unity,
   }
 }
 
-void phase_diffusion_velocity (Phase * phase, const scalar f = unity,
+void phase_diffusion_velocity (Phase * phase, (const) scalar f = unity,
     bool fick_corrected = true, bool molar_diffusion = true)
 {
   if (!phase->isomassfrac) {
@@ -928,11 +974,245 @@ void phase_diffusion_velocity (Phase * phase, const scalar f = unity,
         tracer_fluxes (Y, phic, flux, dt, zeroc);
         Y.gradient = gradient_backup;
 
+        //foreach()
+        //  foreach_dimension()
+        //    SYexp[] +=(flux.x[] - flux.x[1])/Delta;
+
         foreach()
           foreach_dimension()
             Y[] += (rho[] > 0.) ? dt/rho[]*(flux.x[] - flux.x[1])/(Delta*cm[]) : 0.;
       }
     }
   }
+}
+
+#if CHEMISTRY
+void phase_chemistry_direct (Phase * phase, double dt,
+    ode_function batch, unsigned int NEQ,
+    (const) scalar f = unity, double tol = 1e-10)
+{
+  double * y0 = (double *)malloc (NEQ*sizeof (double));
+  double * s0 = (double *)malloc (NEQ*sizeof (double));
+
+  foreach_scalar_in (phase) {
+    foreach() {
+      double ff = phase->inverse ? 1. - f[] : f[];
+      if (ff > tol) {
+
+        // Gather initial conditions
+        foreach_species_in (phase)
+          y0[i] = Y[];
+        if (!phase->isothermal)
+          y0[phase->n] = T[];
+
+        // Additional data to be passed to the ODE function
+        UserDataODE data;
+        data.rho = rho[];
+        data.cp = cp[];
+        data.P = P[];
+        data.T = T[];
+        data.sources = s0;
+
+        // Resolve the ODE system
+        stiff_ode_solver (batch, NEQ, dt, y0, &data);
+
+        // Recover the results of the ODE system
+        foreach_species_in (phase) {
+          Y[] = y0[i];
+          DYDt[] += s0[i]*cm[];
+        }
+        if (!phase->isothermal) {
+          T[] = y0[phase->n];
+          DTDt[] += s0[phase->n]*cm[];
+        }
+      }
+    }
+  }
+  free (y0);
+  free (s0);
+}
+#endif
+
+typedef struct {
+  double * m;       // species mass in the domain
+  double * m0;      // initial species mass in the domain
+  double mtot;      // total mass in the domain
+  double mtot0;     // initial mass in the domain
+  double * mevap;   // species evaporated mass
+  double mevaptot;  // total mass evaporated
+  double * mf;      // species flux though the domain
+  double mftot;     // total mass through the domain
+  bool first;       // flag the first iteration
+} PhaseMassBalance;
+
+PhaseMassBalance * new_phase_mass_balance (const Phase * phase) {
+  PhaseMassBalance * pmb = malloc (sizeof (PhaseMassBalance));
+  pmb->mtot = 0.;
+  pmb->mtot0 = 0.;
+  pmb->mftot = 0.;
+  pmb->mevaptot = 0.;
+  pmb->m = malloc (phase->n*sizeof (double));
+  pmb->m0 = malloc (phase->n*sizeof (double));
+  pmb->mevap = malloc (phase->n*sizeof (double));
+  pmb->mf = malloc (phase->n*sizeof (double));
+  foreach_species_in (phase) {
+    pmb->m[i] = 0.;
+    pmb->m0[i] = 0.;
+    pmb->mevap[i] = 0.;
+    pmb->mf[i] = 0.;
+  }
+  pmb->first = true;
+  return pmb;
+}
+
+void delete_phase_mass_balances (PhaseMassBalance * pmb) {
+  free (pmb->m), pmb->m = NULL;
+  free (pmb->m0), pmb->m = NULL;
+  free (pmb->mevap), pmb->mevap = NULL;
+  free (pmb->mf), pmb->mf = NULL;
+  free (pmb), pmb = NULL;
+}
+
+static double face_value_bid (Point point, scalar s, int bid) {
+  double val = 0.;
+  switch (bid) {
+    case 0: val = 0.5*(s[1,0]  + s[]); break;   // right
+    case 1: val = 0.5*(s[-1,0] + s[]); break;   // left
+    case 2: val = 0.5*(s[0,1]  + s[]); break;   // top
+    case 3: val = 0.5*(s[0,-1] + s[]); break;   // bottom
+  }
+  return val;
+}
+
+static double face_gradient_bid (Point point, scalar s, int bid) {
+  double grad = 0.;
+  switch (bid) {
+    case 0: grad = (s[1,0]  - s[])/Delta*fm.x[];  break;  // right
+    case 1: grad = (s[-1,0] - s[])/Delta*fm.x[];  break;  // left
+    case 2: grad = (s[0,1]  - s[])/Delta*fm.y[];  break;  // top
+    case 3: grad = (s[0,-1] - s[])/Delta*fm.y[];  break;  // bottom
+  }
+  return grad;
+}
+
+static double face_flux_bid (Point point, face vector uf, int bid) {
+  double flux = 0.;
+  switch (bid) {
+    case 0: flux = +uf.x[]; break;   // right
+    case 1: flux = -uf.x[]; break;   // left
+    case 2: flux = +uf.y[]; break;   // top
+    case 3: flux = -uf.y[]; break;   // bottom
+  }
+  return flux;
+}
+
+void phase_mass_balance (PhaseMassBalance * pmb, const Phase * phase,
+    scalar * mEvapList = NULL, double dt, face vector uf,
+    (const) scalar f = unity, bool boundaries = true,
+    bool fick_corrected = false, bool molar_diffusion = false)
+{
+  PhaseMassBalance * balance = new_phase_mass_balance (phase);
+
+  foreach_scalar_in (phase) {
+    foreach(serial) {
+      double ff = phase->inverse ? 1. - f[] : f[];
+      balance->mtot += rho[]*ff*dv();
+      foreach_species_in (phase)
+        balance->m[i] += rho[]*Y[]*dv();
+    }
+    if (mEvapList) {  // fixme: must be computed befored the interface moves
+      assert (phase->n == list_len (mEvapList));
+      foreach_interfacial_plic (f, F_ERR, serial) {
+        foreach_species_in (phase) {
+          // note: both dirac and dv() multiply by cm
+          scalar mEvap = mEvapList[i];
+          balance->mevap[i] += mEvap[]*dirac*dt*dv()/cm[];
+        }
+      }
+    }
+  }
+
+  if (boundaries) {
+    foreach_scalar_in (phase) {
+      // note: do not remove calls to boundaries
+      // `foreach_boundary` does not trigger the automatic boundary conditions
+      boundary ({rho,f,MW});
+      boundary ((scalar *){uf});
+      boundary (phase->YList);
+      boundary (phase->XList);
+      boundary (phase->DList);
+
+      for (int b = 0; b < nboundary; b++) {
+        foreach_boundary(b, serial) {
+          // Convective flux
+          double rhof = face_value_bid (point, rho, b);
+          double uff = face_flux_bid (point, uf, b);
+          double ff = face_value_bid (point, f, b);
+          ff = phase->inverse ? 1. - ff : ff;
+          balance->mftot += rhof*ff*uff*Delta*dt;
+          foreach_species_in (phase)
+            balance->mf[i] += rhof*ff*face_value_bid (point, Y, b)*uff*Delta*dt;
+
+          // Diffusive flux
+          // todo: need check metrics
+          double jcorr = 0.;
+          if (fick_corrected) {
+            foreach_species_in (phase) {
+              double Df = face_value_bid (point, D, b);
+              double gradYn = 0.;
+              if (molar_diffusion) {
+                double MWf = face_value_bid (point, MW, b);
+                gradYn = (MWf > 0.) ?
+                  phase->MWs[i]/MWf*face_gradient_bid (point, X, b) : 0.;
+              }
+              else
+                gradYn = face_gradient_bid (point, Y, b);
+              jcorr += -rhof*Df*gradYn*Delta;
+            }
+          }
+
+          foreach_species_in (phase) {
+            double Df = face_value_bid (point, D, b);
+            double Yf = face_value_bid (point, Y, b);
+            double gradYn = 0.;
+            if (molar_diffusion) {
+              double MWf = face_value_bid (point, MW, b);
+              gradYn = (MWf > 0.) ?
+                phase->MWs[i]/MWf*face_gradient_bid (point, X, b) : 0.;
+            }
+            else
+              gradYn = face_gradient_bid (point, Y, b);
+            balance->mf[i] += (-rhof*Df*gradYn*Delta - jcorr*Yf)*dt;
+          }
+        }
+      }
+    }
+  }
+
+#if _MPI
+  mpi_all_reduce (balance->mtot, MPI_DOUBLE, MPI_SUM);
+  mpi_all_reduce (balance->mftot, MPI_DOUBLE, MPI_SUM);
+  mpi_all_reduce_array (balance->m, MPI_DOUBLE, MPI_SUM, phase->n);
+  mpi_all_reduce_array (balance->mf, MPI_DOUBLE, MPI_SUM, phase->n);
+  mpi_all_reduce_array (balance->mevap, MPI_DOUBLE, MPI_SUM, phase->n);
+#endif
+
+  if (pmb->first) {
+    pmb->mtot0 = balance->mtot;
+    foreach_species_in (phase)
+      pmb->m0[i] = balance->m[i];
+  }
+  pmb->first = false;
+
+  pmb->mtot = balance->mtot;
+  pmb->mftot += balance->mftot;
+  foreach_species_in (phase) {
+    pmb->m[i] = balance->m[i];
+    pmb->mevap[i] += balance->mevap[i];
+    pmb->mf[i] += balance->mf[i];
+    pmb->mevaptot += balance->mevap[i];
+  }
+
+  delete_phase_mass_balances (balance);
 }
 
