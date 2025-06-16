@@ -547,8 +547,7 @@ event advection_term (i++,last)
     for (int i = 0; i < nv; i++) {
       scalar pf = pflist[i];
       uf = uflist[i];
-      mgpf = mgpflist[i];
-      mgpf = project (uf, pf, alpha, dt/2., mgpf.nrelax);
+      mgpflist[i] = project (uf, pf, alpha, dt/2., mgpflist[i].nrelax);
     }
 #endif
     for (u,uf,g in ulist,uflist,glist)
@@ -672,8 +671,7 @@ event projection (i++,last)
   for (int i = 0; i < nv; i++) {
     face vector uf = uflist[i];
     p = plist[i];
-    mgp = mgplist[i];
-    mgp = project (uf, p, alpha, dt, mgp.nrelax);
+    mgplist[i] = project (uf, p, alpha, dt, mgplist[i].nrelax);
   }
 #endif
   for (p,g in plist,glist)
