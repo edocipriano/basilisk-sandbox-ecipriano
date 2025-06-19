@@ -114,8 +114,6 @@ void set_spark (struct SparkModel * spark) {
           case 3:   // SPARK_HEATFLUX
             spark_T[] = spark->temperature;
             STexp[] += spark_T[]*rho[]*cp[]*cm[];
-            //spark_T[] = spark->temperature;
-            //sgT[] += spark_T[]*rho[]*cp[]*cm[];
             break;
 
           default:

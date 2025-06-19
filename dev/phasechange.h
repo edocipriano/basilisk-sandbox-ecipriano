@@ -281,7 +281,7 @@ event chemistry (i++) {
   if (pcm.chemistry) {
     ode_function batch = batch_isothermal_constantpressure;
     unsigned int NEQ = gas->n;
-    if (!phase->isothermal) {
+    if (!gas->isothermal) {
       batch = batch_nonisothermal_constantpressure;
       NEQ++;
     }
