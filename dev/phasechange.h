@@ -11,6 +11,7 @@ double Dmix1 = 0., Dmix2 = 1., YIntVal = 0., YG0 = 0., YL0 = 1.;
 double MW1 = 1., MW2 = 1.;
 
 Phase * liq, * gas;
+char ** liq_species = NULL, ** gas_species = NULL;
 
 scalar fu[], fu1[], * fulist = {fu,fu1};  // fixme: fu1 should be dynamic
 scalar T[], Y[];
@@ -81,8 +82,8 @@ void intexp_explicit (scalar intexp, scalar f, scalar mEvapTot) {
 static scalar * f_tracers = NULL;
 
 event defaults (i = 0) {
-  liq = new_phase ("L", NLS, false, NULL);
-  gas = new_phase ("G", NGS, true, NULL);
+  liq = new_phase ("L", NLS, false, liq_species);
+  gas = new_phase ("G", NGS, true, gas_species);
 
   liq->isothermal = pcm.isothermal;
   gas->isothermal = pcm.isothermal;
