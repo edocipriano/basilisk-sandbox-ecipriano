@@ -18,7 +18,6 @@ typedef struct {
   scalar STexp;
   scalar * YList;
   scalar * XList;
-  vector * JList;
   scalar * SYimpList;
   scalar * SYexpList;
   size_t n;
@@ -46,8 +45,6 @@ typedef struct {
   scalar * DYDtList;
 } Phase;
 
-scalar rho0[];
-
 macro foreach_scalar_in (Phase * phase) {
   {
     scalar T = phase->T; NOT_UNUSED (T);
@@ -71,7 +68,6 @@ macro foreach_species_in (Phase * phase) {
   for (size_t i = 0; i < phase->n; i++) {
     scalar Y = phase->YList[i]; NOT_UNUSED (Y);
     scalar X = phase->XList[i]; NOT_UNUSED (X);
-    vector J = phase->JList[i]; NOT_UNUSED (J);
     scalar D = phase->DList[i]; NOT_UNUSED (D);
     scalar cps = phase->cpList[i]; NOT_UNUSED (cps);
     scalar dhevs = phase->dhevList[i]; NOT_UNUSED (dhevs);
@@ -161,7 +157,6 @@ Phase * new_phase_empty (char * name = "", bool inverse = false) {
   phase->n = 0;
   phase->YList = NULL;
   phase->XList = NULL;
-  phase->JList = NULL;
   phase->MWs = NULL;
   phase->ts0 = NULL;
   phase->isothermal = true;
@@ -218,7 +213,6 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
   new_field_type (scalar, T, phase);
   new_list_type_name (scalar, Y, phase, phase->YList);
   new_list_type_name (scalar, X, phase, phase->XList);
-  new_list_type_name (vector, J, phase, phase->JList);
 
   // Create material properties
   new_field_type (scalar, P, phase);
@@ -267,8 +261,6 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
         SYexp[] = 0.;
         betaY[] = 0.;
         DYDt[] = 0.;
-        foreach_dimension()
-          J.x[] = 0.;
       }
     }
 
@@ -285,24 +277,24 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
 }
 
 void delete_phase (Phase * phase) {
+  foreach_scalar_in (phase)
+    delete ({T,P,STimp,STexp,rho,mu,MW,lambda,cp,dhev,divu,betaT,DTDt});
+
+  delete (phase->YList);
+  delete (phase->XList);
+  delete (phase->SYimpList);
+  delete (phase->SYexpList);
+  delete (phase->DList);
+  delete (phase->cpList);
+  delete (phase->dhevList);
+  delete (phase->betaYList);
+  delete (phase->DYDtList);
+
   free (phase->name), phase->name = NULL;
-  foreach_species_in (phase)
-    free (phase->species[i]), phase->species[i] = NULL;
   free (phase->species), phase->species = NULL;
-  delete (phase->YList), free (phase->YList), phase->YList = NULL;
-  delete (phase->XList), free (phase->XList), phase->XList = NULL;
-  delete ((scalar *)phase->JList), free (phase->JList), phase->JList = NULL;
-  delete ({phase->P});
-  delete ({phase->divu, phase->betaT, phase->DTDt});
-  delete (phase->betaYList), free (phase->betaYList), phase->betaYList = NULL;
-  delete (phase->DYDtList), free (phase->DYDtList), phase->DYDtList = NULL;
-  delete (phase->DList), free (phase->DList), phase->DList = NULL;
-  delete (phase->cpList), free (phase->cpList), phase->cpList = NULL;
-  delete (phase->dhevList), free (phase->dhevList), phase->dhevList = NULL;
-  free (phase->MWs), phase->MWs = NULL;
-  free_thermo_state (phase->ts0);
-  // Free the temperature using the attribute _freeme
   free (phase->tracers), phase->tracers = NULL;
+  free_thermo_state (phase->ts0);
+
   free (phase), phase = NULL;
 }
 
@@ -329,6 +321,16 @@ void phase_reset_sources (Phase * phase) {
   }
 }
 
+bool phase_is_uniform (Phase * phase) {
+  bool uniform = false;
+  foreach_scalar_in (phase) {
+    uniform |= (statsf (T).stddev == 0);
+    foreach_species_in (phase)
+      uniform |= (statsf (Y).stddev == 0);
+  }
+  return uniform;
+}
+
 void phase_diffusion (Phase * phase, (const) scalar f = unity,
     bool varcoeff = false)
 {
@@ -338,8 +340,6 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
 
   face vector fs[];
   face_fraction (ff, fs); // fixme: can't use f in this function
-  //foreach_face()
-  //  fs.x[] = 1.;
 
   foreach_scalar_in (phase) {
     if (!phase->isothermal) {
@@ -396,12 +396,14 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
 
 void phase_set_thermo_state (Phase * phase, const ThermoState * ts) {
   copy_thermo_state (phase->ts0, ts, phase->n);
-  foreach() {
-    foreach_scalar_in (phase) {
-      T[] = ts->T;
-      P[] = ts->P;
-      foreach_species_in (phase)
-        if (ts->x) Y[] = ts->x[i];
+  if (phase_is_uniform (phase)) {
+    foreach() {
+      foreach_scalar_in (phase) {
+        T[] = ts->T;
+        P[] = ts->P;
+        foreach_species_in (phase)
+          if (ts->x) Y[] = ts->x[i];
+      }
     }
   }
 }
@@ -501,7 +503,7 @@ size_t phase_species_index (Phase * phase, char * species) {
 
 // Usage: phase_set_composition_from_string (phase, "NC7H16 0.2 N2 0.8");
 void phase_set_composition_from_string (Phase * phase, char * s) {
-  foreach() {
+  foreach(serial) {
     foreach_species_in (phase) {
       phase->ts0->x[i] = 0.;
       Y[] = 0.;
@@ -532,16 +534,6 @@ void phase_set_composition_from_string (Phase * phase, char * s) {
     token = strtok (NULL, " ");
   }
   free (input);
-}
-
-bool phase_is_uniform (Phase * phase) {
-  bool uniform = false;
-  foreach_scalar_in (phase) {
-    uniform |= (statsf (T).stddev == 0);
-    foreach_species_in (phase)
-      uniform |= (statsf (Y).stddev == 0);
-  }
-  return uniform;
 }
 
 void phase_tracers_to_scalars (Phase * phase, scalar f, double tol = 1e-10) {
@@ -576,7 +568,7 @@ void phase_update_mw_moles (Phase * phase, (const) scalar f = unity,
   double * ymass = (double *)malloc (phase->n*sizeof (double));
   double * xmole = (double *)malloc (phase->n*sizeof (double));
   foreach_scalar_in (phase) {
-    foreach() {
+    foreach(serial) {
       //double ff = phase->inverse ? 1. - f[] : f[];
       //if (ff > tol) {
         foreach_species_in (phase)
@@ -590,7 +582,7 @@ void phase_update_mw_moles (Phase * phase, (const) scalar f = unity,
     }
 
     if (extend) {
-      foreach() {
+      foreach(serial) {
         double ff = phase->inverse ? 1. - f[] : f[];
         if (ff <= tol) {
           int counter = 0;
@@ -613,7 +605,7 @@ void phase_update_mw_moles (Phase * phase, (const) scalar f = unity,
 
 void phase_normalize_fractions (Phase * phase) {
   double * ymass = (double *)malloc (phase->n*sizeof (double));
-  foreach() {
+  foreach(serial) {
     foreach_species_in (phase)
       ymass[i] = Y[];
     correctfrac (ymass, phase->n);
@@ -626,16 +618,12 @@ void phase_normalize_fractions (Phase * phase) {
 void phase_update_properties (Phase * phase, const ThermoProps * tp,
     (const) scalar f = unity, double tol = 1e-10)
 {
-  foreach_scalar_in (phase)
-    foreach()
-      rho0[] = rho[];
-
   double * xmole = (double *)malloc (phase->n*sizeof (double));
   double * arrdiff = (double *)malloc (phase->n*sizeof (double));
   double * arrbetaY = (double *)malloc (phase->n*sizeof (double));
   double * arrdhev = (double *)malloc (phase->n*sizeof (double));
   double * arrcps  = (double *)malloc (phase->n*sizeof (double));
-  foreach() {
+  foreach(serial) {
     double ff = phase->inverse ? 1. - f[] : f[];
     if (ff > tol) {
       ThermoState ts;
@@ -688,7 +676,7 @@ void phase_extend_properties (Phase * phase,
   double * ext_betaY = (double *)malloc (phase->n*sizeof (double));
 
   foreach_scalar_in (phase) {
-    foreach() {
+    foreach(serial) {
       double ff = phase->inverse ? 1. - f[] : f[];
       if (ff <= tol) {
         double ext_rho = 0.;
@@ -866,6 +854,7 @@ void phase_update_divergence (Phase * phase,
   }
 }
 
+#if 0
 void phase_update_divergence_density (Phase * phase, vector u,
     (const) scalar f = unity)
 {
@@ -884,6 +873,7 @@ void phase_update_divergence_density (Phase * phase, vector u,
     }
   }
 }
+#endif
 
 void phase_add_heat_species_diffusion (Phase * phase, (const) scalar f = unity,
     bool molar_diffusion = false, double tol = 1e-10)

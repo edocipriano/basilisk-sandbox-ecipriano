@@ -29,7 +29,7 @@ void energy_balance (const double * xdata, double * fdata, void * params) {
 
   scalar TL = liq->T, TG = gas->T;
 
-  foreach_point (data->c.x, data->c.y, data->c.z) {
+  foreach_point (data->c.x, data->c.y, data->c.z, serial) {
     double TInti = xdata[0];
     bool success = false;
 
@@ -198,7 +198,7 @@ event phasechange (i++) {
   double * ygolist  = malloc (NGOS*sizeof (double));
   double * mwgolist = malloc (NGOS*sizeof (double));
 
-  foreach_interfacial (f, F_ERR) {
+  foreach_interfacial (f, F_ERR, serial) {
 
     // Store the sum of the gas-only species
     double sum_ngos_yg_old = 0., sum_ngos_xg_old = 0.;
@@ -332,7 +332,7 @@ event phasechange (i++) {
     data.fl = fl, data.fg = fg;
     data.fsl = fsl, data.fsg = fsg;
 
-    foreach_interfacial (f, F_ERR) {
+    foreach_interfacial (f, F_ERR, serial) {
       Array * arrUnk = array_new();
       double vali = TLInt[];
       array_append (arrUnk, &vali, sizeof (double));

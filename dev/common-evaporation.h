@@ -24,7 +24,7 @@ for evaporation models. */
 macro foreach_interfacial (scalar f, double tol = 1e-10,
     Reduce reductions = None)
 {
-  foreach() {
+  foreach(0, reductions) {
     POINT_VARIABLES();
     if (f[] > tol && f[] < 1. - tol)
     {...}
@@ -34,7 +34,7 @@ macro foreach_interfacial (scalar f, double tol = 1e-10,
 macro foreach_interfacial_plic (scalar f, double tol = 1e-10,
     Reduce reductions = None)
 {
-  foreach_interfacial (f, tol) {
+  foreach_interfacial (f, tol, reductions) {
     coord m = mycs (point, f);
     double alpha = plane_alpha (f[], m);
     coord prel;

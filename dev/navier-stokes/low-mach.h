@@ -210,6 +210,12 @@ event init (i = 0) {
 }
 
 event cleanup (t = end) {
+  for (int i = 1; i < nv; i++) {
+    scalar drhodt = drhodtlist[i];
+    scalar intexp = intexplist[i];
+
+    delete ({drhodt,intexp});
+  }
   free (drhodtlist), drhodtlist = NULL;
   free (intexplist), intexplist = NULL;
 }

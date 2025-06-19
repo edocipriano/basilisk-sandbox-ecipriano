@@ -210,8 +210,8 @@ event init (i = 0) {
   no_advection_div = true;
   pcm.divergence = true;
   pcm.fick_corrected = true;
-  pcm.molar_diffusion = false;
-  pcm.mass_diffusion_enthalpy = false;
+  pcm.molar_diffusion = true;
+  pcm.mass_diffusion_enthalpy = true;
 #endif
 
   if (nv == 1)
