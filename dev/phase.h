@@ -503,12 +503,11 @@ size_t phase_species_index (Phase * phase, char * species) {
 
 // Usage: phase_set_composition_from_string (phase, "NC7H16 0.2 N2 0.8");
 void phase_set_composition_from_string (Phase * phase, char * s) {
-  foreach(serial) {
-    foreach_species_in (phase) {
-      phase->ts0->x[i] = 0.;
-      Y[] = 0.;
-    }
-  }
+  ThermoState * ts = new_thermo_state (phase->n);
+  ts->T = phase->ts0->T;
+  ts->P = phase->ts0->P;
+  foreach_species_in (phase)
+    ts->x[i] = 0.;
 
   char * input = strdup (s);
   char * token = strtok (input, " ");
@@ -526,13 +525,13 @@ void phase_set_composition_from_string (Phase * phase, char * s) {
 
     if (val) {
       size_t index = phase_species_index (phase, species);
-      scalar Y = phase->YList[index];
-      phase->ts0->x[index] = val;
-      foreach()
-        Y[] = val;
+      ts->x[index] = val;
     }
     token = strtok (NULL, " ");
   }
+  phase_set_thermo_state (phase, ts);
+
+  free_thermo_state (ts);
   free (input);
 }
 

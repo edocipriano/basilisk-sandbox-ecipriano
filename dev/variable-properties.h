@@ -81,8 +81,10 @@ void copy_thermo_state (ThermoState * dest, const ThermoState * orig,
 {
   dest->T = orig->T;
   dest->P = orig->P;
-  for (size_t i = 0; i < n; i++)
-    dest->x[i] = orig->x[i];
+  if (orig->x) {
+    for (size_t i = 0; i < n; i++)
+      dest->x[i] = orig->x[i];
+  }
 }
 
 /**
