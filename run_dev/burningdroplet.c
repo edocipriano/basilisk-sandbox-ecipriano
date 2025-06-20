@@ -1,5 +1,5 @@
 /**
-# Combustion of an axi droplet in microgravity or in normal gravity conditions
+# Combustion of an axi droplet in microgravity or in any gravity conditions
 
 This simulation file helps setting up numerical simulations of droplet
 combustion in axial symmetry, in any gravity conditions, and considering
@@ -13,7 +13,7 @@ different kinetic schemes and chemical species.
 #include "two-phase-varprop.h"
 #include "opensmoke/properties.h"
 #include "opensmoke/chemistry.h"
-//#include "pinning.h"
+#include "pinning.h"
 #if VELOCITY_JUMP
 # include "two-phase-clsvof.h"
 #else
@@ -23,6 +23,7 @@ different kinetic schemes and chemical species.
 #include "gravity.h"
 #include "evaporation.h"
 #include "spark.h"
+#include "defaultvars.h"
 #include "view.h"
 
 /**
@@ -52,7 +53,7 @@ to be provided, we gather them in a structure of input data and we read all the
 parameters from an input file.
 */
 
-struct {
+struct InputData {
   char * kinetics_folder;
   char * liquid_properties_folder;
   int maxlevel;
@@ -76,29 +77,109 @@ struct {
   double spark_time;
   double spark_value;
 } inputdata = {
-  "two-step/methanol",
-  "LiquidProperties",
-  10,       // maxlevel
-  300,      // TL0
-  300,      // TG0
-  101325,   // P0
-  1e-3,     // D0
-  0.,       // G
-  0.03,     // sigma
-  0.1,      // rfiber_to_rdrop;
-  80,       // rgas_to_rdrop;
-  true,     // divergence
-  true,     // combustion
-  true,     // fick_corrected
-  true,     // molar_diffusion
-  true,     // mass_diffusion_enthalpy
-  "CH3OH 1",            // liq_start
-  "N2 0.79 O2 0.21",    // gas_start
-  0.2,      // spark_diameter;
-  0.0,      // spark_start;
-  0.01,     // spark_time;
-  1e7,      // spark_value;
+  KINFOLDER,
+  LIQFOLDER,
+  MAXLEVEL,
+  TEMPERATURE_DROPLET,
+  TEMPERATURE,
+  PRESSURE,
+  DIAMETER,
+  GRAVITY,
+  SIGMA,
+  FIBER,
+  80,           // rgas_to_rdrop
+  true,         // divergence
+  COMBUSTION,
+  true,         // fick_corrected
+  true,         // molar_diffusion
+  true,         // mass_diffusion_enthalpy
+  LIQUID,
+  GAS,
+  SPARK_DIAMETER,
+  SPARK_START,
+  SPARK_TIME,
+  SPARK_VALUE,
 };
+
+/**
+## Parsing input file
+
+We write a function which parse an input file with the simulation data, in case
+one wants to avoid using compiler macros. We exploit libconfig. */
+
+#if USE_LIBCONFIG
+
+#include <libconfig.h>
+#pragma autolink -lconfig
+
+#define config_get_string(name, variable)                                     \
+  config_lookup_string (&cfg, name, (const char **)&variable);
+
+#define config_get_int(name, variable)                                        \
+  config_lookup_int (&cfg, name, &variable);
+
+#define config_get_bool(name, variable)                                       \
+  config_lookup_bool (&cfg, name, (int *)&variable);
+
+#define config_get_float(name, variable)                                      \
+  config_lookup_float (&cfg, name, &variable);
+
+#define config_get(type, name, variable)                                      \
+  {                                                                           \
+    int success = config_get_##type(name, variable);                          \
+    if (success == CONFIG_FALSE)                                              \
+      fprintf (stdout, "config: variable %s is set to default\n", #name),     \
+        fflush (stdout);                                                      \
+  }
+
+void parse_input_file (char * filename, struct InputData * inputdata) {
+  config_t cfg;
+  config_init (&cfg);
+
+  if (!config_read_file (&cfg, filename)) {
+    fprintf (ferr, "error:%s:%d: %s:%d - %s\n",
+        __FILE__, __LINE__,
+        config_error_file(&cfg),
+        config_error_line(&cfg),
+        config_error_text(&cfg));
+    config_destroy (&cfg);
+    abort();
+  }
+
+  // Get strings
+  config_get (string, "kinfolder", inputdata->kinetics_folder);
+  config_get (string, "liqfolder", inputdata->liquid_properties_folder);
+  config_get (string, "liquid", inputdata->liq_start);
+  config_get (string, "gas", inputdata->gas_start);
+
+  // Get integer values
+  config_get (int, "maxlevel", inputdata->maxlevel);
+
+  // Get booleans
+  config_get (bool, "combustion", inputdata->combustion);
+  config_get (bool, "fick_corrected", inputdata->fick_corrected);
+  config_get (bool, "molar_diffusion", inputdata->molar_diffusion);
+  config_get (bool, "mass_diffusion_enthalpy", inputdata->mass_diffusion_enthalpy);
+  config_get (bool, "divergence", inputdata->divergence);
+
+  // Get floating point values
+  config_get (float, "temperature", inputdata->TG0);
+  config_get (float, "temperature_droplet", inputdata->TL0);
+  config_get (float, "pressure", inputdata->P0);
+  config_get (float, "diameter", inputdata->D0);
+  config_get (float, "gravity", inputdata->G);
+  config_get (float, "rfiber_to_rdrop", inputdata->rfiber_to_rdrop);
+  config_get (float, "rgas_to_rdrop", inputdata->rgas_to_rdrop);
+  config_get (float, "sigma", inputdata->sigma);
+  config_get (float, "spark_diameter", inputdata->spark_diameter);
+  config_get (float, "spark_start", inputdata->spark_start);
+  config_get (float, "spark_time", inputdata->spark_time);
+  config_get (float, "spark_value", inputdata->spark_value);
+
+  fprintf (stdout, "\n");
+}
+
+#endif
 
 /**
 ## Useful variables
@@ -111,12 +192,27 @@ double D0, R0, R, M0, DD02 = 1., tad = 0.;
 bool restored = false;
 scalar qspark[];
 
+/**
+## Simulation setups
+
+Here we have the main function and the intial event which set the properties
+needed by the navier-stokes solver and by the phasechange model. */
+
 int main (int argc, char ** argv) {
+
+  /**
+  We read input data from a file, if we prefer to avoid compiler macros. */
+
+#if USE_LIBCONFIG
+  char * inputfile = (argc > 1) ? argv[1] : "burningdroplet.input";
+  parse_input_file (inputfile, &inputdata);
+#endif
 
   /**
   We set the kinetics folders, for the gas and for the liquid kinetics. The
   liquid properties are initialized as well. */
 
+  fprintf (stdout, "KINFOLDER = %s\n", inputdata.kinetics_folder), fflush (stdout);
   kinetics (inputdata.kinetics_folder, &NGS);
   kinetics_liquid (inputdata.kinetics_folder, &NLS);
   properties_liquid (inputdata.liquid_properties_folder);
@@ -140,7 +236,7 @@ int main (int argc, char ** argv) {
   /**
   We set the initial thermodynamic state of the two-phase system (SI units). */
 
-  Pref = inputdata.P0;
+  Pref = inputdata.P0*101325.;
   TG0 = inputdata.TG0;
   TL0 = inputdata.TL0;
 
@@ -174,8 +270,12 @@ int main (int argc, char ** argv) {
     double df = inputdata.rfiber_to_rdrop*D0;
     X0 = -0.5*L0, Y0 = 0.5*df;
 
-    //pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
-    //pinning.ac = pinning.ap - 2.*L0/(1 << maxlevel);
+    pinning.ap = sqrt (sq (0.5*D0) - sq (Y0));
+    pinning.ac = pinning.ap - 2.*L0/(1 << maxlevel);
+  }
+  else {
+    pinning.ap = 1e10;
+    pinning.ac = 1e10;
   }
 
   /**
@@ -261,7 +361,8 @@ event init (i = 0) {
 
 #if SPARK
   spark.T = qspark;
-  spark.position = (coord){0.75*D0, 0.75*D0};
+  spark.position = (setup == gravity) ? (coord){0., 1.2*D0}
+                                      : (coord){0.75*D0, 0.75*D0};
   spark.diameter = inputdata.spark_diameter*D0;
   spark.time = inputdata.spark_start;
   spark.duration = inputdata.spark_time;
@@ -310,7 +411,74 @@ velocity field. */
 event adapt (i++) {
   adapt_wavelet_leave_interface ({Y,T,u.x,u.y}, {f},
       (double[]){1.e-1,1.e-0,1e-1,1e-1}, maxlevel, minlevel, 1);
+
+  //if (setup == gravity)
+  //  unrefine (x >= (0.9*L0));
 }
 #endif
 
-event stop (t = 50);
+/**
+## Output Files
+
+We write on a file interesting average properties in time, such as the droplet
+diameter, surface, mass, interface temperature and mass fractions. */
+
+event output_data (i += 50) {
+  if (setup == gravity)
+    R = pow(3./4./pi*(2.*pi*statsf(f).sum), 1./3.);
+  else
+    R = pow (3.*statsf(f).sum, 1./3.);
+
+  DD02 = sq (R/R0);
+  tad = t/sq (D0*1e3);
+
+  double TIntAvg = avg_interface (gas_int->T, f, tol = 0.1);
+
+  int counter = 0.;
+  double TDropAvg = 0.;
+  scalar TL = liq->T;
+  foreach(reduction(+:TDropAvg) reduction(+:counter)) {
+    if (f[] > 1.-F_ERR) {
+      counter++;
+      TDropAvg += TL[];
+    }
+  }
+  TDropAvg = (counter > 0.) ? TDropAvg/counter : 0.;
+
+  char name[80];
+  sprintf (name, "OutputData-%d", maxlevel);
+
+  static FILE * fp = fopen (name, "w");
+
+  fprintf (fp, "%g %g %g %g %g %g %g", t, tad, R0, R, DD02,
+      TIntAvg, TDropAvg);
+
+  foreach_species_in (liq_int) {
+    scalar YGInt = gas_int->YList[LSI[i]];
+    double YGIntAvg = avg_interface (YGInt, f, tol = 0.1);
+    fprintf (fp, " %g", YGIntAvg);
+  }
+  fprintf (fp, "\n"), fflush (fp);
+}
+
+/**
+## Movie
+
+We write the animation with the evolution of the fuel mass fraction, the
+temperature field, the interface position and the flame front. */
+
+event movie (t += 0.001);
+
+/**
+## Stopping conditions
+
+We assume that in 50 s the droplet is fully consumed. Alternatively, we stop the
+simulation when the droplet is almost fully consumed, i.e. when the square
+diameter decay is small: $(D/D_0)^2 < 0.005$. */
+
+event stop (DD02 < MAX_DD02) {
+  return 1;
+}
+
+event end (t = 50);
+
