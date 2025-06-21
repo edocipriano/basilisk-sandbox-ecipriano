@@ -63,6 +63,7 @@ struct InputData {
   double D0;
   double G;
   double sigma;
+  double emissivity;
   double rfiber_to_rdrop;
   double rgas_to_rdrop;
   bool combustion;
@@ -76,6 +77,7 @@ struct InputData {
   double spark_start;
   double spark_time;
   double spark_value;
+  double dump_every;
 } inputdata = {
   KINFOLDER,
   LIQFOLDER,
@@ -86,19 +88,21 @@ struct InputData {
   DIAMETER,
   GRAVITY,
   SIGMA,
+  EMISSIVITY,
   FIBER,
-  80,           // rgas_to_rdrop
-  true,         // divergence
+  ENVIRONMENT,
   COMBUSTION,
   true,         // fick_corrected
   true,         // molar_diffusion
   true,         // mass_diffusion_enthalpy
+  true,         // divergence
   LIQUID,
   GAS,
   SPARK_DIAMETER,
   SPARK_START,
   SPARK_TIME,
   SPARK_VALUE,
+  DUMP_EVERY,
 };
 
 /**
@@ -147,36 +151,36 @@ void parse_input_file (char * filename, struct InputData * inputdata) {
   }
 
   // Get strings
-  config_get (string, "kinfolder", inputdata->kinetics_folder);
-  config_get (string, "liqfolder", inputdata->liquid_properties_folder);
-  config_get (string, "liquid", inputdata->liq_start);
-  config_get (string, "gas", inputdata->gas_start);
+  config_get (string, "kinetics.kinfolder", inputdata->kinetics_folder);
+  config_get (string, "kinetics.liqfolder", inputdata->liquid_properties_folder);
+  config_get (string, "liquid.composition", inputdata->liq_start);
+  config_get (string, "gas.composition", inputdata->gas_start);
 
   // Get integer values
-  config_get (int, "maxlevel", inputdata->maxlevel);
+  config_get (int, "domain.maxlevel", inputdata->maxlevel);
 
   // Get booleans
-  config_get (bool, "combustion", inputdata->combustion);
-  config_get (bool, "fick_corrected", inputdata->fick_corrected);
-  config_get (bool, "molar_diffusion", inputdata->molar_diffusion);
-  config_get (bool, "mass_diffusion_enthalpy", inputdata->mass_diffusion_enthalpy);
-  config_get (bool, "divergence", inputdata->divergence);
+  config_get (bool, "physics.combustion", inputdata->combustion);
+  config_get (bool, "physics.fick_corrected", inputdata->fick_corrected);
+  config_get (bool, "physics.molar_diffusion", inputdata->molar_diffusion);
+  config_get (bool, "physics.mass_diffusion_enthalpy", inputdata->mass_diffusion_enthalpy);
+  config_get (bool, "physics.divergence", inputdata->divergence);
 
   // Get floating point values
-  config_get (float, "temperature", inputdata->TG0);
-  config_get (float, "temperature_droplet", inputdata->TL0);
-  config_get (float, "pressure", inputdata->P0);
-  config_get (float, "diameter", inputdata->D0);
-  config_get (float, "gravity", inputdata->G);
-  config_get (float, "rfiber_to_rdrop", inputdata->rfiber_to_rdrop);
-  config_get (float, "rgas_to_rdrop", inputdata->rgas_to_rdrop);
-  config_get (float, "sigma", inputdata->sigma);
-  config_get (float, "spark_diameter", inputdata->spark_diameter);
-  config_get (float, "spark_start", inputdata->spark_start);
-  config_get (float, "spark_time", inputdata->spark_time);
-  config_get (float, "spark_value", inputdata->spark_value);
-
-  fprintf (stdout, "\n");
+  config_get (float, "gas.temperature", inputdata->TG0);
+  config_get (float, "liquid.temperature", inputdata->TL0);
+  config_get (float, "gas.pressure", inputdata->P0);
+  config_get (float, "domain.diameter", inputdata->D0);
+  config_get (float, "domain.gravity", inputdata->G);
+  config_get (float, "domain.fiber", inputdata->rfiber_to_rdrop);
+  config_get (float, "domain.environment", inputdata->rgas_to_rdrop);
+  config_get (float, "liquid.sigma", inputdata->sigma);
+  config_get (float, "liquid.emissivity", inputdata->emissivity);
+  config_get (float, "spark.diameter", inputdata->spark_diameter);
+  config_get (float, "spark.start", inputdata->spark_start);
+  config_get (float, "spark.time", inputdata->spark_time);
+  config_get (float, "spark.value", inputdata->spark_value);
+  config_get (float, "postprocessing.dump_every", inputdata->dump_every);
 }
 
 #endif
@@ -212,7 +216,6 @@ int main (int argc, char ** argv) {
   We set the kinetics folders, for the gas and for the liquid kinetics. The
   liquid properties are initialized as well. */
 
-  fprintf (stdout, "KINFOLDER = %s\n", inputdata.kinetics_folder), fflush (stdout);
   kinetics (inputdata.kinetics_folder, &NGS);
   kinetics_liquid (inputdata.kinetics_folder, &NLS);
   properties_liquid (inputdata.liquid_properties_folder);
@@ -250,6 +253,7 @@ int main (int argc, char ** argv) {
   pcm.fick_corrected = inputdata.fick_corrected;
   pcm.molar_diffusion = inputdata.molar_diffusion;
   pcm.mass_diffusion_enthalpy = inputdata.mass_diffusion_enthalpy;
+  pcm.emissivity = inputdata.emissivity;
 
   /**
   We change the dimensions of the domain according with the simulation setup
@@ -459,6 +463,20 @@ event output_data (i += 50) {
     fprintf (fp, " %g", YGIntAvg);
   }
   fprintf (fp, "\n"), fflush (fp);
+}
+
+/**
+## Snapshots
+
+We write periodic sanpshots of the simulation in order to restart the simulation
+if needed, or for post-processing. */
+
+event snapshots (t += inputdata.dump_every) {
+  if (i > 1) {
+    char name[80];
+    sprintf (name, "snapshots-%g", t);
+    dump (name);
+  }
 }
 
 /**

@@ -10,6 +10,10 @@
 # define SIGMA 0.03
 #endif
 
+#ifndef EMISSIVITY
+# define EMISSIVITY 0.0
+#endif
+
 #ifndef TEMPERATURE
 # define TEMPERATURE 300.
 #endif
@@ -54,6 +58,10 @@
 # define FIBER 0.1
 #endif
 
+#ifndef ENVIRONMENT
+# define ENVIRONMENT 7.986462e+01
+#endif
+
 #ifndef MAX_DD02
 # define MAX_DD02 0.005
 #endif
@@ -72,4 +80,8 @@
 
 #ifndef SPARK_VALUE
 # define SPARK_VALUE 1e7
+#endif
+
+#ifndef DUMP_EVERY
+# define DUMP_EVERY 0.005
 #endif

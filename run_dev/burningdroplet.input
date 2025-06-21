@@ -1,20 +1,48 @@
-// Write floating point number with a point: 300.0 and not 300
-// because libconfig does not parse it as a float
-maxlevel = 10;
-combustion = true;
-sigma = 0.03;
-temperature = 300.0;
-temperature_droplet = 300.0;
-pressure = 5.0;
-diameter = 1e-3;
-kinfolder = "two-step/methanol";
-liqfolder = "LiquidProperties";
-liquid = "CH3OH 1.";
-gas = "N2 0.79 O2 0.21";
-emissivity = 0.93;
-fiber = 0.1;
-spark_start = 0.0;
-spark_time = 0.005;
-spark_value = 5e7;
-gravity = -9.81;
+// NOTE: Write floating point numbers as 1.0 or 1. instead of 1, or libconfig
+// won't parse them as floats.
+
+domain : {
+    maxlevel = 10;
+    fiber = 0.1;
+    environment = 7.986462e+01;
+    gravity = -9.81;
+    diameter = 1e-3;
+};
+
+physics : {
+    combustion = true;
+    fick_corrected = true;
+    molar_diffusion = true;
+    mass_diffusion_enthalpy = true;
+    divergence = true;
+};
+
+kinetics : {
+    kinfolder = "two-step/methanol";
+    liqfolder = "LiquidProperties";
+};
+
+gas : {
+    temperature = 300.0;
+    pressure = 1.0;
+    composition = "N2 0.79 O2 0.21";
+};
+
+liquid : {
+    temperature = 300.0;
+    composition = "CH3OH 1.";
+    sigma = 0.03;
+    emissivity = 0.0;
+};
+
+spark : {
+    diameter = 0.2;
+    start = 0.0;
+    time = 0.005;
+    value = 5e7;
+};
+
+postprocessing : {
+    dump_every = 0.005;
+};
 
