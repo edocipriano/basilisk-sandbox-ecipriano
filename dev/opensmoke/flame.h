@@ -25,7 +25,7 @@ event init (i = 0) {
     fpflame = fopen (name, "w");
 }
 
-event flame (i++) {
+event flame (i += 50) {
 
   /**
   We compute the mixture fraction using Bilger's formula. */
@@ -200,6 +200,7 @@ event flame (i++) {
   fprintf (fpflame, "%g %g %g %g %g %g %g %g %g %g %g %g %g\n",
       t, t/sq(D0*1e3), Dx, Dy, De,
       Dx/diam, Dy/diam, De/diam, Tflame, statTmax, Tmax, DTmax, DTmax/diam);
+  fflush (fpflame);
 }
 
 
