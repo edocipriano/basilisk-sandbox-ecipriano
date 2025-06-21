@@ -23,6 +23,7 @@ different kinetic schemes and chemical species.
 #include "gravity.h"
 #include "evaporation.h"
 #include "spark.h"
+#include "opensmoke/flame.h"
 #include "defaultvars.h"
 #include "view.h"
 
