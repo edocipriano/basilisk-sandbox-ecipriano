@@ -54,6 +54,9 @@ to be provided, we gather them in a structure of input data and we read all the
 parameters from an input file.
 */
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
 struct InputData {
   char * kinetics_folder;
   char * liquid_properties_folder;
@@ -80,8 +83,8 @@ struct InputData {
   double spark_value;
   double dump_every;
 } inputdata = {
-  KINFOLDER,
-  LIQFOLDER,
+  TOSTRING(KINFOLDER),
+  TOSTRING(LIQFOLDER),
   MAXLEVEL,
   TEMPERATURE_DROPLET,
   TEMPERATURE,
@@ -97,8 +100,8 @@ struct InputData {
   true,         // molar_diffusion
   true,         // mass_diffusion_enthalpy
   true,         // divergence
-  LIQUID,
-  GAS,
+  TOSTRING(LIQUID),
+  TOSTRING(GAS),
   SPARK_DIAMETER,
   SPARK_START,
   SPARK_TIME,
@@ -342,8 +345,8 @@ event init (i = 0) {
   phase_set_thermo_state (liq, &tsl);
   phase_set_thermo_state (gas, &tsg);
 
-  phase_set_composition_from_string (liq, inputdata.liq_start);
-  phase_set_composition_from_string (gas, inputdata.gas_start);
+  phase_set_composition_from_string (liq, inputdata.liq_start, sep = "_");
+  phase_set_composition_from_string (gas, inputdata.gas_start, sep = "_");
 
   /**
   The only property that we need to set, and that remains constant throughout
@@ -417,8 +420,8 @@ event adapt (i++) {
   adapt_wavelet_leave_interface ({Y,T,u.x,u.y}, {f},
       (double[]){1.e-1,1.e-0,1e-1,1e-1}, maxlevel, minlevel, 1);
 
-  //if (setup == gravity)
-  //  unrefine (x >= (0.9*L0));
+  if (setup == gravity)
+    unrefine (x >= (0.45*L0));
 }
 #endif
 
@@ -486,7 +489,33 @@ event snapshots (t += inputdata.dump_every) {
 We write the animation with the evolution of the fuel mass fraction, the
 temperature field, the interface position and the flame front. */
 
-event movie (t += 0.001);
+#if 0
+event movie (t += 0.001) {
+  if (setup == microgravity) {
+    clear();
+    view (fov = 2);
+    draw_vof ("f", lw = 1.5);
+    squares ("Y", min = 0., max = 1., linear = true);
+    isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+    mirror ({0,1}) {
+      draw_vof ("f", lw = 1.5);
+      squares ("YGO2", min = 0., max = 0.21, linear = true);
+      isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+    }
+    mirror ({1,0}) {
+      draw_vof ("f", lw = 1.5);
+      squares ("T", min = TL0, max = 2100., linear = true);
+      isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+      mirror ({0,1}) {
+        cells();
+        draw_vof ("f", lw = 1.5);
+        isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+      }
+    }
+    save ("movie.mp4");
+  }
+}
+#endif
 
 /**
 ## Stopping conditions
@@ -499,5 +528,9 @@ event stop (DD02 < MAX_DD02) {
   return 1;
 }
 
+#if BASILISK_SANDBOX
+event end (t = 0.02);
+#else
 event end (t = 50);
+#endif
 

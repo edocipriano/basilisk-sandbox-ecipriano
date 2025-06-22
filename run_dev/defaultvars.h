@@ -31,23 +31,19 @@
 #endif
 
 #ifndef KINFOLDER
-# define KINFOLDER "two-step/methanol"
+# define KINFOLDER two-step/methanol
 #endif
 
 #ifndef LIQFOLDER
-# define LIQFOLDER "LiquidProperties"
+# define LIQFOLDER LiquidProperties
 #endif
 
 #ifndef LIQUID
-# define LIQUID "CH3OH 1."
+# define LIQUID CH3OH_1.
 #endif
 
 #ifndef GAS
-# define GAS "N2 0.79 O2 0.21"
-#endif
-
-#ifndef RADIATION_INTERFACE
-# define RADIATION_INTERFACE 0.
+# define GAS N2_0.79_O2_0.21
 #endif
 
 #ifndef GRAVITY

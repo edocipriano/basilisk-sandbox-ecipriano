@@ -492,17 +492,19 @@ size_t phase_species_index (Phase * phase, char * species) {
     }
     fprintf (ferr, "src/phase.h:%d: error: species %s not found\n",
         LINENO, species), fflush (ferr);
-    exit(1);
+    abort();
   }
   else {
     fprintf (ferr, "src/phase.h:%d: error: species names not provided\n",
         LINENO), fflush (ferr);
-    exit(1);
+    abort();
   }
 }
 
 // Usage: phase_set_composition_from_string (phase, "NC7H16 0.2 N2 0.8");
-void phase_set_composition_from_string (Phase * phase, char * s) {
+void phase_set_composition_from_string (Phase * phase, char * s,
+    char * sep = " ")
+{
   ThermoState * ts = new_thermo_state (phase->n);
   ts->T = phase->ts0->T;
   ts->P = phase->ts0->P;
@@ -510,7 +512,7 @@ void phase_set_composition_from_string (Phase * phase, char * s) {
     ts->x[i] = 0.;
 
   char * input = strdup (s);
-  char * token = strtok (input, " ");
+  char * token = strtok (input, sep);
   unsigned int count = 0;
   while (token != NULL) {
     count++;
@@ -527,7 +529,7 @@ void phase_set_composition_from_string (Phase * phase, char * s) {
       size_t index = phase_species_index (phase, species);
       ts->x[index] = val;
     }
-    token = strtok (NULL, " ");
+    token = strtok (NULL, sep);
   }
   phase_set_thermo_state (phase, ts);
 
