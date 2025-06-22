@@ -39,10 +39,16 @@ event flame (i += 50) {
 
   foreach() {
     double z_frac_mix[NGS];
-    for (int jj=0; jj<NGS; jj++) {
-      scalar Y = gas->YList[jj];
-      z_frac_mix[jj] = Y[];
+    for (int jj=0; jj<NLS; jj++) {
+      scalar YG = gas->YList[LSI[jj]];
+      scalar YL = liq->YList[jj];
+      z_frac_mix[LSI[jj]] = YL[] + YG[];
     }
+    for (int jj=0; jj<NGOS; jj++) {
+      scalar YG = gas->YList[GOSI[jj]];
+      z_frac_mix[GOSI[jj]] = YG[];
+    }
+
     zmix[] = OpenSMOKE_GetMixtureFractionFromMassFractions (z_frac_mix,
         z_frac_fuel, gas->ts0->x);
 
