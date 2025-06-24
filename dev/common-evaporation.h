@@ -49,37 +49,6 @@ macro foreach_interfacial_plic (scalar f, double tol = 1e-10,
   }
 }
 
-///**
-//We define a custom for that simplifies
-//loops over the chemical species. */
-//
-//#define foreach_elem(list, index) \
-//  for (int index=0; index<list_len (list); index++)
-//
-///**
-//We define the ghost index which is useful for loops over
-//boundaries. */
-//
-//double get_ghost (Point point, scalar f, int bid) {
-//  switch (bid) {
-//    case 0: return f[1,0];  break;
-//    case 1: return f[-1,0]; break;
-//    case 2: return f[0,1];  break;
-//    case 3: return f[0,-1]; break;
-//    default: return 0;
-//  }
-//}
-//
-//void set_ghost (Point point, scalar f, int bid, double val) {
-//  switch (bid) {
-//    case 0: f[1,0]  = 2.*val - f[]; break;
-//    case 1: f[-1,0] = 2.*val - f[]; break;
-//    case 2: f[0,1]  = 2.*val - f[]; break;
-//    case 3: f[0,-1] = 2.*val - f[]; break;
-//    default:;
-//  }
-//}
-
 /**
 We define a macro describing a radial
 profile. It can be useful for field initialization. */
@@ -101,96 +70,6 @@ coord normal (Point point, scalar c)
     n.x /= nn;
   return n;
 }
-
-///**
-//## *mass2molefrac()*: Compute mole fractions from mass fractions
-//
-//* *X*: vector filled with mole fractions
-//* *W*: vector with the mass fractions
-//* *MW*: vector with the molecular weights of each species
-//* *NS*: total number of species (vectors length)
-//*/
-//
-//void mass2molefrac (double * X, const double * W, const double * MW, const int NS)
-//{
-//  double MWmix = 0.;
-//  for (int i=0; i<NS; i++) {
-//    MWmix += W[i]/MW[i];
-//  }
-//  for (int i=0; i<NS; i++) {
-//    X[i] = W[i]/MW[i]/(MWmix + 1.e-10);
-//  }
-//}
-//
-///**
-//## *mole2massfrac()*: Compute mass fractions from mole fractions
-//
-//* *W*: vector filled with mole fractions
-//* *X*: vector with the mass fractions
-//* *MW*: vector with the molecular weights of each species
-//* *NS*: total number of species (vectors length)
-//*/
-//
-//void mole2massfrac (double * W, const double * X, const double * MW, const int NS)
-//{
-//  double MWmix = 0.;
-//  for (int i=0; i<NS; i++) {
-//    MWmix += X[i]*MW[i];
-//  }
-//  for (int i=0; i<NS; i++) {
-//    W[i] = X[i]*MW[i]/(MWmix + 1.e-10);
-//  }
-//}
-//
-///**
-//## *mass2mw()*: Compute mixture molecular weight from mass fractions
-//
-//* *W*: vector with the mass fractions
-//* *MW*: vector with the molecular weights of each species
-//* *NS*: total number of species (vectors length)
-//*/
-//
-//double mass2mw (const double * W, const double * MW, const int NS)
-//{
-//  double MWmix = 0.;
-//  for (int i=0; i<NS; i++) {
-//    MWmix += W[i]/MW[i];
-//  }
-//  return 1./(MWmix + 1.e-10);
-//}
-//
-///**
-//## *mole2mw()*: Compute mixture molecular weight from mole fractions
-//
-//* *X*: vector with the mass fractions
-//* *MW*: vector with the molecular weights of each species
-//* *NS*: total number of species (vectors length)
-//*/
-//
-//double mole2mw (const double * X, const double * MW, const int NS)
-//{
-//  double MWmix = 0.;
-//  for (int i=0; i<NS; i++) {
-//    MWmix += X[i]*MW[i];
-//  }
-//  return MWmix;
-//}
-//
-///**
-//## *correctfrac()*: Close to 1 a vector of mass or mole fractions
-//
-//* *X*: vector with mass or mole fractions
-//* *NS* total number of species (vector length)
-//*/
-//
-//void correctfrac (double * X, const int NS)
-//{
-//  double sum = 0.;
-//  for (int i=0; i<NS; i++)
-//    sum += (X[i] >= 0.) ? X[i] : 0.;
-//  for (int i=0; i<NS; i++)
-//    X[i] = (X[i] >= 0.) ? X[i]/(sum + 1.e-10) : 0.;
-//}
 
 /**
 ## *avg_neighbor()*: Compute the average value of a scalar field Y in a 3x3 stencil around the current cell
