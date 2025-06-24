@@ -81,3 +81,8 @@
 #ifndef DUMP_EVERY
 # define DUMP_EVERY 0.005
 #endif
+
+#ifndef MOVIE_EVERY
+# define MOVIE_EVERY 0.001
+#endif
+

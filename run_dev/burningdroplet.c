@@ -82,6 +82,7 @@ struct InputData {
   double spark_time;
   double spark_value;
   double dump_every;
+  double movie_every;
 } inputdata = {
   TOSTRING(KINFOLDER),
   TOSTRING(LIQFOLDER),
@@ -107,6 +108,7 @@ struct InputData {
   SPARK_TIME,
   SPARK_VALUE,
   DUMP_EVERY,
+  MOVIE_EVERY,
 };
 
 /**
@@ -185,6 +187,7 @@ void parse_input_file (char * filename, struct InputData * inputdata) {
   config_get (float, "spark.time", inputdata->spark_time);
   config_get (float, "spark.value", inputdata->spark_value);
   config_get (float, "postprocessing.dump_every", inputdata->dump_every);
+  config_get (float, "postprocessing.movie_every", inputdata->movie_every);
 }
 
 #endif
@@ -284,6 +287,7 @@ int main (int argc, char ** argv) {
   else {
     pinning.ap = 1e10;
     pinning.ac = 1e10;
+    pinning_warnings = false;
   }
 
   /**
@@ -490,7 +494,7 @@ We write the animation with the evolution of the fuel mass fraction, the
 temperature field, the interface position and the flame front. */
 
 #if 0
-event movie (t += 0.001) {
+event movie (t += inputdata.movie_every) {
   if (setup == microgravity) {
     clear();
     view (fov = 2);

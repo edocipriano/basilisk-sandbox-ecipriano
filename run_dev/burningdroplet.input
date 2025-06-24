@@ -44,5 +44,6 @@ spark : {
 
 postprocessing : {
     dump_every = 0.005;
+    movie_every = 0.001;
 };
 
