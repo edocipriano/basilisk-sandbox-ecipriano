@@ -986,7 +986,7 @@ void phase_chemistry_direct (Phase * phase, double dt,
   double * s0 = (double *)malloc (NEQ*sizeof (double));
 
   foreach_scalar_in (phase) {
-    foreach() {
+    foreach(serial) {
       double ff = phase->inverse ? 1. - f[] : f[];
       if (ff > tol) {
 
