@@ -287,29 +287,12 @@ event defaults (i = 0)
 
   /**
   We reset the multigrid parameters to their default values. */
-  
-  mgp = (mgstats){0};
-  mgpf = (mgstats){0};
-  mgu = (mgstats){0};  
 
-  mgplist[0] = mgp;
-  mgpflist[0] = mgpf;
-  mgulist[0] = mgu;
-
-  for (int i = 1; i < nv; i++) {
-    mgstats mgp = mgplist[i];
-    mgstats mgpf = mgpflist[i];
-    mgstats mgu = mgulist[i];
-
-    mgp = (mgstats){0};
-    mgpf = (mgstats){0};
-    mgu = (mgstats){0};
-
-    NOT_UNUSED (mgp);
-    NOT_UNUSED (mgpf);
-    NOT_UNUSED (mgu);
+  for (int i = 0; i < nv; i++) {
+    mgplist[i] = (mgstats){0};
+    mgpflist[i] = (mgstats){0};
+    mgulist[i] = (mgstats){0};
   }
-
   
   CFL = 0.8;
 
@@ -583,8 +566,7 @@ event viscous_term (i++,last)
     correction (dt);
     for (int i = 0; i < nv; i++) {
       vector u = ulist[i];
-      mgu = mgulist[i];
-      mgu = viscosity (u, mu, rho, dt, mgu.nrelax);
+      mgulist[i] = viscosity (u, mu, rho, dt, mgulist[i].nrelax);
     }
     correction (-dt);
   }
