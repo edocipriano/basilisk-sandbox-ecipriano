@@ -133,6 +133,7 @@ macro foreach_species_in (Phase * phase) {
   }
 
 #define new_list_type_name(type, Y, phase, list)                    \
+  list = NULL;                                                      \
   new_list_##type##_name(Y, phase, list)
 
 void phase_species_names (Phase * phase, char ** names = NULL) {
