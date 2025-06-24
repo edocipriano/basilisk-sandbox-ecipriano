@@ -66,15 +66,24 @@ macro foreach_scalar_in (Phase * phase) {
 
 macro foreach_species_in (Phase * phase) {
   for (size_t i = 0; i < phase->n; i++) {
-    scalar Y = phase->YList[i]; NOT_UNUSED (Y);
-    scalar X = phase->XList[i]; NOT_UNUSED (X);
-    scalar D = phase->DList[i]; NOT_UNUSED (D);
-    scalar cps = phase->cpList[i]; NOT_UNUSED (cps);
-    scalar dhevs = phase->dhevList[i]; NOT_UNUSED (dhevs);
-    scalar SYexp = phase->SYexpList[i]; NOT_UNUSED (SYexp);
-    scalar SYimp = phase->SYimpList[i]; NOT_UNUSED (SYimp);
-    scalar betaY = phase->betaYList[i]; NOT_UNUSED (betaY);
-    scalar DYDt = phase->DYDtList[i]; NOT_UNUSED (DYDt);
+    scalar Y = {-1}; NOT_UNUSED (Y);
+    scalar X = {-1}; NOT_UNUSED (X);
+    scalar D = {-1}; NOT_UNUSED (D);
+    scalar cps = {-1}; NOT_UNUSED (cps);
+    scalar dhevs = {-1}; NOT_UNUSED (dhevs);
+    scalar SYexp = {-1}; NOT_UNUSED (SYexp);
+    scalar SYimp = {-1}; NOT_UNUSED (SYimp);
+    scalar betaY = {-1}; NOT_UNUSED (betaY);
+    scalar DYDt = {-1}; NOT_UNUSED (DYDt);
+    if (phase->YList) Y = phase->YList[i];
+    if (phase->XList) X = phase->XList[i];
+    if (phase->DList) D = phase->DList[i];
+    if (phase->cpList) cps = phase->cpList[i];
+    if (phase->dhevList) dhevs = phase->dhevList[i];
+    if (phase->SYexpList) SYexp = phase->SYexpList[i];
+    if (phase->SYimpList) SYimp = phase->SYimpList[i];
+    if (phase->betaYList) betaY = phase->betaYList[i];
+    if (phase->DYDtList) DYDt = phase->DYDtList[i];
     {...}
   }
 }
@@ -139,12 +148,12 @@ macro foreach_species_in (Phase * phase) {
 void phase_species_names (Phase * phase, char ** names = NULL) {
   if (names) {
     phase->species = (char **)malloc (phase->n*sizeof (char *));
-    foreach_species_in (phase)
+    for (size_t i = 0; i < phase->n; i++)
       phase->species[i] = strdup (names[i]);
   }
   else {
     phase->species = (char **)malloc (phase->n*sizeof (char *));
-    foreach_species_in (phase) {
+    for (size_t i = 0; i < phase->n; i++) {
       char name[80];
       sprintf (name, "%zu", i+1);
       phase->species[i] = strdup (name);
@@ -164,6 +173,34 @@ Phase * new_phase_empty (char * name = "", bool inverse = false) {
   phase->isomassfrac = true;
   phase->inverse = inverse;
   phase->tracers = NULL;
+
+  /**
+  All fields are undefined by default, while all lists are NULL. This is
+  necessary to avoid segmentation from the foreach_species loops. */
+
+  phase->T.i = -1;
+  phase->P.i = -1;
+  phase->rho.i = -1;
+  phase->mu.i = -1;
+  phase->MW.i = -1;
+  phase->lambda.i = -1;
+  phase->cp.i = -1;
+  phase->dhev.i = -1;
+  phase->STexp.i = -1;
+  phase->STimp.i = -1;
+  phase->divu.i = -1;
+  phase->betaT.i = -1;
+  phase->DTDt.i = -1;
+
+  phase->YList = NULL;
+  phase->XList = NULL;
+  phase->DList = NULL;
+  phase->cpList = NULL;
+  phase->dhevList = NULL;
+  phase->SYexpList = NULL;
+  phase->SYimpList = NULL;
+  phase->betaYList = NULL;
+  phase->DYDtList = NULL;
 
   return phase;
 }
@@ -518,7 +555,7 @@ void phase_set_composition_from_string (Phase * phase, char * s,
   unsigned int count = 0;
   while (token != NULL) {
     count++;
-    char * species = NULL;
+    char * species;
     double val = 0.;
     if (count%2 != 0) {
       species = token;
