@@ -239,6 +239,7 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
 
   foreach()
     foreach_scalar_in (phase) {
+      T[] = 0.;
       P[] = 0.;
       rho[] = 0.;
       mu[] = 0.;
@@ -516,7 +517,7 @@ void phase_set_composition_from_string (Phase * phase, char * s,
   unsigned int count = 0;
   while (token != NULL) {
     count++;
-    char * species;
+    char * species = NULL;
     double val = 0.;
     if (count%2 != 0) {
       species = token;
