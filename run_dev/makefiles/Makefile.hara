@@ -18,7 +18,7 @@ CFLAGS_GLOBAL = -DMAXLEVEL=11 \
 								-DLIQFOLDER=LiquidProperties \
 								-DDIAMETER=0.38e-3 \
 								-DLIQUID=NC7H16_1 \
-								-DGAS=N2_0.79_O2_0.21
+								-DGAS=N2_0.79_O2_0.21 \
 								-DSIGMA=0.03 \
 								-DEMISSIVITY=0.93 \
 								-DTEMPERATURE=300.0 \
