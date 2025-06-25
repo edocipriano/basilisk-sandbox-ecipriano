@@ -54,13 +54,13 @@ to be provided, we gather them in a structure of input data and we read all the
 parameters from an input file.
 */
 
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-
 struct InputData {
   char * kinetics_folder;
   char * liquid_properties_folder;
   int maxlevel;
+  double Ytol;
+  double Ttol;
+  double Utol;
   double TL0;
   double TG0;
   double P0;
@@ -87,6 +87,9 @@ struct InputData {
   TOSTRING(KINFOLDER),
   TOSTRING(LIQFOLDER),
   MAXLEVEL,
+  YTOL,
+  TTOL,
+  UTOL,
   TEMPERATURE_DROPLET,
   TEMPERATURE,
   PRESSURE,
@@ -173,6 +176,9 @@ void parse_input_file (char * filename, struct InputData * inputdata) {
   config_get (bool, "physics.divergence", inputdata->divergence);
 
   // Get floating point values
+  config_get (float, "domain.Ytol", inputdata->Ytol);
+  config_get (float, "domain.Ttol", inputdata->Ttol);
+  config_get (float, "domain.Utol", inputdata->Utol);
   config_get (float, "gas.temperature", inputdata->TG0);
   config_get (float, "liquid.temperature", inputdata->TL0);
   config_get (float, "gas.pressure", inputdata->P0);
@@ -424,8 +430,12 @@ velocity field. */
 
 #if TREE
 event adapt (i++) {
+  double Ytol = inputdata.Ytol;
+  double Ttol = inputdata.Ttol;
+  double Utol = inputdata.Utol;
+
   adapt_wavelet_leave_interface ({Y,T,u.x,u.y}, {f},
-      (double[]){1.e-1,1.e-0,1e-1,1e-1}, maxlevel, minlevel, 1);
+      (double[]){Ytol,Ttol,Utol,Utol}, maxlevel, minlevel, 1);
 
   if (setup == gravity)
     unrefine (x >= (0.45*L0));

@@ -1,5 +1,20 @@
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
 #ifndef MAXLEVEL
 # define MAXLEVEL 10
+#endif
+
+#ifndef YTOL
+# define YTOL 1.e-1
+#endif
+
+#ifndef TTOL
+# define TTOL 1.e0
+#endif
+
+#ifndef UTOL
+# define UTOL 1.e-1
 #endif
 
 #ifndef COMBUSTION

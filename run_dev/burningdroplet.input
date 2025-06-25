@@ -3,6 +3,9 @@
 
 domain : {
     maxlevel = 10;
+    Ytol = 1.e-1;
+    Ttol = 1.e0;
+    Utol = 1.e-1;
     fiber = 0.1;
     environment = 7.986462e+01;
     gravity = -9.81;
