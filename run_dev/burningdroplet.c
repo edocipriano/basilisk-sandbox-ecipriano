@@ -326,7 +326,10 @@ event init (i = 0) {
     /**
     We compute initial variables, useful for post-processing. */
 
-    R = R0 = pow(3./4./pi*(2.*pi*statsf(f).sum), 1./3.);
+    if (setup == gravity)
+      R = R0 = pow(3./4./pi*(2.*pi*statsf(f).sum), 1./3.);
+    else
+      R = R0 = pow (3.*statsf(f).sum, 1./3.);
 
     scalar rhol = liq->rho;
     M0 = 0.;
