@@ -11,6 +11,9 @@ CFLAGS += -O2 \
 # Global: except GRAVITY DIAMETER and PRESSURE
 CFLAGS_GLOBAL = -DMAXLEVEL=10 \
 								-DJUMP=0 \
+								-DYTOL=1.e-2 \
+								-DTTOL=1.e-1 \
+								-DUTOL=1.e-2 \
 								-DKINFOLDER=evaporation/n-decane-in-nitrogen \
 								-DLIQFOLDER=LiquidProperties \
 								-DLIQUID=NC10H22_1 \

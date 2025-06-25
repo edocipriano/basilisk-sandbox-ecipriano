@@ -13,6 +13,9 @@ CFLAGS += -O2 \
 #  and makefiles/Makefile.nomurag*
 CFLAGS_GLOBAL = -DMAXLEVEL=10 \
 								-DJUMP=0 \
+								-DYTOL=1.e-2 \
+								-DTTOL=1.e-1 \
+								-DUTOL=1.e-2 \
 								-DKINFOLDER=evaporation/n-heptane-in-nitrogen \
 								-DLIQFOLDER=LiquidProperties \
 								-DLIQUID=NC7H16_1 \

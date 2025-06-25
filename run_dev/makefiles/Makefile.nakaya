@@ -10,6 +10,9 @@ CFLAGS += -O2 \
 
 # Global: except DIAMETER and GAS
 CFLAGS_GLOBAL = -DMAXLEVEL=10 \
+								-DYTOL=1.e-2 \
+								-DTTOL=1.e-1 \
+								-DUTOL=1.e-2 \
 								-DCOMBUSTION=1 \
 								-DKINFOLDER=two-step/ethanol \
 								-DLIQFOLDER=LiquidProperties \

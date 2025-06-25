@@ -11,6 +11,9 @@ CFLAGS += -O2 \
 # Global: except PRESSURE and spark setups
 CFLAGS_GLOBAL = -DMAXLEVEL=11 \
 								-DF_ERR=1e-4 \
+								-DYTOL=1.e-2 \
+								-DTTOL=1.e-1 \
+								-DUTOL=1.e-2 \
 								-DCOMBUSTION=1 \
 								-DKINFOLDER=two-step/methanol \
 								-DLIQFOLDER=LiquidProperties \

@@ -10,6 +10,10 @@ CFLAGS += -O2 \
 
 # Global: except LIQUID
 CFLAGS_GLOBAL = -DMAXLEVEL=11 \
+								-DF_ERR=1.e-4 \
+								-DYTOL=1.e-2 \
+								-DTTOL=1.e-1 \
+								-DUTOL=1.e-2 \
 								-DCOMBUSTION=1 \
 								-DKINFOLDER=two-step/methanol-water \
 								-DLIQFOLDER=LiquidProperties \
