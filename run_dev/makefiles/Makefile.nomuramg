@@ -1,0 +1,5 @@
+FILE = microgravity
+
+include Makefile.nomura
+
+CFLAGS += -DGRAVITY=0.

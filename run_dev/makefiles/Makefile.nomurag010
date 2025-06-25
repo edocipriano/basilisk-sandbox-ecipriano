@@ -1,0 +1,5 @@
+FILE = normalgravity
+
+include Makefile.nomura
+
+CFLAGS += -DGRAVITY=-0.981

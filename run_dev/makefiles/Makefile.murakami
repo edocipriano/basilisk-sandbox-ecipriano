@@ -1,0 +1,106 @@
+# N-Decane evaporation from Murakami et al. (2021) Transations of the Japan Society 19.5 (2021): 647-653
+include $(BASILISK)/Makefile.defs
+
+CFLAGS += -O2 \
+	-D_MPI=1 \
+	-disable-dimensions \
+	-DUSE_GSL=1 \
+	$(BASILISK_INCLUDES) \
+	$(BASILISK_LIBS)
+
+# Global: except GRAVITY DIAMETER and PRESSURE
+CFLAGS_GLOBAL = -DMAXLEVEL=10 \
+								-DJUMP=0 \
+								-DKINFOLDER=evaporation/n-decane-in-nitrogen \
+								-DLIQFOLDER=LiquidProperties \
+								-DLIQUID=NC10H22_1 \
+								-DGAS=N2_1 \
+								-DSIGMA=0.03 \
+								-DEMISSIVITY=0. \
+								-DTEMPERATURE=773 \
+								-DTEMPERATURE_DROPLET=328.0 \
+								-DFIBER=0.12 \
+								-DENVIRONMENT=7.986462e+01 \
+								-DMAX_DD02=0.05 \
+								-DMOVIE_EVERY=0.01 \
+								-DDUMP_EVERY=0.1
+
+# -> Table of cases
+CFLAGS_GRAVITY = -DGRAVITY=-9.81
+CFLAGS_MICROGRAVITY = -DGRAVITY=0.
+
+CFLAGS_CASE1 = -DDIAMETER=0.4e-3  -DPRESSURE=1 $(CFLAGS_MICROGRAVITY)
+CFLAGS_CASE2 = -DDIAMETER=0.4e-3  -DPRESSURE=5 $(CFLAGS_MICROGRAVITY)
+
+CFLAGS_CASE3 = -DDIAMETER=0.4e-3  -DPRESSURE=1 $(CFLAGS_GRAVITY)
+CFLAGS_CASE4 = -DDIAMETER=0.52e-3 -DPRESSURE=1 $(CFLAGS_GRAVITY)
+CFLAGS_CASE5 = -DDIAMETER=0.7e-3  -DPRESSURE=1 $(CFLAGS_GRAVITY)
+CFLAGS_CASE6 = -DDIAMETER=0.8e-3  -DPRESSURE=1 $(CFLAGS_GRAVITY)
+
+CFLAGS_CASE7  = -DDIAMETER=0.4e-3  -DPRESSURE=5 $(CFLAGS_GRAVITY)
+CFLAGS_CASE8  = -DDIAMETER=0.52e-3 -DPRESSURE=5 $(CFLAGS_GRAVITY)
+CFLAGS_CASE9  = -DDIAMETER=0.7e-3  -DPRESSURE=5 $(CFLAGS_GRAVITY)
+CFLAGS_CASE10 = -DDIAMETER=0.8e-3  -DPRESSURE=5 $(CFLAGS_GRAVITY)
+
+# -> Targets
+
+# Fig. 4a - Case T = 773 K, P = 1 atm, D = 0.4 mm
+microgravity-04-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c microgravity-04-T773K-P1atm.c
+microgravity-04-T773K-P1atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE1)
+microgravity-04-T773K-P1atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE1)
+
+# Fig. 4b - Case T = 773 K, P = 5 atm, D = 0.4 mm
+microgravity-04-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c microgravity-04-T773K-P5atm.c
+microgravity-04-T773K-P5atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE2)
+microgravity-04-T773K-P5atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE2)
+
+# Fig. 5a - Case T = 773 K, P = 1 atm, D = 0.4 mm
+normalgravity-04-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-04-T773K-P1atm.c
+normalgravity-04-T773K-P1atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE3)
+normalgravity-04-T773K-P1atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE3)
+
+# Fig. 5b - Case T = 773 K, P = 1 atm, D = 0.52 mm
+normalgravity-05-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-05-T773K-P1atm.c
+normalgravity-05-T773K-P1atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE4)
+normalgravity-05-T773K-P1atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE4)
+
+# Fig. 5c - Case T = 773 K, P = 1 atm, D = 0.7 mm
+normalgravity-07-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-07-T773K-P1atm.c
+normalgravity-07-T773K-P1atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE5)
+normalgravity-07-T773K-P1atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE5)
+
+# Fig. 5d - Case T = 773 K, P = 1 atm, D = 0.8 mm
+normalgravity-08-T773K-P1atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-08-T773K-P1atm.c
+normalgravity-08-T773K-P1atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE6)
+normalgravity-08-T773K-P1atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE6)
+
+# Fig. 5e - Case T = 773 K, P = 5 atm, D = 0.4 mm
+normalgravity-04-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-04-T773K-P5atm.c
+normalgravity-04-T773K-P5atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE7)
+normalgravity-04-T773K-P5atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE7)
+
+# Fig. 5f - Case T = 773 K, P = 5 atm, D = 0.52 mm
+normalgravity-05-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-05-T773K-P5atm.c
+normalgravity-05-T773K-P5atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE8)
+normalgravity-05-T773K-P5atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE8)
+
+# Fig. 5g - Case T = 773 K, P = 5 atm, D = 0.7 mm
+normalgravity-07-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-07-T773K-P5atm.c
+normalgravity-07-T773K-P5atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE9)
+normalgravity-07-T773K-P5atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE9)
+
+# Fig. 5h - Case T = 773 K, P = 5 atm, D = 0.8 mm
+normalgravity-08-T773K-P5atm.c: normalgravity.c
+	ln -s normalgravity.c normalgravity-08-T773K-P5atm.c
+normalgravity-08-T773K-P5atm.s: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE10)
+normalgravity-08-T773K-P5atm.tst: CFLAGS += $(CFLAGS_GLOBAL) $(CFLAGS_CASE10)
+
