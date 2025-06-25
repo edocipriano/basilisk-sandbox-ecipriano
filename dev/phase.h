@@ -433,9 +433,11 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
   phase_reset_sources (phase);  // fixme: maybe I still need those terms
 }
 
-void phase_set_thermo_state (Phase * phase, const ThermoState * ts) {
+void phase_set_thermo_state (Phase * phase, const ThermoState * ts,
+    bool force = false)
+{
   copy_thermo_state (phase->ts0, ts, phase->n);
-  if (phase_is_uniform (phase)) {
+  if (phase_is_uniform (phase) || force) {
     foreach() {
       foreach_scalar_in (phase) {
         T[] = ts->T;
@@ -542,7 +544,7 @@ size_t phase_species_index (Phase * phase, char * species) {
 
 // Usage: phase_set_composition_from_string (phase, "NC7H16 0.2 N2 0.8");
 void phase_set_composition_from_string (Phase * phase, char * s,
-    char * sep = " ")
+    char * sep = " ", bool force = false)
 {
   ThermoState * ts = new_thermo_state (phase->n);
   ts->T = phase->ts0->T;
@@ -570,7 +572,7 @@ void phase_set_composition_from_string (Phase * phase, char * s,
     }
     token = strtok (NULL, sep);
   }
-  phase_set_thermo_state (phase, ts);
+  phase_set_thermo_state (phase, ts, force);
 
   free_thermo_state (ts);
   free (input);

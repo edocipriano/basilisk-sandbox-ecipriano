@@ -305,8 +305,7 @@ int main (int argc, char ** argv) {
   Setting up the grid and the pinning point if the setup requires droplet
   suspension. Finally, we run the simulation. */
 
-  //init_grid (1 << min (maxlevel, 9));
-  init_grid (1 << maxlevel);
+  init_grid (1 << min (maxlevel, 9));
   run();
 
   /**
@@ -342,6 +341,8 @@ event init (i = 0) {
     foreach (reduction(+:M0))
       M0 += rhol[]*f[]*dv();
   }
+  else
+    restored = true;
 
   /**
   We set the initial thermodynamic state of the phases, and we overwrite some of
@@ -355,11 +356,13 @@ event init (i = 0) {
   tsl.T = TL0, tsl.P = Pref, tsl.x = NULL;
   tsg.T = TG0, tsg.P = Pref, tsg.x = NULL;
 
-  phase_set_thermo_state (liq, &tsl);
-  phase_set_thermo_state (gas, &tsg);
+  phase_set_thermo_state (liq, &tsl, force = !restored);
+  phase_set_thermo_state (gas, &tsg, force = !restored);
 
-  phase_set_composition_from_string (liq, inputdata.liq_start, sep = "_");
-  phase_set_composition_from_string (gas, inputdata.gas_start, sep = "_");
+  phase_set_composition_from_string (liq, inputdata.liq_start,
+      sep = "_", force = !restored);
+  phase_set_composition_from_string (gas, inputdata.gas_start,
+      sep = "_", force = !restored);
 
   /**
   The only property that we need to set, and that remains constant throughout
