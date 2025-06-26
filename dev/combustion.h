@@ -121,8 +121,8 @@ event phase_properties (i++) {
 }
 #endif
 
-#if CHEMISTRY
 event chemistry (i++) {
+#if CHEMISTRY
   if (pcm.chemistry) {
     ode_function batch = batch_isothermal_constantpressure;
     unsigned int NEQ = gas->n;
@@ -132,8 +132,11 @@ event chemistry (i++) {
     }
     phase_chemistry_direct (gas, dt, batch, NEQ, f, tol = 1-F_ERR);
   }
-}
 #endif
+
+  if (pcm.mass_diffusion_enthalpy)
+    phase_add_heat_species_diffusion (gas, f, pcm.molar_diffusion);
+}
 
 #if VARIABLE_PROPERTIES
 event divergence (i++) {
