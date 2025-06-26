@@ -1,173 +1,186 @@
 #include "fractions.h"
 #include "phase.h"
-#include "tracer.h"
+#include "vof.h"
 
-int NS;
-double rhov = 1., muv = 1., lambda = 1., cp = 1.;
-double T0 = 300., Pref = 101325., Dmix = 1., MW = 1.;
-bool isothermal = false, isomassfrac = false;
+#define rho(f) rho2v[]
+scalar rho2v[], mu2v[];
 
-Phase * phase;
-scalar * tracers = NULL;
-char ** species = NULL;
+scalar f[], * interfaces = {f};
 
-scalar rhot[];
-face vector mut[];
+face vector alphav[], muv[];
+scalar rhov[];
 
-struct CombustionModel {
-  bool normalize;
+int NS = 0;
+double rhoval = 1., muval = 0., lambdaval = 1., cpval = 1., Dmixval = 1.;
+double T0 = 300., YG0 = 1., Pref = 101325., MWval = 1.;
+
+Phase * gas;
+char ** gas_species = NULL;
+
+struct PhaseChangeModel {
+  bool isothermal;
+  bool isomassfrac;
   bool fick_corrected;
   bool molar_diffusion;
-  bool heat_species_diffusion;
-  bool chemistry;
+  bool mass_diffusion_enthalpy;
   bool divergence;
+  bool chemistry;
   bool no_advection_div;
-} combustion = {
-  true,
-  true,
-  true,
-  true,
-  true,
-  true,
-  true,
+} pcm = {
+  false,    // isothermal
+  false,    // isomassfrac
+  true,     // fick_corrected
+  true,     // molar_diffusion
+  true,     // mass_diffusion_enthalpy
+  true,     // divergence
+  true,     // chemistry
+  true,     // no_advection_div
 };
 
-attribute {
-  bool inverse;
-}
+static scalar * f_tracers = NULL;
 
 event defaults (i = 0) {
-  phase = new_phase ("", NS, false, species);
+  gas = new_phase ("", NS, true, gas_species);
 
-  phase->isothermal = isothermal;
-  phase->isomassfrac = isomassfrac;
+  gas->isothermal = pcm.isothermal;
+  gas->isomassfrac = pcm.isomassfrac;
 
-  double * x = malloc (phase->n*sizeof (double));
-  double * Ds = malloc (phase->n*sizeof (double));
-  double * cps = malloc (phase->n*sizeof (double));
-  double * MWs = malloc (phase->n*sizeof (double));
+  double * xg = malloc (gas->n*sizeof (double));
+  double * Dg = malloc (gas->n*sizeof (double));
+  double * dhevsg = malloc (gas->n*sizeof (double));
+  double * cpsg = malloc (gas->n*sizeof (double));
+  double * MWg = malloc (gas->n*sizeof (double));
 
-  foreach_species_in (phase)
-    x[i] = 1.;
-  correctfrac (x, phase->n);
+  foreach_species_in (gas)
+    xg[i] = 1.;
+  correctfrac (xg, gas->n);
 
-  ThermoState ts;
-  ts.T = T0, ts.P = Pref, ts.x = x;
-  phase_set_thermo_state (phase, &ts);
+  if (NS == 1)
+    xg[0] = 1.;
+  else if (NS == 2)
+    xg[0] = YG0, xg[1] = 1. - YG0;
 
-  foreach_species_in (phase) {
-    Ds[i] = Dmix;
-    cps[i] = cp;
-    MWs[i] = MW;
+  ThermoState tsg;
+  tsg.T = T0, tsg.P = Pref, tsg.x = xg;
+
+  phase_set_thermo_state (gas, &tsg);
+
+  foreach_species_in (gas) {
+    Dg[i] = Dmixval;
+    cpsg[i] = cpval;
+    MWg[i] = MWval;
   }
 
-  phase_set_properties (phase,
-      rho = rhov, mu = muv,
-      lambda = lambda, cp = cp,
-      D = Ds, cps = cps, MWs = MWs);
+  phase_set_properties (gas,
+      rho = rhoval, mu = muval,
+      lambda = lambdaval, cp = cpval,
+      D = Dg, cps = cpsg, MWs = MWg);
 
-  phase_set_tracers (phase);
-  tracers = phase->tracers;
+  free (xg);
+  free (Dg);
+  free (dhevsg);
+  free (cpsg);
+  free (MWg);
 
-#if TREE
- for (scalar s in tracers) {
-#if EMBED
-   s.refine = s.prolongation = refine_embed_linear;
-#else
-   s.refine  = refine_linear;
-#endif
-   s.restriction = restriction_volume_average;
-   s.dirty = true; // boundary conditions need to be updated
- }
-#endif
+  phase_set_tracers (gas);
 
-  free (x);
-  free (Ds);
-  free (cps);
-  free (MWs);
+  f_tracers = f.tracers;
+  f.tracers = list_concat (f.tracers, gas->tracers);
 
-  // Default properties
-  rho = rhot;
-  mu = mut;
-}
+  alpha = alphav;
+  rho = rhov;
+  mu = muv;
 
-event init (i = 0) {
-  assert (nv == 1);
+  rho2v.nodump = mu2v.nodump = true;
 
-  no_advection_div = combustion.no_advection_div;
-
-  //phase_update_properties (phase, &tp2);
+  no_advection_div = pcm.no_advection_div;
 }
 
 event cleanup (t = end) {
-  delete_phase (phase);
+  free (f.tracers), f.tracers = f_tracers;
+  delete_phase (gas);
 }
 
 event reset_sources (i++) {
-  phase_reset_sources (phase);
+  phase_reset_sources (gas);
 
-  foreach()
+  foreach() {
     for (scalar drhodt in drhodtlist)
       drhodt[] = 0.;
-}
-
-event phase_properties (i++) {
-  phase_update_mw_moles (phase);
-  phase_update_properties (phase, &tp2);
-
-  scalar rhop = phase->rho;
-  foreach()
-    rhot[] = rhop[]*cm[];
-
-  scalar mup = phase->mu;
-  foreach_face()
-    mut.x[] = face_value (mup, 0)*fm.x[];
-}
-
-#if CHEMISTRY
-event chemistry (i++) {
-  if (combustion.chemistry) {
-    ode_function batch = batch_isothermal_constantpressure;
-    unsigned int NEQ = phase->n;
-    if (!phase->isothermal) {
-      batch = batch_nonisothermal_constantpressure;
-      NEQ++;
-    }
-    phase_chemistry_direct (phase, dt, batch, NEQ);
   }
+}
 
-  if (combustion.heat_species_diffusion)
-    phase_add_heat_species_diffusion (phase,
-        molar_diffusion = combustion.molar_diffusion);
+event end_init (i = 0);
+
+event reset_sources (i++);
+
+#if VARIABLE_PROPERTIES
+event phase_properties (i++) {
+  phase_update_mw_moles (gas, f, tol = P_ERR, extend = true);
+  phase_update_properties (gas, &tp2, f, P_ERR);
 }
 #endif
 
-event divergence (i++) {
-  if (combustion.divergence) {
-    phase_update_mw_moles (phase);
-    phase_update_divergence (phase,
-        fick_corrected = combustion.fick_corrected,
-        molar_diffusion = combustion.molar_diffusion);
-    //if (i > 1) phase_update_divergence_density (phase, u);
-
-    scalar divp = phase->divu;
-    foreach()
-      drhodt[] = divp[];
+#if CHEMISTRY
+event chemistry (i++) {
+  if (pcm.chemistry) {
+    ode_function batch = batch_isothermal_constantpressure;
+    unsigned int NEQ = gas->n;
+    if (!gas->isothermal) {
+      batch = batch_nonisothermal_constantpressure;
+      NEQ++;
+    }
+    phase_chemistry_direct (gas, dt, batch, NEQ, f, tol = 1-F_ERR);
   }
 }
+#endif
+
+#if VARIABLE_PROPERTIES
+event divergence (i++) {
+  if (pcm.divergence) {
+    phase_update_divergence (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
+
+    scalar divu2 = gas->divu;
+    foreach()
+      drhodt[] = divu2[];
+  }
+}
+#endif
 
 event tracer_advection (i++);
 
 event tracer_diffusion (i++) {
-  phase_update_mw_moles (phase);
+  phase_update_mw_moles (gas, f, tol = P_ERR);
+  phase_diffusion_velocity (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
+  phase_diffusion (gas, f, varcoeff = true);
+  phase_normalize_fractions (gas);
+}
 
-  phase_diffusion_velocity (phase,
-      fick_corrected = combustion.fick_corrected,
-      molar_diffusion = combustion.molar_diffusion);
+event properties (i++) {
+  foreach_face() {
+    alphav.x[] = fm.x[]/face_value (rho2v, 0);
 
-  phase_diffusion (phase, varcoeff = true);
+    face vector muv = mu;
+    muv.x[] = fm.x[]*face_value (mu2v, 0);
+  }
 
-  if (combustion.normalize)
-    phase_normalize_fractions (phase);
+  foreach()
+    rhov[] = cm[]*rho2v[];
+}
+
+event properties (i++) {
+  scalar rhog = gas->rho;
+  scalar mug = gas->mu;
+  foreach() {
+    rho2v[] = rhog[];
+    mu2v[] = mug[];
+  }
+}
+
+double CFL_MAX = 0.5;
+
+event stability (i++) {
+  if (CFL > CFL_MAX)
+    CFL = CFL_MAX;
 }
 
