@@ -8,6 +8,8 @@ OpenSMOKE++ library.
 #include "opensmoke.h"
 #include "variable-properties.h"
 
+#define VARIABLE_PROPERTIES 1
+
 /**
 ## Properties Functions
 
