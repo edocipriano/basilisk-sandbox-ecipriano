@@ -1,5 +1,5 @@
 /**
-# Axisymmetric H2/N2–Air Coflow Diffusion Flame
+# Axisymmetric H2/N2–Air Coflow Flame
 
 This test case reproduces a laminar, axisymmetric hydrogen–air diffusion flame
 with detailed chemistry and transport, following the setup discussed by [Toro et al. 2004](#toro2005combined).
