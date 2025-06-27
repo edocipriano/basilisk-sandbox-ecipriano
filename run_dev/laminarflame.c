@@ -16,7 +16,6 @@ multicomponent gas mixture.
 #include "opensmoke/properties.h"
 #include "opensmoke/chemistry.h"
 #include "combustion.h"
-#include "tension.h"
 #include "gravity.h"
 #include "spark.h"
 #include "view.h"
@@ -178,8 +177,8 @@ velocity field. */
 #if TREE
 event adapt (i++) {
   scalar fuel = gas->YList[index_species ("H2")];
-  adapt_wavelet_leave_interface ({fuel,gas->T,u.x,u.y}, {f},
-      (double[]){1e-2,1e0,1e-1,1e-1}, maxlevel, minlevel, 1);
+  adapt_wavelet ({fuel,gas->T,u.x,u.y},
+      (double[]){1e-2,1e0,1e-1,1e-1}, maxlevel, minlevel);
   unrefine (x >= (0.9*L0));
 }
 #endif
@@ -230,7 +229,11 @@ event profiles (t = end) {
     coord box[2] = {{3e-3,0}, {3e-3,15e-3}};
     coord n = {1,100};
     foreach_region (p, box, n)
-      fprintf (fp3mm, "%g %g\n", p.y, interpolate (gas->T, p.x, p.y));
+      fprintf (fp3mm, "%g %g %g %g %g\n", p.y,
+          interpolate (gas->T, p.x, p.y),
+          interpolate (gas->XList[index_species ("H2")], p.x, p.y),
+          interpolate (gas->XList[index_species ("O2")], p.x, p.y),
+          interpolate (gas->XList[index_species ("H2O")], p.x, p.y));
   }
 
   {
@@ -240,9 +243,9 @@ event profiles (t = end) {
     foreach_region (p, box, n)
       fprintf (fp10mm, "%g %g %g %g %g\n", p.y,
           interpolate (gas->T, p.x, p.y),
-          interpolate (gas->YList[index_species ("H2")], p.x, p.y),
-          interpolate (gas->YList[index_species ("O2")], p.x, p.y),
-          interpolate (gas->YList[index_species ("H2O")], p.x, p.y));
+          interpolate (gas->XList[index_species ("H2")], p.x, p.y),
+          interpolate (gas->XList[index_species ("O2")], p.x, p.y),
+          interpolate (gas->XList[index_species ("H2O")], p.x, p.y));
   }
 
   {
@@ -250,7 +253,11 @@ event profiles (t = end) {
     coord box[2] = {{20e-3,0}, {20e-3,15e-3}};
     coord n = {1,100};
     foreach_region (p, box, n)
-      fprintf (fp20mm, "%g %g\n", p.y, interpolate (gas->T, p.x, p.y));
+      fprintf (fp20mm, "%g %g %g %g %g\n", p.y,
+          interpolate (gas->T, p.x, p.y),
+          interpolate (gas->XList[index_species ("H2")], p.x, p.y),
+          interpolate (gas->XList[index_species ("O2")], p.x, p.y),
+          interpolate (gas->XList[index_species ("H2O")], p.x, p.y));
   }
 
   {
@@ -258,7 +265,11 @@ event profiles (t = end) {
     coord box[2] = {{30e-3,0}, {30e-3,15e-3}};
     coord n = {1,100};
     foreach_region (p, box, n)
-      fprintf (fp30mm, "%g %g\n", p.y, interpolate (gas->T, p.x, p.y));
+      fprintf (fp30mm, "%g %g %g %g %g\n", p.y,
+          interpolate (gas->T, p.x, p.y),
+          interpolate (gas->XList[index_species ("H2")], p.x, p.y),
+          interpolate (gas->XList[index_species ("O2")], p.x, p.y),
+          interpolate (gas->XList[index_species ("H2O")], p.x, p.y));
   }
 
   fclose (faxial);
@@ -309,6 +320,8 @@ event end (t = 0.3);
 ## Results
 
 ~~~gnuplot Temperature map
+LEVEL = 7
+
 set size ratio -1
 unset key 
 unset xtics
@@ -324,28 +337,29 @@ set palette defined ( 0 0 0 0.5647, 0.125 0 0.05882 1, 0.25 0 0.5647 1, \
 set xlabel "x"
 set ylabel "y"
 set title "temperature [K]"
+set colorbox
 
-splot "Maps-7" u 1:2:6
+splot "Maps-".LEVEL u 1:2:6
 ~~~
 
 ~~~gnuplot H2 map
 set title "mass fraction H2 [-]"
-splot "Maps-7" u 1:2:3
+splot "Maps-".LEVEL u 1:2:3
 ~~~
 
 ~~~gnuplot O2 map
 set title "mass fraction O2 [-]"
-splot "Maps-7" u 1:2:4
+splot "Maps-".LEVEL u 1:2:4
 ~~~
 
 ~~~gnuplot H2O map
 set title "mass fraction H2O [-]"
-splot "Maps-7" u 1:2:5
+splot "Maps-".LEVEL u 1:2:5
 ~~~
 
 ~~~gnuplot u.x map
 set title "u.x [m/s]"
-splot "Maps-7" u 1:2:7
+splot "Maps-".LEVEL u 1:2:7
 ~~~
 
 ~~~gnuplot Axial temperature profiles
@@ -354,7 +368,7 @@ set grid
 set xlabel "axial distance [mm]"
 set ylabel "temperature [K]"
 
-plot "AxialProfiles-7" u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+plot "AxialProfiles-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
      "../data/toro2004/50cms/axis-T.exp" u 1:2 w p lc -1 t "Toro et al., 2004 - CARS", \
      "../data/toro2004/50cms/axis-T.exp" u 3:4 w p lc -1 t "Toro et al., 2004 - Raman"
 ~~~
@@ -363,31 +377,43 @@ plot "AxialProfiles-7" u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
 set grid
 set xlabel "radial distance [mm]"
 set ylabel "temperature [K]"
-set xr[-20:20]
+set xr[-15:15]
 
-plot "RadialProfiles3mm-7" u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles3mm-7" u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "../data/toro2004/50cms/radial-3mm-T.exp" u 1:2 w p lc -1 t "Toro et al., 2004"
+set y2tics
+set y2r[0:1]
+set y2label "mass fractions [-]"
+
+plot "RadialProfiles3mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+     "RadialProfiles3mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+     "RadialProfiles3mm-".LEVEL u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
+     "RadialProfiles3mm-".LEVEL u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
+     "RadialProfiles3mm-".LEVEL u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
+     "RadialProfiles3mm-".LEVEL u (-$1*1e3):4 w l dt 1 lc 2 notitle axis x1y2, \
+     "RadialProfiles3mm-".LEVEL u ($1*1e3):5 w l dt 1 lc 3 t "H2O" axis x1y2, \
+     "RadialProfiles3mm-".LEVEL u (-$1*1e3):5 w l dt 1 lc 3 notitle axis x1y2, \
+     "../data/toro2004/50cms/radial-3mm-T.exp" u 1:2 w p lc -1 t "Toro et al., 2004", \
+     "../data/toro2004/50cms/radial-3mm-H2.exp" w p lc 1 axis x1y2 notitle, \
+     "../data/toro2004/50cms/radial-3mm-O2.exp" w p lc 2 axis x1y2 notitle, \
+     "../data/toro2004/50cms/radial-3mm-H2O.exp" w p lc 3 axis x1y2 notitle
 ~~~
 
 ~~~gnuplot Radial temperature profiles at x = 10 mm
 set grid
 set xlabel "radial distance [mm]"
 set ylabel "temperature [K]"
-set xr[-20:20]
 
 set y2tics
 set y2r[0:1]
 set y2label "mass fractions [-]"
 
-plot "RadialProfiles10mm-7" u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles10mm-7" u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles10mm-7" u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
-     "RadialProfiles10mm-7" u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
-     "RadialProfiles10mm-7" u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
-     "RadialProfiles10mm-7" u (-$1*1e3):4 w l dt 1 lc 2 notitle axis x1y2, \
-     "RadialProfiles10mm-7" u ($1*1e3):5 w l dt 1 lc 3 t "H2O" axis x1y2, \
-     "RadialProfiles10mm-7" u (-$1*1e3):5 w l dt 1 lc 3 notitle axis x1y2, \
+plot "RadialProfiles10mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+     "RadialProfiles10mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+     "RadialProfiles10mm-".LEVEL u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
+     "RadialProfiles10mm-".LEVEL u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
+     "RadialProfiles10mm-".LEVEL u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
+     "RadialProfiles10mm-".LEVEL u (-$1*1e3):4 w l dt 1 lc 2 notitle axis x1y2, \
+     "RadialProfiles10mm-".LEVEL u ($1*1e3):5 w l dt 1 lc 3 t "H2O" axis x1y2, \
+     "RadialProfiles10mm-".LEVEL u (-$1*1e3):5 w l dt 1 lc 3 notitle axis x1y2, \
      "../data/toro2004/50cms/radial-10mm-T.exp" u 1:2 w p lc -1 t "Toro et al., 2004 - CARS", \
      "../data/toro2004/50cms/radial-10mm-T.exp" u 3:4 w p lc -1 t "Toro et al., 2004 - Raman", \
      "../data/toro2004/50cms/radial-10mm-H2.exp" w p lc 1 axis x1y2 notitle, \
@@ -399,24 +425,48 @@ plot "RadialProfiles10mm-7" u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
 set grid
 set xlabel "radial distance [mm]"
 set ylabel "temperature [K]"
-set xr[-20:20]
 
-plot "RadialProfiles20mm-7" u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles20mm-7" u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+set y2tics
+set y2r[0:1]
+set y2label "mass fractions [-]"
+
+plot "RadialProfiles20mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+     "RadialProfiles20mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+     "RadialProfiles20mm-".LEVEL u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
+     "RadialProfiles20mm-".LEVEL u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
+     "RadialProfiles20mm-".LEVEL u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
+     "RadialProfiles20mm-".LEVEL u (-$1*1e3):4 w l dt 1 lc 2 notitle axis x1y2, \
+     "RadialProfiles20mm-".LEVEL u ($1*1e3):5 w l dt 1 lc 3 t "H2O" axis x1y2, \
+     "RadialProfiles20mm-".LEVEL u (-$1*1e3):5 w l dt 1 lc 3 notitle axis x1y2, \
      "../data/toro2004/50cms/radial-20mm-T.exp" u 1:2 w p lc -1 t "Toro et al., 2004 - CARS", \
-     "../data/toro2004/50cms/radial-20mm-T.exp" u 3:4 w p lc -1 t "Toro et al., 2004 - Raman"
+     "../data/toro2004/50cms/radial-20mm-T.exp" u 3:4 w p lc -1 t "Toro et al., 2004 - Raman", \
+     "../data/toro2004/50cms/radial-20mm-H2.exp" w p lc 1 axis x1y2 notitle, \
+     "../data/toro2004/50cms/radial-20mm-O2.exp" w p lc 2 axis x1y2 notitle, \
+     "../data/toro2004/50cms/radial-20mm-H2O.exp" w p lc 3 axis x1y2 notitle
 ~~~
 
 ~~~gnuplot Radial temperature profiles at x = 30 mm
 set grid
 set xlabel "radial distance [mm]"
 set ylabel "temperature [K]"
-set xr[-20:20]
 
-plot "RadialProfiles30mm-7" u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles30mm-7" u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+set y2tics
+set y2r[0:1]
+set y2label "mass fractions [-]"
+
+plot "RadialProfiles30mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+     "RadialProfiles30mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+     "RadialProfiles30mm-".LEVEL u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
+     "RadialProfiles30mm-".LEVEL u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
+     "RadialProfiles30mm-".LEVEL u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
+     "RadialProfiles30mm-".LEVEL u (-$1*1e3):4 w l dt 1 lc 2 notitle axis x1y2, \
+     "RadialProfiles30mm-".LEVEL u ($1*1e3):5 w l dt 1 lc 3 t "H2O" axis x1y2, \
+     "RadialProfiles30mm-".LEVEL u (-$1*1e3):5 w l dt 1 lc 3 notitle axis x1y2, \
      "../data/toro2004/50cms/radial-30mm-T.exp" u 1:2 w p lc -1 t "Toro et al., 2004 - CARS", \
-     "../data/toro2004/50cms/radial-30mm-T.exp" u 3:4 w p lc -1 t "Toro et al., 2004 - Raman"
+     "../data/toro2004/50cms/radial-30mm-T.exp" u 3:4 w p lc -1 t "Toro et al., 2004 - Raman", \
+     "../data/toro2004/50cms/radial-30mm-H2.exp" w p lc 1 axis x1y2 notitle, \
+     "../data/toro2004/50cms/radial-30mm-O2.exp" w p lc 2 axis x1y2 notitle, \
+     "../data/toro2004/50cms/radial-30mm-H2O.exp" w p lc 3 axis x1y2 notitle
 ~~~
 
 ## References
