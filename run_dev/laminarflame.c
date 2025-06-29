@@ -368,7 +368,7 @@ set grid
 set xlabel "axial distance [mm]"
 set ylabel "temperature [K]"
 
-plot "AxialProfiles-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+plot "AxialProfiles-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "Temperature", \
      "../data/toro2004/50cms/axis-T.exp" u 1:2 w p lc -1 t "Toro et al., 2004 - CARS", \
      "../data/toro2004/50cms/axis-T.exp" u 3:4 w p lc -1 t "Toro et al., 2004 - Raman"
 ~~~
@@ -378,13 +378,14 @@ set grid
 set xlabel "radial distance [mm]"
 set ylabel "temperature [K]"
 set xr[-15:15]
+set yr[200:2200]
 
 set y2tics
 set y2r[0:1]
 set y2label "mass fractions [-]"
 
-plot "RadialProfiles3mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles3mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+plot "RadialProfiles3mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "Temperature", \
+     "RadialProfiles3mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 notitle, \
      "RadialProfiles3mm-".LEVEL u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
      "RadialProfiles3mm-".LEVEL u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
      "RadialProfiles3mm-".LEVEL u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
@@ -406,8 +407,8 @@ set y2tics
 set y2r[0:1]
 set y2label "mass fractions [-]"
 
-plot "RadialProfiles10mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles10mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+plot "RadialProfiles10mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "Temperature", \
+     "RadialProfiles10mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 notitle, \
      "RadialProfiles10mm-".LEVEL u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
      "RadialProfiles10mm-".LEVEL u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
      "RadialProfiles10mm-".LEVEL u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
@@ -430,8 +431,8 @@ set y2tics
 set y2r[0:1]
 set y2label "mass fractions [-]"
 
-plot "RadialProfiles20mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles20mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+plot "RadialProfiles20mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "Temperature", \
+     "RadialProfiles20mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 notitle, \
      "RadialProfiles20mm-".LEVEL u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
      "RadialProfiles20mm-".LEVEL u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
      "RadialProfiles20mm-".LEVEL u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
@@ -454,8 +455,8 @@ set y2tics
 set y2r[0:1]
 set y2label "mass fractions [-]"
 
-plot "RadialProfiles30mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
-     "RadialProfiles30mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 t "LEVEL 7", \
+plot "RadialProfiles30mm-".LEVEL u ($1*1e3):2 w l dt 1 lc -1 t "Temperature", \
+     "RadialProfiles30mm-".LEVEL u (-$1*1e3):2 w l dt 1 lc -1 notitle, \
      "RadialProfiles30mm-".LEVEL u ($1*1e3):3 w l dt 1 lc 1 t "H2" axis x1y2, \
      "RadialProfiles30mm-".LEVEL u (-$1*1e3):3 w l dt 1 lc 1 notitle axis x1y2, \
      "RadialProfiles30mm-".LEVEL u ($1*1e3):4 w l dt 1 lc 2 t "O2" axis x1y2, \
