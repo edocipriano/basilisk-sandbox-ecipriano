@@ -203,6 +203,7 @@ int main (void) {
   TG0 = TEMPERATURE, TL0 = TEMPERATURE_DROPLET;
 
   nv = 2;
+  pcm.emissivity = EMISSIVITY;
 
   /**
   We change the dimensions of the domain as a function of the initial
