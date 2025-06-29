@@ -29,11 +29,12 @@ according to the vaporization rate and the density jump at the interface. */
 
 void recoil_potential (scalar f, scalar phi, bool add = false)
 {
+  scalar rhog = gas->rho, rhol = liq->rho;
   foreach() {
     double hp = 0.;
     if (interfacial (point, f)) {
-      hp = (rhogas > 0. && rholiq > 0.) ?
-        -sq(mEvapTot[])*(1./rhogas - 1./rholiq) : 0.;
+      hp = (rhog[] > 0. && rhol[] > 0.) ?
+        -sq(mEvapTot[])*(1./rhog[] - 1./rhol[]) : 0.;
       if (add)
         phi[] += hp;
       else
