@@ -361,11 +361,11 @@ void phase_reset_sources (Phase * phase) {
 }
 
 bool phase_is_uniform (Phase * phase) {
-  bool uniform = false;
+  bool uniform = true;
   foreach_scalar_in (phase) {
-    uniform |= (statsf (T).stddev == 0);
+    uniform &= (statsf (T).stddev == 0);
     foreach_species_in (phase)
-      uniform |= (statsf (Y).stddev == 0);
+      uniform &= (statsf (Y).stddev == 0);
   }
   return uniform;
 }
