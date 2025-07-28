@@ -363,9 +363,14 @@ void phase_reset_sources (Phase * phase) {
 bool phase_is_uniform (Phase * phase) {
   bool uniform = true;
   foreach_scalar_in (phase) {
-    uniform &= (statsf (T).stddev == 0);
-    foreach_species_in (phase)
-      uniform &= (statsf (Y).stddev == 0);
+    double Tmin = statsf (T).min;
+    double Tmax = statsf (T).max;
+    uniform &= (Tmin == Tmax);
+    foreach_species_in (phase) {
+      double Ymin = statsf (Y).min;
+      double Ymax = statsf (Y).max;
+      uniform &= (Ymin == Ymax);
+    }
   }
   return uniform;
 }
