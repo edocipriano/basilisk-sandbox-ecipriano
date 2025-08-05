@@ -601,7 +601,8 @@ acceleration term is added. */
 
 event acceleration (i++,last)
 {
-  vector u, uf;
+  vector u;
+  face vector uf;
   for (u,uf in ulist, uflist) {
   trash ({uf});
   foreach_face()

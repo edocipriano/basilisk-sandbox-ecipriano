@@ -32,11 +32,6 @@ gas-liquid interface, while `drhodt` considers density changes. */
 
 #define LOW_MACH 1
 
-attribute {
-  scalar drhodt;
-  scalar intexp;
-}
-
 scalar drhodt[], * drhodtlist = NULL;
 scalar intexp[], * intexplist = NULL;
 
@@ -74,11 +69,16 @@ mgstats project_lowmach (face vector uf, scalar p,
   /**
   We add the volume expansion contribution. */
 
-  scalar drhodt = p.drhodt, intexp = p.intexp;
+  extern int nv;
+  static int inv = 0;
+  scalar intexp = intexplist[inv];
+  scalar drhodt = drhodtlist[inv];
   foreach() {
     div[] += intexp[]/dt;
     div[] += drhodt[]/dt;
   }
+  inv++;
+  inv = (inv == nv) ? 0 : inv;
 
   /**
   We solve the Poisson problem. The tolerance (set with *TOLERANCE*) is
@@ -189,26 +189,6 @@ event defaults (i = 0) {
   }
 }
 
-event init (i = 0) {
-  // Plug them into the pressure attributes
-  for (int i = 0; i < nv; i++) {
-    scalar p = plist[i];
-    scalar drhodt = drhodtlist[i];
-    scalar intexp = intexplist[i];
-
-    p.drhodt = drhodt;
-    p.intexp = intexp;
-  }
-
-  // Set to zero
-  foreach()
-    for (scalar p in plist) {
-      scalar drhodt = p.drhodt, intexp = p.intexp;
-      drhodt[] = 0.;
-      intexp[] = 0.;
-    }
-}
-
 event cleanup (t = end) {
   for (int i = 1; i < nv; i++) {
     scalar drhodt = drhodtlist[i];
@@ -218,14 +198,5 @@ event cleanup (t = end) {
   }
   free (drhodtlist), drhodtlist = NULL;
   free (intexplist), intexplist = NULL;
-}
-
-event end_timestep (i++) {
-  foreach()
-    for (scalar p in plist) {
-      scalar drhodt = p.drhodt, intexp = p.intexp;
-      drhodt[] = 0.;
-      intexp[] = 0.;
-    }
 }
 
