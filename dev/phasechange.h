@@ -222,6 +222,10 @@ event init (i = 0) {
     phase_scalars_to_tracers (liq, f);
   if (phase_is_uniform (gas))
     phase_scalars_to_tracers (gas, f);
+
+#if TWO_PHASE_VARPROP
+  event ("phase_properties");
+#endif
 }
 
 event cleanup (t = end) {

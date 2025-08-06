@@ -24,6 +24,7 @@ typedef struct {
   bool isothermal;
   bool isomassfrac;
   bool inverse;
+  bool dump_all;
   scalar * tracers;
   // Material properties
   scalar rho;
@@ -90,7 +91,7 @@ macro foreach_species_in (Phase * phase) {
 
 // fixme: name has a size of 80 chars: using snprintf can avoid buffer overflow
 
-#define new_field_scalar(Y, phase)                                  \
+#define new_field_scalar(Y, phase, no_dump)                          \
   {                                                                 \
     scalar Y = new scalar;                                          \
     phase->Y = Y;                                                   \
@@ -99,10 +100,11 @@ macro foreach_species_in (Phase * phase) {
     sprintf (name, "%s%s", #Y, phase->name);                        \
     free (Y.name);                                                  \
     Y.name = strdup (name);                                         \
+    Y.nodump = no_dump;                                              \
   }
 
-#define new_field_type(type, Y, phase)                              \
-  new_field_##type(Y, phase);
+#define new_field_type(type, Y, phase, no_dump)                     \
+  new_field_##type(Y, phase, no_dump);
 
 #define scalar_name(name, Y, phase, i)                              \
   sprintf (name, "%s%s%s", #Y, phase->name, phase->species[i]);     \
@@ -110,21 +112,22 @@ macro foreach_species_in (Phase * phase) {
 #define vector_name(name, Y, phase, i, ext)                             \
   sprintf (name, "%s%s%s%s", #Y, phase->name, phase->species[i], ext.x) \
 
-#define new_field_scalar_name(Y, phase)                             \
+#define new_field_scalar_name(Y, phase, no_dump)                    \
   scalar Y = new scalar;                                            \
   Y.inverse = phase->inverse;                                       \
   char name[80];                                                    \
   scalar_name (name, Y, phase, i);                                  \
   free (Y.name);                                                    \
-  Y.name = strdup (name);
+  Y.name = strdup (name);                                           \
+  Y.nodump = no_dump;
 
-#define new_list_scalar_name(Y, phase, list)                        \
+#define new_list_scalar_name(Y, phase, list, no_dump)               \
   for (size_t i = 0; i < phase->n; i++) {                           \
-    new_field_scalar_name (Y, phase);                               \
+    new_field_scalar_name (Y, phase, no_dump);                      \
     list = list_add (list, Y);                                      \
   }
 
-#define new_field_vector_name(Y, phase)                             \
+#define new_field_vector_name(Y, phase, no_dump)                    \
   vector Y = new vector;                                            \
   char name[80];                                                    \
   foreach_dimension() {                                             \
@@ -132,18 +135,19 @@ macro foreach_species_in (Phase * phase) {
     vector_name (name, Y, phase, i, ext);                           \
     free (Y.x.name);                                                \
     Y.x.name = strdup (name);                                       \
+    Y.x.nodump = no_dump;                                           \
   }                                                                 \
 
-#define new_list_vector_name(Y, phase, list)                        \
+#define new_list_vector_name(Y, phase, list, no_dump)               \
   struct { char * x, * y, * z; } ext = {".x", ".y", ".z"};          \
   for (size_t i = 0; i < phase->n; i++) {                           \
-    new_field_vector_name(Y, phase);                                \
+    new_field_vector_name(Y, phase, no_dump);                       \
     list = vectors_add (list, Y);                                   \
   }
 
-#define new_list_type_name(type, Y, phase, list)                    \
+#define new_list_type_name(type, Y, phase, list, no_dump)           \
   list = NULL;                                                      \
-  new_list_##type##_name(Y, phase, list)
+  new_list_##type##_name(Y, phase, list, no_dump)
 
 void phase_species_names (Phase * phase, char ** names = NULL) {
   if (names) {
@@ -173,6 +177,7 @@ Phase * new_phase_empty (char * name = "", bool inverse = false) {
   phase->isomassfrac = true;
   phase->inverse = inverse;
   phase->tracers = NULL;
+  phase->dump_all = false;
 
   /**
   All fields are undefined by default, while all lists are NULL. This is
@@ -214,13 +219,16 @@ Phase * new_phase_minimal (char * name = "", size_t ns = 0,
   // Default set of names
   phase_species_names (phase, species);
 
+  // Which fields must be dumped
+  bool nodump = !phase->dump_all;
+
   // Create minimal set of scalar fields
-  new_list_type_name (scalar, Y, phase, phase->YList);
-  new_list_type_name (scalar, X, phase, phase->XList);
-  new_field_type (scalar, T, phase);
+  new_list_type_name (scalar, Y, phase, phase->YList, false);
+  new_list_type_name (scalar, X, phase, phase->XList, nodump);
+  new_field_type (scalar, T, phase, false);
 
   // Create minimal set of material properties
-  new_field_type (scalar, MW, phase);
+  new_field_type (scalar, MW, phase, false);
 
   foreach() {
     foreach_scalar_in (phase) {
@@ -247,33 +255,36 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
   // Default set of names
   phase_species_names (phase, species);
 
+  // Which fields must be dumped
+  bool nodump = !phase->dump_all;
+
   // Create scalar fields
-  new_field_type (scalar, T, phase);
-  new_list_type_name (scalar, Y, phase, phase->YList);
-  new_list_type_name (scalar, X, phase, phase->XList);
+  new_field_type (scalar, T, phase, false);
+  new_list_type_name (scalar, Y, phase, phase->YList, false);
+  new_list_type_name (scalar, X, phase, phase->XList, nodump);
 
   // Create material properties
-  new_field_type (scalar, P, phase);
-  new_field_type (scalar, rho, phase);
-  new_field_type (scalar, mu, phase);
-  new_field_type (scalar, MW, phase);
-  new_list_type_name (scalar, D, phase, phase->DList);
-  new_list_type_name (scalar, cp, phase, phase->cpList);
-  new_list_type_name (scalar, dhev, phase, phase->dhevList);
-  new_field_type (scalar, lambda, phase);
-  new_field_type (scalar, cp, phase);
-  new_field_type (scalar, dhev, phase);
-  new_field_type (scalar, divu, phase);
-  new_field_type (scalar, betaT, phase);
-  new_field_type (scalar, DTDt, phase);
+  new_field_type (scalar, P, phase, false);
+  new_field_type (scalar, rho, phase, false);
+  new_field_type (scalar, mu, phase, false);
+  new_field_type (scalar, MW, phase, false);
+  new_list_type_name (scalar, D, phase, phase->DList, false);
+  new_list_type_name (scalar, cp, phase, phase->cpList, false);
+  new_list_type_name (scalar, dhev, phase, phase->dhevList, false);
+  new_field_type (scalar, lambda, phase, false);
+  new_field_type (scalar, cp, phase, false);
+  new_field_type (scalar, dhev, phase, false);
+  new_field_type (scalar, divu, phase, nodump);
+  new_field_type (scalar, betaT, phase, nodump);
+  new_field_type (scalar, DTDt, phase, nodump);
 
   // Create source terms
-  new_field_type (scalar, STimp, phase);
-  new_field_type (scalar, STexp, phase);
-  new_list_type_name (scalar, SYimp, phase, phase->SYimpList);
-  new_list_type_name (scalar, SYexp, phase, phase->SYexpList);
-  new_list_type_name (scalar, betaY, phase, phase->betaYList);
-  new_list_type_name (scalar, DYDt, phase, phase->DYDtList);
+  new_field_type (scalar, STimp, phase, nodump);
+  new_field_type (scalar, STexp, phase, nodump);
+  new_list_type_name (scalar, SYimp, phase, phase->SYimpList, nodump);
+  new_list_type_name (scalar, SYexp, phase, phase->SYexpList, nodump);
+  new_list_type_name (scalar, betaY, phase, phase->betaYList, nodump);
+  new_list_type_name (scalar, DYDt, phase, phase->DYDtList, nodump);
 
   foreach()
     foreach_scalar_in (phase) {
