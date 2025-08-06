@@ -87,6 +87,7 @@ event defaults (i = 0) {
     sprintf (name, "mEvap%s", gas_int->species[i]);
     free (mEvap.name);
     mEvap.name = strdup (name);
+    mEvap.nodump = true;
     mEvapList = list_add (mEvapList, mEvap);
   }
 
@@ -121,6 +122,12 @@ event defaults (i = 0) {
 
   // Default antoine functions: NLS and the species
   YIntVals = (double *)calloc (NLS, sizeof (double));
+
+  // We dump only non-null vaporization rates
+  foreach_species_in (liq_int) {
+    scalar mEvap = mEvapList[LSI[i]];
+    mEvap.nodump = false;
+  }
 }
 
 event cleanup (t = end) {
