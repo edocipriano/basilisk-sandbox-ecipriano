@@ -21,6 +21,8 @@ for evaporation models. */
 # define I_TOL 1.e-8
 #endif
 
+#include "mass_refine_prolongation.h"
+
 macro foreach_interfacial (scalar f, double tol = 1e-10,
     Reduce reductions = None)
 {
@@ -144,14 +146,20 @@ vofrecon vof_reconstruction (Point point, scalar f) {
 * *dir*: shifting direction: 1 liquid, gas otherwise
 */
 
+scalar avg[];
+
+trace
 void shift_field (scalar fts, scalar f, int dir) {
 
-  scalar avg[];
-//#if TREE
-//  avg.refine = avg.prolongation = refinement_avg;
-//  avg.restriction = no_restriction;
-//  avg.dirty = true;
-//#endif
+  // scalar avg[]; // fixme: if avg is local and not global, there is a problem.
+  // My impression is that `no_restriction` is not working - but it should be
+  // investigated more deeply
+  avg.c = f;
+#if TREE
+  avg.refine = avg.prolongation = refinement_avg;
+  avg.restriction = no_restriction;
+  avg.dirty = true;
+#endif
 
   // Compute avg
   foreach() {
@@ -208,87 +216,5 @@ void shift_field (scalar fts, scalar f, int dir) {
       }
     }
   }
-}
-
-/**
-## *distribute_field()*: Distribute a field localized at the interface in the closest pure gas or liquid cells (5x5 stencil)
-*/
-
-void distribute_field (scalar ftd, scalar f, int dir) {
-  scalar mdisttot[], df[];
-  vector mf[];
-  foreach() {
-    mdisttot[] = 0.;
-    if (f[] > F_ERR && f[] < 1.-F_ERR) {
-      coord m = mycs (point, f);
-      coord n = normal (point, f);
-      double alpha = plane_alpha (f[], m);
-      coord prel;
-      plane_area_center (m, alpha, &prel);
-      foreach_dimension()
-        mf.x[] = m.x;
-
-      double mdisttothere = 0.;
-      foreach_neighbor (2) {
-        if ( (f[] > 1.-F_ERR && dir == 1) || (f[] < F_ERR && dir != 1 ) ) {
-          coord dist;
-          foreach_dimension()
-            dist.x = prel.x - x;
-          double magdist = 0.;
-          foreach_dimension()
-            magdist += sq (dist.x);
-          magdist = sqrt (magdist);
-          double epsi = 0.;
-          foreach_dimension()
-            epsi += fabs (dist.x*n.x);
-          mdisttothere += epsi/magdist;
-        }
-      }
-      mdisttot[] = mdisttothere;
-    }
-  }
-
-  foreach() {
-    df[] = 0.;
-    if ( (f[] > 1.-F_ERR && dir == 1) || (f[] < F_ERR && dir != 1 ) ) {
-      double dfhere = 0.;
-      foreach_neighbor (2) {
-        if (f[] > F_ERR && f[] < 1.-F_ERR) {
-          coord m, n;
-          foreach_dimension() {
-            m.x = mf.x[];
-            n.x = mf.x[];
-          }
-          double nnorm = 0.;
-          foreach_dimension()
-            nnorm += sq (n.x);
-          nnorm = sqrt (nnorm);
-          foreach_dimension()
-            n.x /= nnorm;
-          double alpha = plane_alpha (f[], m);
-          coord prel;
-          plane_area_center (m, alpha, &prel);
-
-          coord dist;
-          foreach_dimension()
-            dist.x = prel.x - x;
-          double magdist = 0.;
-          foreach_dimension()
-            magdist += sq (dist.x);
-          magdist = sqrt (magdist);
-          double epsi = 0.;
-          foreach_dimension()
-            epsi += fabs (dist.x*n.x);
-          double mdist = epsi/magdist;
-
-          dfhere += ftd[]*mdist/mdisttot[];
-        }
-      }
-      df[] += dfhere;
-    }
-  }
-
-  foreach()
-    ftd[] = df[];
 }
 
