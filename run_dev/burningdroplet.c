@@ -25,6 +25,7 @@ different kinetic schemes and chemical species.
 #include "spark.h"
 #include "opensmoke/flame.h"
 #include "defaultvars.h"
+#include "maxruntime.h"
 #include "view.h"
 
 /**
@@ -216,6 +217,13 @@ Here we have the main function and the intial event which set the properties
 needed by the navier-stokes solver and by the phasechange model. */
 
 int main (int argc, char ** argv) {
+
+  /**
+  This reative simulation is likely to be longer than the walltime of the usual
+  supercomputers. Therefore, we use the `maxruntime()` functions to write the
+  `restart` file and stop the simulation smoothly before being killed. */
+
+  maxruntime (&argc, argv);
 
   /**
   We read input data from a file, if we prefer to avoid compiler macros. */
