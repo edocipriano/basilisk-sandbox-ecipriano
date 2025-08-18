@@ -455,15 +455,19 @@ event tracer_diffusion (i++) {
   phase_scalars_to_tracers (gas, f);
 
   scalar TL = liq->T, TG = gas->T;
-  foreach()
-    T[] = TL[] + TG[];
+  foreach() {
+    T[] = 0.;
+    T[] += liq->isothermal ? f[]*TL[] : TL[];
+    T[] += gas->isothermal ? (1. - f[])*TG[] : TG[];
+  }
 
   // fixme: make it general choosing the right gas species
   foreach() {
     double Ysum = 0.;
     foreach_species_in (liq) {
       scalar YL = liq->YList[i], YG = gas->YList[i];
-      Ysum += YL[] + YG[];
+      Ysum += liq->isomassfrac ? f[]*YL[] : YL[];
+      Ysum += gas->isomassfrac ? (1. - f[])*YG[] : YG[];
     }
     Y[] = Ysum;
   }
