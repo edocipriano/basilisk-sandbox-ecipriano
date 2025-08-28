@@ -8,49 +8,13 @@ scalar jump[];
 face vector jumpf[];
 vector n[], ur[];
 face vector nf[];
-scalar pg[];
+scalar pg[], ps[];
 bool _boiling = false;
 
+vector u1g[], u2g[];
+face vector uf1g[], uf2g[];
+
 extern scalar f;
-extern double mEvapVal, rho1, rho2;
-
-vector ughostl[], ughostg[];
-face vector ufghostl[], ufghostg[];
-
-static void setjump (
-    scalar f,
-    vector ul,
-    vector ug,
-    scalar jump,
-    vector n
-)
-{
-  foreach() {
-    if (f[] < 0.5)
-      foreach_dimension()
-        ul.x[] = ughostl.x[];
-    else
-      foreach_dimension()
-        ug.x[] = ughostg.x[];
-  }
-}
-
-static void setjumpf (
-    scalar f,
-    face vector ulf,
-    face vector ugf,
-    face vector jumpf,
-    face vector nf
-)
-{
-  foreach_face() {
-    double ff = face_value (f, 0);
-    if (ff < 0.5)
-      ulf.x[] = ufghostl.x[];
-    else
-      ugf.x[] = ufghostg.x[];
-  }
-}
 
 /**
 ## Projection Function
@@ -63,6 +27,7 @@ changes. */
 
 extern scalar * drhodtlist, * plist;
 extern face vector * uflist;
+mgstats mgpl, mgpe;
 
 trace
 mgstats project_jump (face vector * uflist, scalar * plist,
@@ -121,7 +86,7 @@ mgstats project_jump (face vector * uflist, scalar * plist,
 
 
 trace
-mgstats project_liquid (face vector uf, scalar p,
+mgstats project_ghost (face vector uf, face vector ufg, scalar p,
      (const) face vector alpha = unityf,
      double dt = 1.,
      int nrelax = 4)
@@ -157,7 +122,49 @@ mgstats project_liquid (face vector uf, scalar p,
   And compute $\mathbf{u}_f^{n+1}$ using $\mathbf{u}_f$ and $p$. */
 
   foreach_face()
-    uf.x[] -= dt*alpha.x[]*face_gradient_x (p, 0);
+    ufg.x[] = uf.x[] - dt*alpha.x[]*face_gradient_x (p, 0);
+
+  return mgp;
+}
+
+trace
+mgstats project_liquid (face vector uf, face vector ufg, scalar p,
+     (const) face vector alpha = unityf,
+     double dt = 1.,
+     int nrelax = 4)
+{
+  
+  /**
+  We allocate a local scalar field and compute the divergence of
+  $\mathbf{u}_f$. The divergence is scaled by *dt* so that the
+  pressure has the correct dimension. */
+
+  scalar div[], drhodt = drhodtlist[1];
+  foreach() {
+    div[] = 0.;
+    foreach_dimension()
+      div[] += ufg.x[1] - ufg.x[];
+    div[] /= dt*Delta;
+    div[] += drhodt[]/dt;
+  }
+
+  /**
+  We solve the Poisson problem. The tolerance (set with *TOLERANCE*) is
+  the maximum relative change in volume of a cell (due to the divergence
+  of the flow) during one timestep i.e. the non-dimensional quantity 
+  $$
+  |\nabla\cdot\mathbf{u}_f|\Delta t 
+  $$ 
+  Given the scaling of the divergence above, this gives */
+
+  mgstats mgp = poisson (p, div, alpha,
+       tolerance = TOLERANCE/sq(dt), nrelax = nrelax);
+
+  /**
+  And compute $\mathbf{u}_f^{n+1}$ using $\mathbf{u}_f$ and $p$. */
+
+  foreach_face()
+    uf.x[] = ufg.x[] - dt*alpha.x[]*face_gradient_x (p, 0);
 
   return mgp;
 }
@@ -170,17 +177,20 @@ event defaults (i = 0) {
   for (int d = 0; d < nboundary; d++) {
     pg.boundary[d] = p.boundary[d];
     pg.boundary_homogeneous[d] = p.boundary_homogeneous[d];
+    ps.boundary[d] = p.boundary[d];
+    ps.boundary_homogeneous[d] = p.boundary_homogeneous[d];
   }
-}
-
-event defaults (i = 0) {
-  nv = 2;
 }
 
 scalar ls[];
 extern scalar d;
 
 event advection_term (i++,last) {
+  assert (nv == 2);
+
+  vector u1 = ulist[1], u2 = ulist[0];
+  vector uf1 = uflist[1], uf2 = uflist[0];
+
   foreach()
     ls[] = d[];
 
@@ -197,70 +207,127 @@ event advection_term (i++,last) {
   foreach_face()
     nf.x[] = face_value (n.x, 0);
 
-  setjump (f, ulist[1], ulist[0], jump, n);
-  setjumpf (f, uflist[1], uflist[0], jumpf, nf);
+  /**
+  We compute the value of the centered ghost velocities. */
+
+  foreach() {
+    foreach_dimension() {
+      if (_boiling) {
+        u2g.x[] = 0.;
+        u1g.x[] = u2.x[] + jump[]*n.x[];
+      }
+      else {
+        u1g.x[] = 0.;
+        u2g.x[] = u1.x[] - jump[]*n.x[];
+      }
+    }
+  }
+
+  /**
+  We compute the value of the face ghost velocities. The interface
+  normal on the face is computed using the level set. */
+
+  foreach_face() {
+    if (_boiling) {
+      uf2g.x[] = 0.;
+      uf1g.x[] = uf2.x[] + jumpf.x[]*nf.x[]*fm.x[];
+    }
+    else {
+      uf1g.x[] = 0.;
+      uf2g.x[] = uf1.x[] - jumpf.x[]*nf.x[]*fm.x[];
+    }
+  }
+
+  foreach() {
+    foreach_dimension() {
+      u1.x[] = (f[] > 0.5) ? u1.x[] : u1g.x[];
+      u2.x[] = (f[] < 0.5) ? u2.x[] : u2g.x[];
+    }
+  }
+
+  foreach_face() {
+    double ff = face_value (f, 0);
+    uf1.x[] = (ff > 0.5) ? uf1.x[] : uf1g.x[];
+    uf2.x[] = (ff < 0.5) ? uf2.x[] : uf2g.x[];
+  }
 }
 
 event viscous_term (i++,last) {
-  setjump (f, ulist[1], ulist[0], jump, n);
-  setjumpf (f, uflist[1], uflist[0], jumpf, nf);
+  //setjump (f, ulist[1], ulist[0], jump, n);
+  //setjumpf (f, uflist[1], uflist[0], jumpf, nf);
 }
 
 event acceleration (i++,last) {
-  setjump (f, ulist[1], ulist[0], jump, n);
-  setjumpf (f, uflist[1], uflist[0], jumpf, nf);
+  //setjump (f, ulist[1], ulist[0], jump, n);
+  //setjumpf (f, uflist[1], uflist[0], jumpf, nf);
 }
 
 event projection (i++,last) {
   if (_boiling) {
-    face vector ufg = uflist[0];
-    foreach_face()
-      ufghostg.x[] = ufg.x[];
-    project_liquid (ufghostg, pg, alpha, dt);
-  } else {
-    face vector ufl = uflist[1];
-    foreach_face()
-      ufghostl.x[] = ufl.x[];
-    project_liquid (ufghostl, pg, alpha, dt);
+    vector uf2 = uflist[0];
+    project_ghost (uf2, uf2g, pg, alpha, dt, mgpl.nrelax);
+
+    vector gpg[], u2 = ulist[0];
+    centered_gradient (pg, gpg);
+    foreach()
+      foreach_dimension()
+        u2g.x[] = u2.x[] + dt*gpg.x[];
+  }
+  else {
+    vector uf1 = uflist[1];
+    project_ghost (uf1, uf1g, pg, alpha, dt, mgpl.nrelax);
+
+    vector gpg[], u1 = ulist[1];
+    centered_gradient (pg, gpg);
+    foreach()
+      foreach_dimension()
+        u1g.x[] = u1.x[] + dt*gpg.x[];
   }
 }
 
 event end_timestep (i++,last) {
-  if (_boiling) {
-    face vector ufg = uflist[0];
-    foreach_face()
-      ufghostl.x[] = ufg.x[] + jumpf.x[]*nf.x[]*fm.x[];
+  vector u1 = ulist[1], u2 = ulist[0];
 
-    vector ug = ulist[0];
-    foreach()
+  if (!_boiling) {
+    face vector uf1 = uflist[1], uf2 = uflist[0];
+
+    foreach() {
       foreach_dimension() {
-        ughostl.x[] = ug.x[] + jump[]*n.x[];
-        ughostg.x[] = 0.5*(ufghostg.x[1] + ufghostg.x[]);
+        u1g.x[] = u1g.x[];
+        u2g.x[] = u1.x[] - jump[]*n.x[];
       }
-  }
-  else {
-    face vector ufw[], ufl = uflist[1];
+    }
+
+    foreach_face() {
+      uf1g.x[] = uf1g.x[];
+      uf2g.x[] = uf1.x[] - jumpf.x[]*nf.x[]*fm.x[];
+    }
+
+    face vector ufs[];
     foreach_face() {
       double ff = face_value (f, 0);
-      ufw.x[] = (ff > 0.5) ? ufl.x[] : ufghostl.x[];
+      ufs.x[] = (ff > 0.5) ? uf1.x[] : uf1g.x[];
     }
-    project_liquid (ufw, pg, alpha, dt);
+    project_liquid (uf1, ufs, ps, alpha, dt, mgpe.nrelax);
 
     foreach_face()
-      ufl.x[] = ufw.x[];
+      uf1g.x[] = uf1.x[];
 
-    foreach_face()
-      ufghostg.x[] = ufl.x[] - jumpf.x[]*nf.x[]*fm.x[];
-
-    vector ul = ulist[1];
-    foreach()
+    foreach() {
       foreach_dimension() {
-        ughostl.x[] = 0.5*(ufghostl.x[1] + ufghostl.x[]);
-        ughostg.x[] = ul.x[] - jump[]*n.x[];
+        u1.x[] = (f[] > 0.5) ? u1.x[] : u1g.x[];
+        u2.x[] = (f[] < 0.5) ? u2.x[] : u2g.x[];
       }
+    }
+
+    foreach_face() {
+      double ff = face_value (f, 0);
+      uf1.x[] = (ff > 0.5) ? uf1.x[] : uf1g.x[];
+      uf2.x[] = (ff < 0.5) ? uf2.x[] : uf2g.x[];
+    }
   }
 
-  vector u1 = ulist[1], u2 = ulist[0];
+  // Reconstruction
   foreach()
     foreach_dimension()
       ur.x[] = u1.x[]*f[] + u2.x[]*(1. - f[]);
