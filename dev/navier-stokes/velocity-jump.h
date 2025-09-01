@@ -213,11 +213,11 @@ event advection_term (i++,last) {
   foreach() {
     foreach_dimension() {
       if (_boiling) {
-        u2g.x[] = 0.;
+        //u2g.x[] = 0.;
         u1g.x[] = u2.x[] + jump[]*n.x[];
       }
       else {
-        u1g.x[] = 0.;
+        //u1g.x[] = 0.;
         u2g.x[] = u1.x[] - jump[]*n.x[];
       }
     }
