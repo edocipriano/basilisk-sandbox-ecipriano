@@ -329,17 +329,34 @@ event defaults (i = 0)
   When using [embedded boundaries](/src/embed.h), the restriction and
   prolongation operators need to take the boundary into account. */
 
-#if EMBED // TODO
-  uf.x.refine = refine_face;
-  foreach_dimension()
-    uf.x.prolongation = refine_embed_face_x;
-  for (scalar s in {p, pf, u, g}) {
+#if EMBED
+  for (face vector uf in uflist) {
+    uf.x.refine = refine_face;
+    foreach_dimension()
+      uf.x.prolongation = refine_embed_face_x;
+  }
+  for (scalar s in plist) {
+    s.restriction = restriction_embed_linear;
+    s.refine = s.prolongation = refine_embed_linear;
+    s.depends = list_add (s.depends, cs);
+    s.embed_gradient = pressure_embed_gradient;
+  }
+  for (scalar s in pflist) {
+    s.restriction = restriction_embed_linear;
+    s.refine = s.prolongation = refine_embed_linear;
+    s.depends = list_add (s.depends, cs);
+    s.embed_gradient = pressure_embed_gradient;
+  }
+  for (scalar s in ulist) {
     s.restriction = restriction_embed_linear;
     s.refine = s.prolongation = refine_embed_linear;
     s.depends = list_add (s.depends, cs);
   }
-  for (scalar s in {p, pf})
-    s.embed_gradient = pressure_embed_gradient;
+  for (scalar s in glist) {
+    s.restriction = restriction_embed_linear;
+    s.refine = s.prolongation = refine_embed_linear;
+    s.depends = list_add (s.depends, cs);
+  }
 #endif // EMBED
 #endif // TREE
 
