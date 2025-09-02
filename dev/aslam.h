@@ -22,6 +22,7 @@ domain.
 #include "fractions.h"
 
 void vof_to_ls (scalar f, scalar ls, int imax = 3) {
+#if 0
   double weight = 0.1;
   foreach()
     if (f[] > 1e-6 && f[] < 1. - 1e-6) {
@@ -29,9 +30,18 @@ void vof_to_ls (scalar f, scalar ls, int imax = 3) {
       normalize (&n);
       double alpha = plane_alpha (f[], n);
       ls[] = (1. - weight)*ls[] + weight*Delta*alpha;
+      ls[] *= -1;
     }
 
   redistance (ls, imax = imax);
+#endif
+  double deltamin = L0/(1 << grid->maxdepth);
+  foreach()
+    ls[] = -(2.*f[] - 1.)*deltamin*0.75;
+#if TREE
+  restriction({ls});
+#endif
+  redistance (ls, imax);
 }
 
 /**
