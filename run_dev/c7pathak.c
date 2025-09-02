@@ -39,7 +39,11 @@ evaporation model together with the multiomponent phase
 change mechanism. */
 
 #include "axi.h"
-#include "navier-stokes/low-mach.h"
+#if JUMP
+# include "navier-stokes/velocity-jump.h"
+#else
+# include "navier-stokes/low-mach.h"
+#endif
 #define FILTERED 1
 #if VELOCITY_JUMP
 # include "two-phase-clsvof.h"
@@ -151,8 +155,8 @@ event init (i = 0) {
   tsl.T = TL0, tsl.P = Pref, tsl.x = (double[]){1.};
   tsg.T = TG0, tsg.P = Pref, tsg.x = (double[]){0.,1.};
 
-  phase_set_thermo_state (liq, &tsl);
-  phase_set_thermo_state (gas, &tsg);
+  phase_set_thermo_state (liq, &tsl, force = !restored);
+  phase_set_thermo_state (gas, &tsg, force = !restored);
 
   phase_set_properties (liq, MWs = (double[]){100.2});
   phase_set_properties (gas, MWs = (double[]){100.2,29.});

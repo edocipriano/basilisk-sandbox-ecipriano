@@ -522,6 +522,13 @@ event stop (i++) {
     return 1;
 }
 
+#if TEST_RESTART
+event dump (t = 0.05) {
+  dump ("restart");
+  return 1;
+}
+#endif
+
 /**
 We run the simulation for long time, which is not reached because
 the stopping condition on the droplet diameter is reached first. */
