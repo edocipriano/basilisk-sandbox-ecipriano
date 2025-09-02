@@ -218,3 +218,37 @@ void shift_field (scalar fts, scalar f, int dir) {
   }
 }
 
+#if TREE
+attribute {
+  scalar rho;
+}
+
+void density_refine (Point point, scalar rhov) {
+  refine_bilinear (point, rhov);
+  double rhou = 0.;
+  foreach_child()
+    rhou += cm[]*rhov[];
+  double drho = rhov[] - rhou/((1 << dimension)*(cm[] + SEPS));
+  foreach_child()
+    rhov[] += drho;
+}
+
+void density_restriction (Point point, scalar rhov) {
+  double rhou = 0.;
+  foreach_child()
+    rhou += cm[]*rhov[];
+  rhov[] = rhou/((1 << dimension)*(cm[] + SEPS));
+  //restriction_volume_average (point, rhov);
+}
+
+void restriction_mass_average (Point point, scalar s) {
+  scalar rhov = s.rho;
+  double sum = 0., mass = 0.;
+  foreach_child() {
+    sum += cm[]*rhov[]*s[];
+    mass += cm[]*rhov[];
+  }
+  s[] = sum/(mass + 1e-30);
+}
+#endif
+

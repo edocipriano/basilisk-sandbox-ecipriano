@@ -323,6 +323,13 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
   // Create the initial thermo state
   phase->ts0 = new_thermo_state (phase->n);
 
+#if TREE
+  scalar rhov = phase->rho;
+  rhov.restriction = density_restriction;
+  rhov.refine = rhov.prolongation = density_refine;
+  rhov.dirty = true;
+#endif
+
   return phase;
 }
 
