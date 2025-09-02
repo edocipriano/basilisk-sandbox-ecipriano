@@ -4,6 +4,8 @@
 This simulation file helps setting up numerical simulations of droplet
 combustion in axial symmetry, in any gravity conditions, and considering
 different kinetic schemes and chemical species.
+
+![Maps of temperature and mass fraction fields during methanol droplet combustion under normal gravity and ambient pressure conditions.](https://ars.els-cdn.com/content/image/1-s2.0-S0017931025009238-gr5_lrg.jpg){width=80%}
 */
 
 #include "axi.h"
