@@ -306,11 +306,17 @@ event phasechange (i++) {
     jump[] = (rhol[] > 0. && rhog[] > 0.) ?
       -mEvapTot[]*(1./rhol[] - 1./rhog[]) : 0.;
 
+  foreach_face()
+    jumpf.x[] = face_value (jump, 0);
+
   scalar fext[], dext[];
   foreach() {
     fext[] = f[];
     dext[] = -d[];
   }
+  vof_to_ls (fext, d, imax = 5);
+  foreach()
+    d[] *= -1;
 
   extern scalar d;
   constant_extrapolation (jump, dext, 0.5, 10, c=fext, nl=0,
