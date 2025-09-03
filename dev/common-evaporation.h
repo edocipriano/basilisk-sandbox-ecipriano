@@ -218,6 +218,23 @@ void shift_field (scalar fts, scalar f, int dir) {
   }
 }
 
+/**
+## *copy_bcs()*: Copy the boundary conditions from a target field to a list of fields
+
+* *fts*: field to shift
+* *f*: vof volume fraction field
+* *dir*: shifting direction: 1 liquid, gas otherwise
+*/
+
+void copy_bcs (scalar * dest, scalar orig) {
+  for (int bid = 0; bid < nboundary; bid++) {
+    for (scalar s in dest) {
+      s.boundary[bid] = orig.boundary[bid];
+      s.boundary_homogeneous[bid] = orig.boundary_homogeneous[bid];
+    }
+  }
+}
+
 #if TREE
 attribute {
   scalar rho;
