@@ -149,7 +149,7 @@ int main (void) {
   G.x = -9.81;
 
   /**
-  We set the surface tension and run the simulation. */
+  We run the simulation. */
 
   for (maxlevel = 10; maxlevel <= 10; maxlevel++) {
     init_grid (1 << 9);
