@@ -362,6 +362,13 @@ void phase_set_tracers (Phase * phase) {
     phase->tracers = list_add (phase->tracers, phase->T);
 }
 
+void phase_set_gradient (Phase * phase,
+    double (* gradient) (double, double, double))
+{
+  for (scalar s in phase->tracers)
+    s.gradient = gradient;
+}
+
 void phase_reset_sources (Phase * phase) {
   foreach() {
     foreach_scalar_in (phase) {
