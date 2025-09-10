@@ -445,6 +445,16 @@ event stability (i++,last) {
 }
 
 /**
+We set placeholders for events which are relevant for low-Mach and phase change
+solvers. */
+
+event reset_sources (i++,last);
+event phase_properties (i++,last);
+event chemistry (i++,last);
+event phasechange (i++,last);
+event divergence (i++,last);
+
+/**
 If we are using VOF or diffuse tracers, we need to advance them (to
 time $t+\Delta t/2$) here. Note that this assumes that tracer fields
 are defined at time $t-\Delta t/2$ i.e. are lagging the
