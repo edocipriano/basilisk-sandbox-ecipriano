@@ -53,11 +53,7 @@ change is present. OpenSMOKE++ is used for the variable properties calculation. 
 #define P_ERR 0.1
 #include "two-phase-varprop.h"
 #include "opensmoke/properties.h"
-#if VELOCITY_JUMP
-# include "two-phase-clsvof.h"
-#else
-# include "two-phase.h"
-#endif
+#include "two-phase.h"
 #include "tension.h"
 //#include "recoil.h"
 #include "evaporation.h"
@@ -158,14 +154,6 @@ event init (i = 0) {
     refine (circle (x, y, 4.*D0) > 0. && level < maxlevel);
 #endif
     fraction (f, circle (x, y, 0.5*D0));
-#if VELOCITY_JUMP
-    foreach()
-      d[] = circle (x, y, 0.5*D0);
-    vertex scalar phi[];
-    foreach_vertex()
-      phi[] = (d[] + d[-1] + d[0,-1] + d[-1,-1])/4.;
-    fractions (phi, f);
-#endif
 
     /**
     We compute initial variables useful for post-processing. */

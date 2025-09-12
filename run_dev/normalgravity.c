@@ -112,11 +112,7 @@ considering variable liquid and gas phase densities.
 #include "two-phase-varprop.h"
 #include "opensmoke/properties.h"
 #include "pinning.h"
-#if VELOCITY_JUMP
-# include "two-phase-clsvof.h"
-#else
-# include "two-phase.h"
-#endif
+#include "two-phase.h"
 #include "tension.h"
 #include "gravity.h"
 //#include "recoil.h"
@@ -256,14 +252,6 @@ event init (i = 0) {
   if (!restore (file = "restart")) {
     refine (circle (x, y, 4.*D0) > 0. && level < maxlevel);
     fraction (f, circle (x, y, 0.5*D0));
-#if VELOCITY_JUMP
-    foreach()
-      d[] = circle (x, y, 0.5*D0);
-    vertex scalar phi[];
-    foreach_vertex()
-      phi[] = (d[] + d[-1] + d[0,-1] + d[-1,-1])/4.;
-    fractions (phi, f);
-#endif
 
     /**
     We compute initial variables useful for post-processing. */

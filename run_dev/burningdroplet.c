@@ -16,11 +16,7 @@ different kinetic schemes and chemical species.
 #include "opensmoke/properties.h"
 #include "opensmoke/chemistry.h"
 #include "pinning.h"
-#if VELOCITY_JUMP
-# include "two-phase-clsvof.h"
-#else
-# include "two-phase.h"
-#endif
+#include "two-phase.h"
 #include "tension.h"
 #include "gravity.h"
 #include "evaporation.h"
