@@ -68,16 +68,15 @@ void vof_advection_phasechange (
 
   if (extrapolation) {
 #if VELOCITY_JUMP
-    scalar fext[], dext[];
-    foreach() {
+    scalar fext[];
+    foreach()
       fext[] = f[];
-      dext[] = -d[];
-    }
+    vof_to_ls (fext, ls, imax = 5);
 
     foreach_dimension() {
-      constant_extrapolation (n.x, dext, 0.5, 10, c=fext, nl=0,
+      constant_extrapolation (n.x, ls, 0.5, 10, c=fext, nl=0,
           nointerface=true, inverse=false);
-      constant_extrapolation (n.x, dext, 0.5, 10, c=fext, nl=0,
+      constant_extrapolation (n.x, ls, 0.5, 10, c=fext, nl=0,
           nointerface=true, inverse=true);
     }
 

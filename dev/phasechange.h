@@ -306,23 +306,18 @@ event phasechange (i++) {
     jump[] = (rhol[] > 0. && rhog[] > 0.) ?
       -mEvapTot[]*(1./rhol[] - 1./rhog[]) : 0.;
 
+  scalar fext[];
+  foreach()
+    fext[] = f[];
+  vof_to_ls (fext, ls, imax = 5);
+
+  constant_extrapolation (jump, ls, 0.5, 10, c=fext, nl=0,
+            nointerface=true, inverse=false, tol=1e-4);
+  constant_extrapolation (jump, ls, 0.5, 10, c=fext, nl=0,
+            nointerface=true, inverse=true, tol=1e-4);
+
   foreach_face()
     jumpf.x[] = face_value (jump, 0);
-
-  scalar fext[], dext[];
-  foreach() {
-    fext[] = f[];
-    dext[] = -d[];
-  }
-  vof_to_ls (fext, d, imax = 5);
-  foreach()
-    d[] *= -1;
-
-  extern scalar d;
-  constant_extrapolation (jump, dext, 0.5, 10, c=fext, nl=0,
-            nointerface=true, inverse=false, tol=1e-4);
-  constant_extrapolation (jump, dext, 0.5, 10, c=fext, nl=0,
-            nointerface=true, inverse=true, tol=1e-4);
 #else
   scalar intexp = (pcm.boiling && nv > 1) ? intexplist[1] : intexplist[0];
   if (pcm.expansion) {

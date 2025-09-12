@@ -183,16 +183,12 @@ event defaults (i = 0) {
 }
 
 scalar ls[];
-extern scalar d;
 
 event advection_term (i++,last) {
   assert (nv == 2);
 
   vector u1 = ulist[1], u2 = ulist[0];
   vector uf1 = uflist[1], uf2 = uflist[0];
-
-  foreach()
-    ls[] = d[];
 
   gradients ({ls}, {n});
   foreach() {
@@ -201,7 +197,7 @@ event advection_term (i++,last) {
       mag += sq (n.x[]);
     mag = sqrt (mag);
     foreach_dimension()
-      n.x[] /= -(mag + 1e-10);
+      n.x[] /= (mag + 1e-10);
   }
 
   foreach_face()
