@@ -26,11 +26,14 @@ double eps = 1e-1;
 scalar binid[];
 
 event init (i = 0) {
+  scalar mask[];
   foreach() {
     double r = sqrt (sq(x) + sq(y));
     T[] = radial (r, 0.2, 0.8, 300., 800.);
     T[] = (r <= 0.2) ? 300. : (r >= 0.8) ? 800. : T[];
     Y[] = gaussian (x, y, 0.2);
+    //mask[] = (r <= 0.2) ? 0. : 1.;
+    mask[] = 1;
 
     TI[] = T[];
     YI[] = Y[];
@@ -39,7 +42,7 @@ event init (i = 0) {
   /**
   We create the binning table, diving the domain in a number of bins. */
 
-  BinTable * table = binning (targets, eps, unity);
+  BinTable * table = binning (targets, eps, unity, mask);
 
   /**
   We fill a scalar fields with the bin indeces, in order to visualize the
@@ -56,6 +59,7 @@ event init (i = 0) {
   fprintf (stderr, "Average number of cells in the bins = %zu\n", bs.navg);
   fprintf (stderr, "Maximum number of cells in the bins = %zu\n", bs.nmax);
   fprintf (stderr, "Minimum number of cells in the bins = %zu\n", bs.nmin);
+  fprintf (stderr, "Number of masked/excluded cells     = %zu\n", bs.nmask);
   fprintf (stderr, "\n");
 
   foreach_bin (table)
@@ -101,6 +105,11 @@ event init (i = 0) {
 
   clear();
   view (tx = -0.5, ty = -0.5);
+  squares ("mask", spread = -1);
+  save ("mask.png");
+
+  clear();
+  view (tx = -0.5, ty = -0.5);
   squares ("binid", spread = -1);
   save ("ids.png");
 }
@@ -111,6 +120,8 @@ event init (i = 0) {
 ![Initial temperature field](binning/temperature.png)
 
 ![Initial mass fraction field](binning/massfrac.png)
+
+![Mask field](binning/mask.png)
 
 ![Distribution of the bins](binning/ids.png)
 

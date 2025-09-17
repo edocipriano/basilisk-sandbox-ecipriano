@@ -181,10 +181,14 @@ void binning_normalize (scalar * targets) {
 /**
 Create the bin table based on the list of (normalized) targets and the
 user-defined tolerance.  The table creates the maximum potential bins, and
-assigns the global index to each bin. */
+assigns the global index to each bin. Cells with null mask values are not added
+to the bin, in order to exclude them from the averaging procedure. */
 
 // fixme: avoid empty bins
-BinTable * binning_build_table (scalar * targets, double eps) {
+// fixme: we may set special ids for masked cells
+BinTable * binning_build_table (scalar * targets, double eps,
+    (const) scalar mask = unity)
+{
   double L = 1./eps;
   size_t len = (size_t)list_len (targets);
 
@@ -205,7 +209,8 @@ BinTable * binning_build_table (scalar * targets, double eps) {
     }
 
     Bin * bin = table->bins[bin_j];
-    bin_append_cell (point, bin);
+    if (mask[])
+      bin_append_cell (point, bin);
   }
   return table;
 }
@@ -232,9 +237,14 @@ void binning_average (BinTable * table, scalar * targets, scalar rho = unity) {
 /**
 This function automatically normalizes the list of fields, splits the domain in
 bins with the correct mass-averaged target value, and returns the bin table. If
-a density field `rho` is not provided, the averaging step is volume-averaged. */
+a density field `rho` is not provided, the averaging step is volume-averaged.
+The mask field is an Heaviside function which excludes cells with null values.
+This is useful in multiphase codes, when we want to integrate the systems just
+in specific cells. */
 
-BinTable * binning (scalar * targets, double eps, scalar rho = unity) {
+BinTable * binning (scalar * targets, double eps,
+    (const) scalar rho = unity, (const) scalar mask = unity)
+{
   scalar * tnorm = list_clone (targets);
   foreach()
     for (size_t i = 0; i < list_len (targets); i++) {
@@ -242,7 +252,7 @@ BinTable * binning (scalar * targets, double eps, scalar rho = unity) {
       tn[] = t[];
     }
   binning_normalize (tnorm);
-  BinTable * table = binning_build_table (tnorm, eps);
+  BinTable * table = binning_build_table (tnorm, eps, mask);
   binning_average (table, targets, rho);
   free (tnorm);
   return table;
@@ -285,17 +295,28 @@ typedef struct {
   size_t nmax;
   // minimum number of cells in a bin
   size_t nmin;
+  // number of masked cells
+  size_t nmask;
 } bstats;
 
 bstats binning_stats (const BinTable * table) {
   bstats s = {0};
   s.nmax = 0, s.nmin = 1e9;
+
+  size_t nreal = 0;
+  foreach_bin (table) {
+    foreach_bin_cell (bin) {
+      nreal++;
+    }
+  }
+  s.nmask = grid->n - nreal;
+
   foreach_bin (table) {
     s.nactive++;
     s.nmax = max (s.nmax, bin->ncells);
     s.nmin = min (s.nmin, bin->ncells);
   }
-  s.navg = (s.nactive > 0) ? grid->tn / s.nactive : 0;
+  s.navg = (s.nactive > 0) ? nreal / s.nactive : 0;
   return s;
 }
 

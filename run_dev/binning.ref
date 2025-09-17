@@ -2,6 +2,7 @@ Total number of active bins         = 20
 Average number of cells in the bins = 819
 Maximum number of cells in the bins = 8152
 Minimum number of cells in the bins = 1
+Number of masked/excluded cells     = 0
 
 BIN[  7] = 848
 BIN[  8] = 1655
