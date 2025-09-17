@@ -19,9 +19,9 @@ int main (void) {
 /**
 We assume two trends for the temperature T and mass fraction Y fields. The
 binning tolerance is `eps`. The `binid` field is used to store bin id's for
-visualization. */
+visualization. TI and YI sore the initial values of the fields. */
 
-scalar T[], Y[], * targets = {T,Y};
+scalar T[], Y[], TI[], YI[], * targets = {T,Y};
 double eps = 1e-1;
 scalar binid[];
 
@@ -31,12 +31,15 @@ event init (i = 0) {
     T[] = radial (r, 0.2, 0.8, 300., 800.);
     T[] = (r <= 0.2) ? 300. : (r >= 0.8) ? 800. : T[];
     Y[] = gaussian (x, y, 0.2);
+
+    TI[] = T[];
+    YI[] = Y[];
   }
 
   /**
   We create the binning table, diving the domain in a number of bins. */
 
-  BinTable * table = binning (targets, eps);
+  BinTable * table = binning (targets, eps, unity);
 
   /**
   We fill a scalar fields with the bin indeces, in order to visualize the
@@ -57,15 +60,15 @@ event init (i = 0) {
 
   foreach_bin (table)
     fprintf (stderr, "BIN[%3zu] = %zu\n", bin->id, bin->ncells);
+  fprintf (stderr, "\n");
 
   /**
-  We perform a (fake) bin integration, which should not change the target
-  values. */
+  We perform a (fake) bin integration, which should change the target values. */
 
   foreach_bin (table) {
     foreach_bin_target (bin) {
       target0 = target;
-      target += 0.*dt;
+      target += 10.*dt;
     }
   }
 
@@ -74,6 +77,12 @@ event init (i = 0) {
   initial and final field values must be the same. */
 
   binning_remap (table, targets);
+
+  /**
+  We check that the fields changed as expected. */
+
+  fprintf (stderr, "Total change of Y = %g\n", change (YI, Y));
+  fprintf (stderr, "Total change of T = %g\n", change (TI, T));
 
   /**
   We clean the binning structures from the memory. */

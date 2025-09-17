@@ -19,7 +19,7 @@ smart iterators defined in this module. The logic is:
 This procedure corresponds to the following code:
 
 ~~~bash
-BinTable * table = binning (target, eps);
+BinTable * table = binning (target, eps, rho);
 
 foreach_bin (table) {
   foreach_bin_target (bin) {
@@ -102,8 +102,8 @@ BinTable * new_bintable (size_t nbins, size_t ntargets) {
 void free_bintable (BinTable * table) {
   for (size_t i = 0; i < table->nbins; i++)
     free_bin (table->bins[i]);
-  free (table->bins), table->bins = NULL;
-  free (table), table = NULL;
+  free (table->bins);
+  free (table);
 }
 
 void bintable_update (BinTable * table, size_t nbins) {
@@ -152,6 +152,10 @@ macro foreach_bin_cell (Bin * bin) {
 The following functions can be called by the user to perform the binning,
 remap the bins, and clean the memory. */
 
+/**
+Normalize a list of targets in order to obtain fields with fractional values
+bounded between 0 and 1. */
+
 void binning_normalize (scalar * targets) {
   int len = list_len (targets);
   double * tmax = malloc (len*sizeof (double));
@@ -173,6 +177,11 @@ void binning_normalize (scalar * targets) {
   free (tmax);
   free (tmin);
 }
+
+/**
+Create the bin table based on the list of (normalized) targets and the
+user-defined tolerance.  The table creates the maximum potential bins, and
+assigns the global index to each bin. */
 
 // fixme: avoid empty bins
 BinTable * binning_build_table (scalar * targets, double eps) {
@@ -201,22 +210,47 @@ BinTable * binning_build_table (scalar * targets, double eps) {
   return table;
 }
 
-// fixme: mass averaged
-void binning_average (BinTable * table, scalar * targets) {
+/**
+Calculate the value of the targets within the bins using a mass-averaged
+approach. */
+
+void binning_average (BinTable * table, scalar * targets, scalar rho = unity) {
   foreach_bin (table) {
     foreach_bin_target (bin) {
       scalar t = targets[j];
       double num = 0., den = 0.;
       foreach_bin_cell (bin) {
-        num += t[]*dv();
-        den += dv();
+        num += t[]*rho[]*dv();
+        den += rho[]*dv();
       }
-      //assert (den > 0.);  // this is an empty bin
       target = (den > 0.) ? num / den : 0;
       target0 = target;
     }
   }
 }
+
+/**
+This function automatically normalizes the list of fields, splits the domain in
+bins with the correct mass-averaged target value, and returns the bin table. If
+a density field `rho` is not provided, the averaging step is volume-averaged. */
+
+BinTable * binning (scalar * targets, double eps, scalar rho = unity) {
+  scalar * tnorm = list_clone (targets);
+  foreach()
+    for (size_t i = 0; i < list_len (targets); i++) {
+      scalar tn = tnorm[i], t = targets[i];
+      tn[] = t[];
+    }
+  binning_normalize (tnorm);
+  BinTable * table = binning_build_table (tnorm, eps);
+  binning_average (table, targets, rho);
+  free (tnorm);
+  return table;
+}
+
+/**
+The bin targets values are mapped-back to the original list of target fields depending
+on the variation of the bin target value. */
 
 void binning_remap (BinTable * table, scalar * targets) {
   foreach_bin (table) {
@@ -229,17 +263,18 @@ void binning_remap (BinTable * table, scalar * targets) {
   }
 }
 
+/**
+Clean bin and bin table from memory. */
+
 void binning_cleanup (BinTable * table) {
   free_bintable (table);
 }
 
-void binning_ids (const BinTable * table, scalar ids) {
-  foreach_bin (table) {
-    foreach_bin_cell (bin) {
-      ids[] = bin->id;
-    }
-  }
-}
+/**
+### Post-Processing
+
+The following functions allow the user to monitor the statistics of the binning
+process. */
 
 typedef struct {
   // total number of (active/non-empty) bins
@@ -264,18 +299,12 @@ bstats binning_stats (const BinTable * table) {
   return s;
 }
 
-BinTable * binning (scalar * targets, double eps) {
-  scalar * tnorm = list_clone (targets);
-  foreach()
-    for (size_t i = 0; i < list_len (targets); i++) {
-      scalar tn = tnorm[i], t = targets[i];
-      tn[] = t[];
+void binning_ids (const BinTable * table, scalar ids) {
+  foreach_bin (table) {
+    foreach_bin_cell (bin) {
+      ids[] = bin->id;
     }
-  binning_normalize (tnorm);
-  BinTable * table = binning_build_table (tnorm, eps);
-  binning_average (table, tnorm);
-  free (tnorm);
-  return table;
+  }
 }
 
 /**
