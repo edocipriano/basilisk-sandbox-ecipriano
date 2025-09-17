@@ -321,6 +321,8 @@ bstats binning_stats (const BinTable * table) {
 }
 
 void binning_ids (const BinTable * table, scalar ids) {
+  foreach()
+    ids[] = nodata;
   foreach_bin (table) {
     foreach_bin_cell (bin) {
       ids[] = bin->id;
