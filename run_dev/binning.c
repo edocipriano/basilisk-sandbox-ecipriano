@@ -26,7 +26,7 @@ double eps = 1e-1;
 scalar binid[];
 
 event init (i = 0) {
-  scalar mask[];
+  scalar mask[], * fields = targets;
   foreach() {
     double r = sqrt (sq(x) + sq(y));
     T[] = radial (r, 0.2, 0.8, 300., 800.);
@@ -42,7 +42,7 @@ event init (i = 0) {
   /**
   We create the binning table, diving the domain in a number of bins. */
 
-  BinTable * table = binning (targets, eps, unity, mask);
+  BinTable * table = binning (fields, targets, eps);
 
   /**
   We fill a scalar fields with the bin indeces, in order to visualize the
@@ -67,12 +67,12 @@ event init (i = 0) {
   fprintf (stderr, "\n");
 
   /**
-  We perform a (fake) bin integration, which should change the target values. */
+  We perform a (fake) bin integration, which should change the field values. */
 
   foreach_bin (table) {
-    foreach_bin_target (bin) {
-      target0 = target;
-      target += 10.*dt;
+    foreach_bin_field (bin) {
+      phi0 = phi;
+      phi += 10.*dt;
     }
   }
 
@@ -80,7 +80,7 @@ event init (i = 0) {
   We map the bin values back to the cells. In the conditions of this test, the
   initial and final field values must be the same. */
 
-  binning_remap (table, targets);
+  binning_remap (table, fields);
 
   /**
   We check that the fields changed as expected. */

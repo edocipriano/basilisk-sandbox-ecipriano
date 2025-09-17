@@ -19,16 +19,12 @@ smart iterators defined in this module. The logic is:
 This procedure corresponds to the following code:
 
 ~~~bash
-BinTable * table = binning (target, eps, rho);
+BinTable * table = binning (fields, targets, eps, rho);
 
 foreach_bin (table) {
-  foreach_bin_target (bin) {
-    target0 = target;
-    target += RHS*dt;
-  }
+  // ...
 }
-
-binning_remap (table, targets);
+binning_remap (table, fields);
 binning_cleanup (table);
 ~~~
 */
@@ -37,26 +33,24 @@ binning_cleanup (table);
 ## Bin
 
 A bin is an aggregate of cells. In practice, it is a structure containing a
-global ID, the number of target fields, the number of cells within the bin, and
-the arrays `phi` and `phi0` which are the mass-averaged target scalar value
-within the bin (with dimension equal to `ntargets`).  The cells are stored using
-the coordinate of the centroids, stored in the `cells` list of coordinates. */
+global ID, the number of fields, the number of cells within the bin, and the
+arrays `phi` and `phi0` which are the mass-averaged scalar field value within
+the bin (with dimension equal to `nfields`).  The cells are stored using the
+coordinate of the centroids, stored in the `cells` list of coordinates. */
 
 typedef struct {
   size_t id;
-  size_t ntargets;
+  size_t nfields;
   size_t ncells;
   double * phi, * phi0;
   coord * cells;
 } Bin;
 
-Bin * new_bin (size_t id, size_t ntargets) {
+Bin * new_bin (size_t id) {
   Bin * bin = malloc (sizeof (Bin));
   bin->id = id;
-  bin->ntargets = ntargets;
+  bin->nfields = 0;
   bin->ncells = 0;
-  bin->phi = malloc (ntargets*sizeof (double));
-  bin->phi0 = malloc (ntargets*sizeof (double));
   bin->cells = NULL;
   return bin;
 }
@@ -95,7 +89,7 @@ BinTable * new_bintable (size_t nbins, size_t ntargets) {
   table->nbins = nbins;
   table->bins = malloc (nbins*sizeof (Bin *));
   for (size_t i = 0; i < nbins; i++)
-    table->bins[i] = new_bin (i, ntargets);
+    table->bins[i] = new_bin (i);
   return table;
 }
 
@@ -106,19 +100,12 @@ void free_bintable (BinTable * table) {
   free (table);
 }
 
-void bintable_update (BinTable * table, size_t nbins) {
-  table->nbins = nbins;
-  table->bins = malloc (nbins*sizeof (Bin *));
-  for (size_t i = 0; i < nbins; i++)
-    table->bins[i] = new_bin (i, table->ntargets);
-}
-
 /**
 ## Iterators
 
 We define useful iterators to simplify loops over the bins and their cells.  In
 particular `foreach_bin` loops over each bin in the bin table;
-`foreach_bin_target` iterates over the targets of a bin; `foreach_bin_cell`
+`foreach_bin_field` iterates over the fields of a bin; `foreach_bin_cell`
 iterates over the cells of a bin. */
 
 macro foreach_bin (BinTable * table) {
@@ -129,11 +116,11 @@ macro foreach_bin (BinTable * table) {
   }
 }
 
-macro foreach_bin_target (Bin * bin) {
-  for (size_t j = 0; j < bin->ntargets; j++) {
-    double target = bin->phi[j], target0 = bin->phi0[j];
+macro foreach_bin_field (Bin * bin) {
+  for (size_t j = 0; j < bin->nfields; j++) {
+    double phi = bin->phi[j], phi0 = bin->phi0[j];
     {...}
-    bin->phi[j] = target, bin->phi0[j] = target0;
+    bin->phi[j] = phi, bin->phi0[j] = phi0;
   }
 }
 
@@ -216,33 +203,50 @@ BinTable * binning_build_table (scalar * targets, double eps,
 }
 
 /**
-Calculate the value of the targets within the bins using a mass-averaged
+Populate the scalar fields of the bin based on the number of fields provided.
+This is different from the list of targets, which does not necessarily have the
+same dimensions of the list of fields. Fields are used for mass-averaging and
+successive integration, while targets are used only for the binning. */
+
+void binning_populate (BinTable * table, scalar * fields) {
+  size_t nfields = list_len (fields);
+  foreach_bin (table) {
+    bin->nfields = nfields;
+    bin->phi = malloc (nfields*sizeof (double));
+    bin->phi0 = malloc (nfields*sizeof (double));
+  }
+}
+
+/**
+Calculate the value of the fields within the bins using a mass-averaged
 approach. */
 
-void binning_average (BinTable * table, scalar * targets, scalar rho = unity) {
+void binning_average (BinTable * table, scalar * fields,
+    (const) scalar rho = unity)
+{
   foreach_bin (table) {
-    foreach_bin_target (bin) {
-      scalar t = targets[j];
+    foreach_bin_field (bin) {
+      scalar t = fields[j];
       double num = 0., den = 0.;
       foreach_bin_cell (bin) {
         num += t[]*rho[]*dv();
         den += rho[]*dv();
       }
-      target = (den > 0.) ? num / den : 0;
-      target0 = target;
+      phi = (den > 0.) ? num / den : 0;
+      phi0 = phi;
     }
   }
 }
 
 /**
 This function automatically normalizes the list of fields, splits the domain in
-bins with the correct mass-averaged target value, and returns the bin table. If
+bins with the correct mass-averaged field value, and returns the bin table. If
 a density field `rho` is not provided, the averaging step is volume-averaged.
 The mask field is an Heaviside function which excludes cells with null values.
 This is useful in multiphase codes, when we want to integrate the systems just
 in specific cells. */
 
-BinTable * binning (scalar * targets, double eps,
+BinTable * binning (scalar * fields, scalar * targets, double eps,
     (const) scalar rho = unity, (const) scalar mask = unity)
 {
   scalar * tnorm = list_clone (targets);
@@ -253,21 +257,22 @@ BinTable * binning (scalar * targets, double eps,
     }
   binning_normalize (tnorm);
   BinTable * table = binning_build_table (tnorm, eps, mask);
-  binning_average (table, targets, rho);
+  binning_populate (table, fields);
+  binning_average (table, fields, rho);
   free (tnorm);
   return table;
 }
 
 /**
-The bin targets values are mapped-back to the original list of target fields depending
-on the variation of the bin target value. */
+The bin field values are mapped-back to the original list of fields depending on
+the variation of the bin field value. */
 
-void binning_remap (BinTable * table, scalar * targets) {
+void binning_remap (BinTable * table, scalar * fields) {
   foreach_bin (table) {
     foreach_bin_cell (bin) {
-      foreach_bin_target (bin) {
-        scalar t = targets[j];
-        t[] += (target - target0);
+      foreach_bin_field (bin) {
+        scalar t = fields[j];
+        t[] += (phi - phi0);
       }
     }
   }
