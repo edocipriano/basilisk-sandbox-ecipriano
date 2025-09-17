@@ -101,7 +101,8 @@ BinTable * new_bintable (size_t nbins, size_t ntargets) {
 
 void free_bintable (BinTable * table) {
   for (size_t i = 0; i < table->nbins; i++)
-    free (table->bins[i]);
+    free_bin (table->bins[i]);
+  free (table->bins), table->bins = NULL;
   free (table), table = NULL;
 }
 
