@@ -27,6 +27,13 @@ foreach_bin (table) {
 binning_remap (table, fields);
 binning_cleanup (table);
 ~~~
+
+### Missing features
+
+1. A different tolerance for each species
+1. Avoid empty bins to save memory
+1. Energy-conserving remap
+
 */
 
 /**
@@ -172,7 +179,6 @@ assigns the global index to each bin. Cells with null mask values are not added
 to the bin, in order to exclude them from the averaging procedure. */
 
 // fixme: avoid empty bins
-// fixme: we may set special ids for masked cells
 BinTable * binning_build_table (scalar * targets, double eps,
     (const) scalar mask = unity)
 {
@@ -239,6 +245,16 @@ void binning_average (BinTable * table, scalar * fields,
 }
 
 /**
+Calculate the average of a given field in a bin. */
+
+double bin_average (const Bin * bin, scalar field) {
+  double num = 0.;
+  foreach_bin_cell (bin)
+    num += field[];
+  return bin->ncells ? num / bin->ncells : 0;
+}
+
+/**
 This function automatically normalizes the list of fields, splits the domain in
 bins with the correct mass-averaged field value, and returns the bin table. If
 a density field `rho` is not provided, the averaging step is volume-averaged.
@@ -259,7 +275,7 @@ BinTable * binning (scalar * fields, scalar * targets, double eps,
   BinTable * table = binning_build_table (tnorm, eps, mask);
   binning_populate (table, fields);
   binning_average (table, fields, rho);
-  free (tnorm);
+  delete (tnorm);
   return table;
 }
 
