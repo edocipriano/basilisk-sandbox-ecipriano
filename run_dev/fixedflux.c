@@ -196,7 +196,7 @@ event output_facets (t += 1) {
   sprintf (names, "interfaces%d", pid());
   FILE * fpf = fopen (names,"w");
   output_facets (f, fpf);
-  fclose (fpf); fflush (fpf);
+  fclose (fpf);
   char command[80];
   sprintf(command, "LC_ALL=C cat interfa* > facets/facets-%d-%.1f",
       maxlevel, t);
