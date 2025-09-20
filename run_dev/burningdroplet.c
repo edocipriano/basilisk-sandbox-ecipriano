@@ -544,6 +544,21 @@ event movie (t += inputdata.movie_every) {
 #endif
 
 /**
+## Tracing
+
+Check the distribution of the computational time among the different events and
+functions. */
+
+#if TRACE > 1
+event profiling (i += 20) {
+  char name[80];
+  sprintf (name, "profiling-%d", maxlevel);
+  static FILE * fp = fopen (name, "w");
+  trace_print (fp, 1);
+}
+#endif
+
+/**
 ## Stopping conditions
 
 We assume that in 50 s the droplet is fully consumed. Alternatively, we stop the
