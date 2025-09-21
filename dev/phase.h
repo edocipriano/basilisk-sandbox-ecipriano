@@ -1093,6 +1093,53 @@ void phase_chemistry_direct (Phase * phase, double dt,
   free (y0);
   free (s0);
 }
+
+#include "binning.h"
+
+// fixme: missing divergence source terms
+void phase_chemistry_binning (Phase * phase, double dt,
+    ode_function batch, unsigned int NEQ,
+    scalar * targets, double eps, bool verbose = false,
+    (const) scalar f = unity, double tol = 1e-10)
+{
+  double * s0 = (double *)malloc (NEQ*sizeof (double));
+
+  scalar mask[];
+  foreach() {
+    double ff = phase->inverse ? 1. - f[] : f[];
+    mask[] = (ff > tol) ? 1 : 0;
+  }
+
+  assert (NEQ == list_len (phase->tracers));
+  scalar * fields = phase->tracers;
+
+  BinTable * table = binning (fields, targets, eps, phase->rho, mask = mask);
+
+  foreach_bin (table) {
+    UserDataODE data;
+    data.rho = bin_average (bin, phase->rho);
+    data.cp = bin_average (bin, phase->cp);
+    data.P = bin_average (bin, phase->P);
+    data.T = bin_average (bin, phase->T);
+    data.sources = s0;
+
+    stiff_ode_solver (batch, NEQ, dt, bin->phi, &data);
+  }
+  binning_remap (table, fields);
+
+  if (verbose) {
+    bstats bs = binning_stats (table);
+    fprintf (stdout, "bs->nactive = %zu\n", bs.nactive);
+    fprintf (stdout, "bs->navg    = %zu\n", bs.navg);
+    fprintf (stdout, "bs->nmax    = %zu\n", bs.nmax);
+    fprintf (stdout, "bs->nmin    = %zu\n", bs.nmin);
+    fprintf (stdout, "bs->nmask   = %zu\n", bs.nmask);
+    fprintf (stdout, "\n");
+  }
+
+  binning_cleanup (table);
+  free (s0);
+}
 #endif
 
 typedef struct {
