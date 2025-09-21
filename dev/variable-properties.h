@@ -111,13 +111,49 @@ reasonable. */
 //}
 
 /**
-### *print_thermostate()*: print the thermodynamic state of the mixture.
+### *print_thermostate()*: print the thermodynamic state of the mixture
 */
 
 void print_thermostate (ThermoState * ts, int NS, FILE * fp = stdout) {
   fprintf (fp, "Temperature = %g - Pressure = %g\n", ts->T, ts->P);
   for (int jj=0; jj<NS; jj++)
     fprintf (fp, "  Composition[%d] = %g\n", jj, ts->x[jj]);
+  fprintf (fp, "\n");
+}
+
+/**
+### *print_thermoprop()*: print the thermodynamic properties of the mixture
+*/
+
+void print_thermoprop (ThermoProps * tp, ThermoState * ts, int NS,
+    FILE * fp = stdout)
+{
+  if (tp->rhov) fprintf (fp, "density = %g\n", tp->rhov (ts));
+  if (tp->muv) fprintf (fp, "viscosity = %g\n", tp->muv (ts));
+  if (tp->lambdav) fprintf (fp, "lambda = %g\n", tp->lambdav (ts));
+  if (tp->cpv) fprintf (fp, "cp = %g\n", tp->cpv (ts));
+
+  double dhev[NS], diff[NS], cps[NS], sigmas[NS];
+  if (tp->dhev) {
+    tp->dhev (ts, dhev);
+    for (int i = 0; i < NS; i++)
+      fprintf (fp, "dhev[%d] = %g\n", i, dhev[i]);
+  }
+  if (tp->diff) {
+    tp->diff (ts, diff);
+    for (int i = 0; i < NS; i++)
+      fprintf (fp, "diff[%d] = %g\n", i, diff[i]);
+  }
+  if (tp->cps) {
+    tp->cps (ts, cps);
+    for (int i = 0; i < NS; i++)
+      fprintf (fp, "cps[%d] = %g\n", i, cps[i]);
+  }
+  if (tp->sigmas) {
+    tp->sigmas (ts, sigmas);
+    for (int i = 0; i < NS; i++)
+      fprintf (fp, "sigmas[%d] = %g\n", i, sigmas[i]);
+  }
   fprintf (fp, "\n");
 }
 
