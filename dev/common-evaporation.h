@@ -55,7 +55,14 @@ macro foreach_interfacial_plic (scalar f, double tol = 1e-10,
 We define a macro describing a radial
 profile. It can be useful for field initialization. */
 
-#define radialprofile(r,r1,r2,T1,T2)(-r1*r2/(r*(r1-r2))*(T1 - T2) + (r1*T1 - r2*T2)/(r1-r2))
+macro number radialprofile (double r,
+    double r1, double r2,
+    double T1, double T2)
+{
+  return (r <= r1) ? T1
+       : (r >= r2) ? T2
+       : (-r1*r2/(r*(r1-r2))*(T1 - T2) + (r1*T1 - r2*T2)/(r1-r2));
+}
 
 /**
 ## Compute the normal in an interfacial cell
