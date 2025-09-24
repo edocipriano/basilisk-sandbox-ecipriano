@@ -1113,8 +1113,26 @@ void phase_chemistry_binning (Phase * phase, double dt,
   assert (NEQ == list_len (phase->tracers));
   scalar * fields = phase->tracers;
 
-  BinTable * table = binning (fields, targets, eps, phase->rho, mask = mask);
+  // We store the old temperature and mass fractions for the calculation of the
+  // divergence
+  scalar * Y0List = list_clone (phase->YList);
+  scalar T0[];
+  foreach_scalar_in (phase) {
+    foreach() {
+      foreach_species_in (phase) {
+        scalar Y0 = Y0List[i];
+        Y0[] = Y[];
+      }
+      if (!phase->isothermal)
+        T0[] = T[];
+    }
+  }
 
+  // Split the domain in bins and return the table
+  BinTable * table = binning (fields, targets, eps,
+      phase->rho, phase->cp, mask = mask);
+
+  // Bin-wise integration
   foreach_bin (table) {
     UserDataODE data;
     data.rho = bin_average (bin, phase->rho);
@@ -1124,8 +1142,23 @@ void phase_chemistry_binning (Phase * phase, double dt,
     data.sources = s0;
 
     stiff_ode_solver (batch, NEQ, dt, bin->phi, &data);
+
+    bin->rho = data.rho;
+    bin->cp = data.cp;
   }
-  binning_remap (table, fields);
+  binning_remap (table, fields, phase->rho, phase->cp);
+
+  // Recover the source term for the divergence
+  foreach_scalar_in (phase) {
+    foreach() {
+      foreach_species_in (phase) {
+        scalar Y0 = Y0List[i];
+        DYDt[] += (rho[] > 0) ? (Y[] - Y0[])/dt/rho[]*cm[] : 0.;
+      }
+      if (!phase->isothermal)
+        DTDt[] += (rho[]*cp[] > 0) ? (T[] - T0[])/dt/rho[]/cp[]*cm[] : 0.;
+    }
+  }
 
   if (verbose) {
     bstats bs = binning_stats (table);
@@ -1138,6 +1171,7 @@ void phase_chemistry_binning (Phase * phase, double dt,
   }
 
   binning_cleanup (table);
+  delete (Y0List);
   free (s0);
 }
 #endif

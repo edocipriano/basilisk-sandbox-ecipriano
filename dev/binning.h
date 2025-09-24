@@ -51,6 +51,8 @@ typedef struct {
   size_t ncells;
   double * phi, * phi0;
   coord * cells;
+  double rho, rho0;
+  double cp, cp0;
 } Bin;
 
 Bin * new_bin (size_t id) {
@@ -59,6 +61,10 @@ Bin * new_bin (size_t id) {
   bin->nfields = 0;
   bin->ncells = 0;
   bin->cells = NULL;
+  bin->rho = 0.;
+  bin->rho0 = 0.;
+  bin->cp = 0.;
+  bin->cp0 = 0.;
   return bin;
 }
 
@@ -254,6 +260,15 @@ double bin_average (const Bin * bin, scalar field) {
   return bin->ncells ? num / bin->ncells : 0;
 }
 
+double bin_volaverage (const Bin * bin, scalar field) {
+  double num = 0., den = 0.;
+  foreach_bin_cell (bin) {
+    num += field[]*dv();
+    den += dv();
+  }
+  return (den > 0.) ? num / den : 0.;
+}
+
 /**
 This function automatically normalizes the list of fields, splits the domain in
 bins with the correct mass-averaged field value, and returns the bin table. If
@@ -263,7 +278,8 @@ This is useful in multiphase codes, when we want to integrate the systems just
 in specific cells. */
 
 BinTable * binning (scalar * fields, scalar * targets, double eps,
-    (const) scalar rho = unity, (const) scalar mask = unity)
+    (const) scalar rho = unity, (const) scalar cp = unity,
+    (const) scalar mask = unity)
 {
   scalar * tnorm = list_clone (targets);
   foreach()
@@ -275,6 +291,12 @@ BinTable * binning (scalar * fields, scalar * targets, double eps,
   BinTable * table = binning_build_table (tnorm, eps, mask);
   binning_populate (table, fields);
   binning_average (table, fields, rho);
+  foreach_bin (table) {
+    bin->rho = bin_volaverage (bin, rho);
+    bin->cp = bin_average (bin, cp);
+    bin->rho0 = bin->rho;
+    bin->cp0 = bin->cp;
+  }
   delete (tnorm);
   return table;
 }
@@ -283,13 +305,17 @@ BinTable * binning (scalar * fields, scalar * targets, double eps,
 The bin field values are mapped-back to the original list of fields depending on
 the variation of the bin field value. */
 
-void binning_remap (BinTable * table, scalar * fields) {
+void binning_remap (BinTable * table, scalar * fields,
+    (const) scalar rho = unity, (const) scalar cp = unity)
+{
   foreach_bin (table) {
     foreach_bin_cell (bin) {
       foreach_bin_field (bin) {
         scalar t = fields[j];
         t[] += (phi - phi0);
       }
+      if (!is_constant (rho)) rho[] += (bin->rho - bin->rho0);
+      if (!is_constant (cp)) cp[] += (bin->cp - bin->cp0);
     }
   }
 }
