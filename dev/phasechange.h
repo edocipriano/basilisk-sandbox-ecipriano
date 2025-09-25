@@ -26,10 +26,6 @@ enum shifting_policy {
   NO_SHIFTING, SHIFT_TO_LIQUID, SHIFT_TO_GAS
 };
 
-enum velocity_policy {
-  WITHOUT_EXPANSION, WITH_EXPANSION
-};
-
 enum diffusion_policy {
   EXPLICIT_ONLY, EXPLICIT_IMPLICIT
 };
@@ -37,7 +33,6 @@ enum diffusion_policy {
 struct PhaseChangeModel {
   enum advection_policy advection;
   enum shifting_policy shifting;
-  enum velocity_policy velocity;
   enum diffusion_policy diffusion;
   bool boiling;
   bool byrhogas;
@@ -55,7 +50,6 @@ struct PhaseChangeModel {
 } pcm = {
   ADVECTION_VELOCITY,         // advection
   SHIFT_TO_LIQUID,            // shifting
-  WITHOUT_EXPANSION,          // velocity
   EXPLICIT_IMPLICIT,          // diffusion
   false,                      // boiling
   false,                      // byrhogas
