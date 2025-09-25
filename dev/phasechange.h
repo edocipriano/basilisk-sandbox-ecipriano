@@ -53,23 +53,30 @@ struct PhaseChangeModel {
   bool chemistry;
   double emissivity;
 } pcm = {
-  ADVECTION_VELOCITY,
-  SHIFT_TO_LIQUID,
-  WITHOUT_EXPANSION,
-  EXPLICIT_IMPLICIT,
-  false,
-  false,
-  true,
-  false,
-  false,
-  false,
-  false,
-  false,
-  false,
-  false,
-  true,
-  false,
-  0.,
+  ADVECTION_VELOCITY,         // advection
+  SHIFT_TO_LIQUID,            // shifting
+  WITHOUT_EXPANSION,          // velocity
+  EXPLICIT_IMPLICIT,          // diffusion
+  false,                      // boiling
+  false,                      // byrhogas
+  true,                       // expansion
+  false,                      // consistent
+  false,                      // isothermal
+  false,                      // isomassfrac
+  false,                      // isothermal_interface
+#if TWO_PHASE_VARPROP
+  true,                       // fick_corrected
+  true,                       // molar_diffusion
+  true,                       // mass_diffusion_enthalpy
+  true,                       // divergence
+#else
+  false,                      // fick_corrected
+  false,                      // molar_diffusion
+  false,                      // mass_diffusion_enthalpy
+  true,                       // divergence
+#endif
+  false,                      // chemistry
+  0.,                         // emissivity
 };
 
 void intexp_explicit (scalar intexp, scalar f, scalar mEvapTot) {
@@ -207,13 +214,8 @@ event init (i = 0) {
   _boiling = pcm.boiling;
 #endif
 
-#if TWO_PHASE_VARPROP
-  no_advection_div = true;
-  pcm.divergence = true;
-  pcm.fick_corrected = true;
-  pcm.molar_diffusion = true;
-  pcm.mass_diffusion_enthalpy = true;
-#endif
+  if (pcm.divergence)
+    no_advection_div = true;
 
   if (nv == 1)
     pcm.consistent = true;
