@@ -46,6 +46,7 @@ struct PhaseChangeModel {
   bool mass_diffusion_enthalpy;
   bool divergence;
   bool chemistry;
+  bool normalize;
   double emissivity;
 } pcm = {
   ADVECTION_VELOCITY,         // advection
@@ -70,6 +71,7 @@ struct PhaseChangeModel {
   true,                       // divergence
 #endif
   false,                      // chemistry
+  true,                       // normalize
   0.,                         // emissivity
 };
 
@@ -445,8 +447,10 @@ event tracer_diffusion (i++) {
   phase_diffusion (liq, f, varcoeff = false);
 #endif
 
-  phase_normalize_fractions (liq);
-  phase_normalize_fractions (gas);
+  if (pcm.normalize) {
+    phase_normalize_fractions (liq);
+    phase_normalize_fractions (gas);
+  }
 
   phase_scalars_to_tracers (liq, f);
   phase_scalars_to_tracers (gas, f);

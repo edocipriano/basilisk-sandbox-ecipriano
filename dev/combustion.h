@@ -25,6 +25,7 @@ struct PhaseChangeModel {
   bool mass_diffusion_enthalpy;
   bool divergence;
   bool chemistry;
+  bool normalize;
   bool no_advection_div;
 } pcm = {
   false,    // isothermal
@@ -34,6 +35,7 @@ struct PhaseChangeModel {
   true,     // mass_diffusion_enthalpy
   true,     // divergence
   true,     // chemistry
+  true,     // normalize
   true,     // no_advection_div
 };
 
@@ -156,7 +158,9 @@ event tracer_diffusion (i++) {
   phase_update_mw_moles (gas, f, tol = P_ERR);
   phase_diffusion_velocity (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
   phase_diffusion (gas, f, varcoeff = true);
-  phase_normalize_fractions (gas);
+
+  if (pcm.normalize)
+    phase_normalize_fractions (gas);
 }
 
 event properties (i++) {
