@@ -31,8 +31,9 @@ binning_cleanup (table);
 ### Missing features
 
 1. A different tolerance for each species
-1. Avoid empty bins to save memory
+1. ~~Avoid empty bins to save memory~~
 1. Energy-conserving remap
+1. Parallel simulations (each binning is local to the pid)
 
 */
 
@@ -72,7 +73,7 @@ void free_bin (Bin * bin) {
   free (bin->phi);
   free (bin->phi0);
   free (bin->cells);
-  free (bin), bin = NULL;
+  free (bin);
 }
 
 void bin_append_cell (Point point, Bin * bin) {
@@ -96,9 +97,16 @@ typedef struct {
   Bin ** bins;
 } BinTable;
 
-BinTable * new_bintable (size_t nbins, size_t ntargets) {
+BinTable * new_bintable_empty (size_t ntargets) {
   BinTable * table = malloc (sizeof (BinTable));
   table->ntargets = ntargets;
+  table->nbins = 0;
+  table->bins = NULL;
+  return table;
+}
+
+BinTable * new_bintable (size_t ntargets, size_t nbins) {
+  BinTable * table = new_bintable_empty (ntargets);
   table->nbins = nbins;
   table->bins = malloc (nbins*sizeof (Bin *));
   for (size_t i = 0; i < nbins; i++)
@@ -113,6 +121,35 @@ void free_bintable (BinTable * table) {
   free (table);
 }
 
+size_t bintable_index (BinTable * table, size_t bin_id, bool * exist) {
+  for (size_t i = 0; i < table->nbins; i++) {
+    Bin * bin = table->bins[i];
+    if (bin->id == bin_id) {
+      *exist = true;
+      return i;
+    }
+  }
+  return table->nbins-1;
+}
+
+Bin * bintable_append (BinTable * table, size_t global_id) {
+  bool exist = false;
+  size_t local_id = bintable_index (table, global_id, &exist);
+  if (exist) {
+    Bin * bin = table->bins[local_id];
+    bin->id = global_id;
+    return bin;
+  }
+  else {
+    table->nbins++;
+    table->bins = realloc (table->bins, table->nbins*sizeof (Bin *));
+    table->bins[table->nbins-1] = new_bin (table->nbins-1);
+    Bin * bin = table->bins[table->nbins-1];
+    bin->id = global_id;
+    return bin;
+  }
+}
+
 /**
 ## Iterators
 
@@ -124,7 +161,7 @@ iterates over the cells of a bin. */
 macro foreach_bin (BinTable * table) {
   for (size_t i = 0; i < table->nbins; i++) {
     Bin * bin = table->bins[i]; NOT_UNUSED (bin);
-    if (bin->ncells > 0) // active bin
+    //if (bin->ncells > 0) // active bin
       {...}
   }
 }
@@ -184,19 +221,20 @@ user-defined tolerance.  The table creates the maximum potential bins, and
 assigns the global index to each bin. Cells with null mask values are not added
 to the bin, in order to exclude them from the averaging procedure. */
 
-// fixme: avoid empty bins
 BinTable * binning_build_table (scalar * targets, double eps,
     (const) scalar mask = unity)
 {
   double L = 1./eps;
   size_t len = (size_t)list_len (targets);
 
+#if 0
   // All the possible combinations
   size_t nbins = 1;
   for (size_t i = 0; i < len; i++)
     nbins *= (L + 1);
+#endif
 
-  BinTable * table = new_bintable (nbins, len);
+  BinTable * table = new_bintable_empty (len);
 
   foreach() {
     size_t bin_j = 0;
@@ -207,7 +245,7 @@ BinTable * binning_build_table (scalar * targets, double eps,
       bin_j += bin_i * pow (L + 1, i);
     }
 
-    Bin * bin = table->bins[bin_j];
+    Bin * bin = bintable_append (table, bin_j);
     if (mask[])
       bin_append_cell (point, bin);
   }
