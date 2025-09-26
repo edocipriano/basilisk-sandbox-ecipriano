@@ -287,7 +287,12 @@ event chemistry (i++) {
       batch = batch_nonisothermal_constantpressure;
       NEQ++;
     }
+#if BINNING
+    phase_chemistry_binning (gas, dt, batch, NEQ, {T,Y}, (double[]){1e-1,1e-1},
+        verbose = false, f = f, tol = 1-F_ERR);
+#else
     phase_chemistry_direct (gas, dt, batch, NEQ, f, tol = 1-F_ERR);
+#endif
   }
 }
 #endif

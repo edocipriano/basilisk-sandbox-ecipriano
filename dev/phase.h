@@ -1094,12 +1094,13 @@ void phase_chemistry_direct (Phase * phase, double dt,
   free (s0);
 }
 
+# if BINNING
 #include "binning.h"
 
 // fixme: missing divergence source terms
 void phase_chemistry_binning (Phase * phase, double dt,
     ode_function batch, unsigned int NEQ,
-    scalar * targets, double eps, bool verbose = false,
+    scalar * targets, double * eps, bool verbose = false,
     (const) scalar f = unity, double tol = 1e-10)
 {
   double * s0 = (double *)malloc (NEQ*sizeof (double));
@@ -1174,7 +1175,8 @@ void phase_chemistry_binning (Phase * phase, double dt,
   delete (Y0List), free (Y0List);
   free (s0);
 }
-#endif
+# endif   // BINNING
+#endif    // CHEMISTRY
 
 typedef struct {
   double * m;       // species mass in the domain
