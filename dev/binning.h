@@ -33,7 +33,7 @@ binning_cleanup (table);
 1. A different tolerance for each species
 1. ~~Avoid empty bins to save memory~~
 1. Energy-conserving remap
-1. Parallel simulations (each binning is local to the pid)
+1. ~~Parallel simulations (each binning is local to the pid)~~
 
 */
 
@@ -177,7 +177,7 @@ macro foreach_bin_field (Bin * bin) {
 macro foreach_bin_cell (Bin * bin) {
   for (size_t _k = 0; _k < bin->ncells; _k++) {
     coord o = bin->cells[_k];
-    foreach_point (o.x,o.y,o.z) {
+    foreach_point (o.x,o.y,o.z, serial) {
       {...}
     }
   }
