@@ -335,7 +335,7 @@ BinTable * binning (scalar * fields, scalar * targets, double eps,
     bin->rho0 = bin->rho;
     bin->cp0 = bin->cp;
   }
-  delete (tnorm);
+  delete (tnorm), free (tnorm);
   return table;
 }
 

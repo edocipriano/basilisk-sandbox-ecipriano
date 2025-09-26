@@ -1171,7 +1171,7 @@ void phase_chemistry_binning (Phase * phase, double dt,
   }
 
   binning_cleanup (table);
-  delete (Y0List);
+  delete (Y0List), free (Y0List);
   free (s0);
 }
 #endif
