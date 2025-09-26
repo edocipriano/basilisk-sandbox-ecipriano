@@ -30,7 +30,7 @@ binning_cleanup (table);
 
 ### Missing features
 
-1. A different tolerance for each species
+1. ~~A different tolerance for each species~~
 1. ~~Avoid empty bins to save memory~~
 1. Energy-conserving remap
 1. ~~Parallel simulations (each binning is local to the pid)~~
@@ -221,10 +221,9 @@ user-defined tolerance.  The table creates the maximum potential bins, and
 assigns the global index to each bin. Cells with null mask values are not added
 to the bin, in order to exclude them from the averaging procedure. */
 
-BinTable * binning_build_table (scalar * targets, double eps,
+BinTable * binning_build_table (scalar * targets, double * eps,
     (const) scalar mask = unity)
 {
-  double L = 1./eps;
   size_t len = (size_t)list_len (targets);
 
 #if 0
@@ -239,6 +238,7 @@ BinTable * binning_build_table (scalar * targets, double eps,
   foreach() {
     size_t bin_j = 0;
     for (size_t i = 0; i < len; i++) {
+      double L = 1./eps[i];
       scalar t = targets[i];
       size_t bin_i = (size_t)(t[]*L);
       if (bin_i > L) bin_i = L;
@@ -315,7 +315,7 @@ The mask field is an Heaviside function which excludes cells with null values.
 This is useful in multiphase codes, when we want to integrate the systems just
 in specific cells. */
 
-BinTable * binning (scalar * fields, scalar * targets, double eps,
+BinTable * binning (scalar * fields, scalar * targets, double * eps,
     (const) scalar rho = unity, (const) scalar cp = unity,
     (const) scalar mask = unity)
 {

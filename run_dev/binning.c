@@ -42,7 +42,7 @@ event init (i = 0) {
   /**
   We create the binning table, diving the domain in a number of bins. */
 
-  BinTable * table = binning (fields, targets, eps);
+  BinTable * table = binning (fields, targets, (double[]){eps,eps});
 
   /**
   We fill a scalar fields with the bin indeces, in order to visualize the
