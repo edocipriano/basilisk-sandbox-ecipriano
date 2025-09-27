@@ -370,6 +370,16 @@ event init (i = 0) {
   phase_set_composition_from_string (gas, inputdata.gas_start,
       sep = "_", force = !restored);
 
+  if (!restored) {
+    scalar TL = liq->T, TG = gas->T;
+    foreach() {
+      double r = sqrt (sq (x) + sq (y));
+      TG[] = radialprofile (r, 0.5*D0, 2.*D0, TL0, TG0)*(1. - f[]);
+      TL[] = TL0*f[];
+      T[] = TL[] + TG[];
+    }
+  }
+
   /**
   The only property that we need to set, and that remains constant throughout
   the simulation, is the vector with the molecular weight of each species. */
@@ -450,6 +460,12 @@ event adapt (i++) {
     unrefine (x >= (0.45*L0));
 }
 #endif
+
+double CFL_MAX = 0.1;
+event stability (i++) {
+  if (CFL > CFL_MAX)
+    CFL = CFL_MAX;
+}
 
 /**
 ## Output Files
