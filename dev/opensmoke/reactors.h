@@ -30,20 +30,6 @@ This procedure is managed by the OpenSMOKE++ library ([opensmoke.h](opensmoke.h)
 #include "radiation.h"
 
 /**
-## User Data
-Structure that gathers arguments that can be used inside the batch
-reactor system functions.
-*/
-
-//typedef struct {
-//  double rho;
-//  double cp;
-//  double P;
-//  double T;
-//  double * sources;
-//} UserDataODE;
-
-/**
 ## *batch_isothermal_constantpressure()*: solve chemical species reactions
 
 * *y*: vector (length = NS) containing the initial values of the system
@@ -57,12 +43,12 @@ void batch_isothermal_constantpressure (const double * y, const double dt, doubl
   /**
   Unpack data for the ODE system. */
 
-  UserDataODE data = *(UserDataODE *)args;
-  int NS = data.NS;
-  double rho = data.rho;
-  double Pressure = data.P;
-  double Temperature = data.T;
-  double * sources = data.sources;
+  UserDataODE * data = (UserDataODE *)args;
+  int NS = data->NS;
+  double rho = data->rho;
+  double Pressure = data->P;
+  double Temperature = data->T;
+  double * sources = data->sources;
 
   /**
   Set temperature and pressure of the system,
@@ -124,12 +110,12 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   /**
   Unpack data for the ODE system. */
 
-  UserDataODE data = *(UserDataODE *)args;
-  double rho = data.rho;
-  double cp = data.cp;
-  double Pressure = data.P;
+  UserDataODE * data = (UserDataODE *)args;
+  double rho = data->rho;
+  double cp = data->cp;
+  double Pressure = data->P;
   double Temperature = y[OpenSMOKE_NumberOfSpecies()];
-  double * sources = data.sources;
+  double * sources = data->sources;
 
   /**
   Set temperature and pressure of the system,
@@ -169,6 +155,8 @@ void batch_nonisothermal_constantpressure (const double * y, const double dt, do
   for (int i = 0; i < NS; i++)
     ci[i] = ctot*molefracs[i];
 
+  data->rho = rho;
+  data->cp = cp;
 
 //#endif
 
