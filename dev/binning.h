@@ -18,7 +18,7 @@ smart iterators defined in this module. The logic is:
 
 This procedure corresponds to the following code:
 
-~~~bash
+~~~literatec
 BinTable * table = binning (fields, targets, eps, rho);
 
 foreach_bin (table) {
