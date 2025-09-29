@@ -4,9 +4,6 @@
 We define tolerances and functions useful
 for evaporation models. */
 
-#include "curvature.h"
-#include "adapt_wavelet_leave_interface.h"
-
 #ifndef F_ERR
 # define F_ERR 1.e-10
 #endif
@@ -16,11 +13,12 @@ for evaporation models. */
 #ifndef T_ERR
 # define T_ERR 0.
 #endif
-
 #ifndef I_TOL
 # define I_TOL 1.e-8
 #endif
 
+#include "curvature.h"
+#include "adapt_wavelet_leave_interface.h"
 #include "mass_refine_prolongation.h"
 
 macro foreach_interfacial (scalar f, double tol = 1e-10,
