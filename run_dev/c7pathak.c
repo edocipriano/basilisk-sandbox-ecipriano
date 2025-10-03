@@ -219,7 +219,7 @@ The following lines of code are for post-processing purposes. */
 
 We write on a file the squared diameter decay and the dimensionless time. */
 
-event output_data (i++) {
+event vof (i++,last) {
   double effective_radius = pow(3.*statsf(f).sum, 1./3.);
   double d_over_d02 = sq (effective_radius / effective_radius0);
 
