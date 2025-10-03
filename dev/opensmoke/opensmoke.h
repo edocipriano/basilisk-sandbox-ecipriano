@@ -105,9 +105,8 @@ void properties_liquid (char * liqfolder) {
   OpenSMOKE_ReadLiquidProperties (liqfolder_root);
 }
 
-event cleanup (t = end)
-{
-  OpenSMOKE_Clean ();
+void kinetics_clean (void) {
+  OpenSMOKE_Clean();
 }
 
 #endif
