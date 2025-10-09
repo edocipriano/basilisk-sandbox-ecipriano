@@ -241,6 +241,11 @@ Phase * new_phase_minimal (char * name = "", size_t ns = 0,
     }
   }
 
+  // Create species molecular weights and set it to 1
+  phase->MWs = (double *)malloc (phase->n*sizeof (double));
+  foreach_species_in (phase)
+    phase->MWs[i] = 1.;
+
   return phase;
 }
 
@@ -315,7 +320,6 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
     }
 
   // Create species molecular weights and set it to 1
-  // fixme: check MWs are correctly provided for each species
   phase->MWs = (double *)malloc (phase->n*sizeof (double));
   foreach_species_in (phase)
     phase->MWs[i] = 1.;
@@ -335,22 +339,27 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
 
 void delete_phase (Phase * phase) {
   foreach_scalar_in (phase)
-    delete ({T,P,STimp,STexp,rho,mu,MW,lambda,cp,dhev,divu,betaT,DTDt});
+    delete ({T,P,STimp,STexp,rho,rho0,mu,MW,lambda,cp,dhev,divu,betaT,DTDt});
 
-  delete (phase->YList);
-  delete (phase->XList);
-  delete (phase->SYimpList);
-  delete (phase->SYexpList);
-  delete (phase->DList);
-  delete (phase->cpList);
-  delete (phase->dhevList);
-  delete (phase->betaYList);
-  delete (phase->DYDtList);
+  if (phase->YList) delete (phase->YList), free (phase->YList);
+  if (phase->XList) delete (phase->XList), free (phase->XList);
+  if (phase->SYimpList) delete (phase->SYimpList), free (phase->SYimpList);
+  if (phase->SYexpList) delete (phase->SYexpList), free (phase->SYexpList);
+  if (phase->DList) delete (phase->DList), free (phase->DList);
+  if (phase->cpList) delete (phase->cpList), free (phase->cpList);
+  if (phase->dhevList) delete (phase->dhevList), free (phase->dhevList);
+  if (phase->betaYList) delete (phase->betaYList), free (phase->betaYList);
+  if (phase->DYDtList) delete (phase->DYDtList), free (phase->DYDtList);
 
-  free (phase->name), phase->name = NULL;
-  free (phase->species), phase->species = NULL;
-  free (phase->tracers), phase->tracers = NULL;
-  free_thermo_state (phase->ts0);
+  if (phase->species)
+    foreach_species_in (phase)
+      free (phase->species[i]);
+
+  if (phase->name) free (phase->name), phase->name = NULL;
+  if (phase->species) free (phase->species), phase->species = NULL;
+  if (phase->tracers) free (phase->tracers), phase->tracers = NULL;
+  if (phase->ts0) free_thermo_state (phase->ts0);
+  if (phase->MWs) free (phase->MWs);
 
   free (phase), phase = NULL;
 }

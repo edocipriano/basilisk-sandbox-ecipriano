@@ -169,14 +169,18 @@ event defaults (i = 0) {
 
   if (pcm.consistent) {
     f_tracers = f.tracers;
-    f.tracers = list_concat (f.tracers, liq->tracers);
-    f.tracers = list_concat (f.tracers, gas->tracers);
+    // These passages are necessary to avoid memory leaks
+    scalar * f_tracers2 = list_concat (f.tracers, liq->tracers);
+    f.tracers = list_concat (f_tracers2, gas->tracers);
+    free (f_tracers2), f_tracers2 = NULL;
   }
   else {
     if (nv == 1) {
       scalar fug = fulist[0];
-      fug.tracers = list_concat (fug.tracers, liq->tracers);
-      fug.tracers = list_concat (fug.tracers, gas->tracers);
+      // These passages are necessary to avoid memory leaks
+      scalar * fug_tracers = list_concat (fug.tracers, liq->tracers);
+      fug.tracers = list_concat (fug_tracers, gas->tracers);
+      free (fug_tracers), fug_tracers = NULL;
     }
     else if (nv == 2) {
       scalar ful = fulist[1], fug = fulist[0];

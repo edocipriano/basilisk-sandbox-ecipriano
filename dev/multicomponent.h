@@ -131,7 +131,11 @@ event defaults (i = 0) {
 }
 
 event cleanup (t = end) {
+  delete_phase (liq_int), liq_int = NULL;
+  delete_phase (gas_int), gas_int = NULL;
   delete (mEvapList), free (mEvapList), mEvapList = NULL;
+  free (LSI), LSI = NULL;
+  free (GOSI), GOSI = NULL;
   free (YIntVals);
 }
 
@@ -191,8 +195,8 @@ event phasechange (i++) {
   }
 
   // Update mole fractions and moles
-  liq_int->MWs = liq->MWs;
-  gas_int->MWs = gas->MWs;
+  memcpy (liq_int->MWs, liq->MWs, liq->n*sizeof (double));
+  memcpy (gas_int->MWs, gas->MWs, gas->n*sizeof (double));
   phase_update_mw_moles (liq_int);
   phase_update_mw_moles (gas_int);
 
