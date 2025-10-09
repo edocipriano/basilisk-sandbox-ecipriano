@@ -197,32 +197,18 @@ event logger (t += 1e-5) {
 We write on a file the temperature and mass fraction profiles at different time
 instants. */
 
-bool opened = false;
-
-event cleanup (t = end)
-  opened = false;
-
 event profiles (t = {1.03e-5, 6.03e-5, 1.40e-4}) {
-  char name[80];
-  sprintf (name, "Profiles-%d", maxlevel);
+  static FILE * fp = fopen ("Profiles", "w");
 
-  char mode[10];
-  if (!opened)
-    sprintf (mode, "w");
-  else
-    sprintf (mode, "a");
+  static int pindex = 0;
+  pindex = (pindex % 3) + 1;
 
-  FILE * fp = fopen (name, mode);
-  opened = true;
-
-  /**
-  The master node writes the profiles on a file. */
-
-  for (double x = 0.; x < L0; x += 0.5*L0/(1 << maxlevel))
-    fprintf (fp, "%g %g\n", x, interpolate (Y, x, 0.));
-  fprintf (fp, "\n\n");
-  fflush (fp);
-  fclose (fp);
+  coord p;
+  coord box[2] = {{0,0}, {L0,0}};
+  coord n = {50,1};
+  foreach_region (p, box, n)
+    fprintf (fp, "maxlevel %d profile %d %g %g\n", maxlevel, pindex, p.x,
+        interpolate (Y, p.x, p.y));
 }
 
 /**
@@ -269,9 +255,9 @@ set grid
 plot "../data/pathak-isothermal-unsteady-Yprofile-103e-5.csv" w p pt 8 lc 1 t "time = 1.03x10^{-5} s", \
      "../data/pathak-isothermal-unsteady-Yprofile-603e-5.csv" w p pt 8 lc 2 t "time = 6.03x10^{-5} s", \
      "../data/pathak-isothermal-unsteady-Yprofile-140e-4.csv" w p pt 8 lc 3 t "time = 1.40x10^{-5} s", \
-     "Profiles-7" index 0 u ($1*1e+6):2 w l lw 2 lc 1 notitle, \
-     "Profiles-7" index 1 u ($1*1e+6):2 w l lw 2 lc 2 notitle, \
-     "Profiles-7" index 2 u ($1*1e+6):2 w l lw 2 lc 3 notitle
+     "<grep 'maxlevel 7 profile 1' Profiles" u ($5*1e+6):6 w l lw 2 lc 1 notitle, \
+     "<grep 'maxlevel 7 profile 2' Profiles" u ($5*1e+6):6 w l lw 2 lc 2 notitle, \
+     "<grep 'maxlevel 7 profile 3' Profiles" u ($5*1e+6):6 w l lw 2 lc 3 notitle
 ~~~
 
 ~~~bib
