@@ -418,6 +418,12 @@ event vof_sources (i++) {
     f[] = clamp (f[], 0., 1.);
     f[] = (f[] < F_ERR) ? 0. : (f[] > 1.-F_ERR) ? 1. : f[];
   }
+
+#if TREE
+  for (int l = 1; l < depth(); l++)
+    foreach_level (l)
+      f[] = (f[] > 0.5) ? 1. : 0.;
+#endif
 }
 
 event tracer_advection (i++);
