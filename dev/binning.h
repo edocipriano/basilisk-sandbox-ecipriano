@@ -245,9 +245,10 @@ BinTable * binning_build_table (scalar * targets, double * eps,
       bin_j += bin_i * pow (L + 1, i);
     }
 
-    Bin * bin = bintable_append (table, bin_j);
-    if (mask[])
+    if (mask[]) {
+      Bin * bin = bintable_append (table, bin_j);
       bin_append_cell (point, bin);
+    }
   }
   return table;
 }
