@@ -32,8 +32,9 @@ event init (i = 0) {
     T[] = radial (r, 0.2, 0.8, 300., 800.);
     T[] = (r <= 0.2) ? 300. : (r >= 0.8) ? 800. : T[];
     Y[] = gaussian (x, y, 0.2);
-    //mask[] = (r <= 0.2) ? 0. : 1.;
-    mask[] = 1;
+    mask[] = (r <= 0.2) ? 0. : 1.;
+    T[] *= mask[];
+    Y[] *= mask[];
 
     TI[] = T[];
     YI[] = Y[];
@@ -42,7 +43,7 @@ event init (i = 0) {
   /**
   We create the binning table, diving the domain in a number of bins. */
 
-  BinTable * table = binning (fields, targets, (double[]){eps,eps});
+  BinTable * table = binning (fields, targets, (double[]){eps,eps}, mask = mask);
 
   /**
   We fill a scalar fields with the bin indeces, in order to visualize the
@@ -63,8 +64,18 @@ event init (i = 0) {
   fprintf (stderr, "\n");
 
   foreach_bin (table)
-    fprintf (stderr, "BIN[%3zu] = %zu\n", bin->id, bin->ncells);
+    fprintf (stderr, "BIN[%3zu] has %zu cells\n", bin->id, bin->ncells);
   fprintf (stderr, "\n");
+
+  /**
+  We print the values of the fields phi within every bin to ensure that empty
+  values belonging to the mask are not considered bins. */
+
+  foreach_bin (table) {
+    foreach_bin_field (bin)
+      fprintf (stderr, "BIN[%zu] has phi[%zu] = %g\n", i, j, phi);
+    fprintf (stderr, "\n");
+  }
 
   /**
   We perform a (fake) bin integration, which should change the field values. */
