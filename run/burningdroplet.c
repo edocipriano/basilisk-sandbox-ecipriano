@@ -370,6 +370,7 @@ event init (i = 0) {
   phase_set_composition_from_string (gas, inputdata.gas_start,
       sep = "_", force = !restored);
 
+#if RADIAL_PROFILE
   if (!restored) {
     scalar TL = liq->T, TG = gas->T;
     foreach() {
@@ -379,6 +380,7 @@ event init (i = 0) {
       T[] = TL[] + TG[];
     }
   }
+#endif
 
   /**
   The only property that we need to set, and that remains constant throughout

@@ -132,7 +132,14 @@ event chemistry (i++) {
       batch = batch_nonisothermal_constantpressure;
       NEQ++;
     }
+# if BINNING
+    scalar Y = gas->YList[index_species ("H2")];
+    scalar T = gas->T;
+    phase_chemistry_binning (gas, dt, batch, NEQ, {T,Y}, (double[]){1e-2,1e-3},
+        verbose = true, f = f, tol = 1-F_ERR);
+# else
     phase_chemistry_direct (gas, dt, batch, NEQ, f, tol = 1-F_ERR);
+# endif
   }
 #endif
 

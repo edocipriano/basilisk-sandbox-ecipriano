@@ -34,6 +34,7 @@ species and temperature fields and for the interface boundary conditions.
 #include "two-phase.h"
 #include "tension.h"
 #include "evaporation.h"
+#include "balances/two-phase.h"
 #include "view.h"
 
 /**
@@ -105,6 +106,7 @@ int main (void) {
 
   nv = 2;
   pcm.isothermal_interface = true;
+  pcm.divergence = true;
 
   /**
   We change the dimension of the domain as a function of the initial diameter of
@@ -115,12 +117,13 @@ int main (void) {
   /**
   We change the surface tension coefficient. */
 
-  f.sigma = 0.03;
+  //f.sigma = 0.03;
+  f.sigma = 0.0001;
 
   /**
   We run the simulation at different maximum levels of refinement. */
 
-  for (maxlevel = 5; maxlevel <= 5; maxlevel++) {
+  for (maxlevel = 5; maxlevel <= 7; maxlevel++) {
     init_grid (1 << maxlevel);
     run();
   }
@@ -169,6 +172,7 @@ event init (i = 0) {
   tsf.P = Pref;
   tsf.x = (double[]){1.};
 
+
   rho0 = tp1.rhov (&ts0);
   rhof = tp1.rhov (&tsf);
 }
@@ -212,7 +216,7 @@ The following lines of code are for post-processing purposes. */
 
 We write on a file the squared diameter decay and the dimensionless time. */
 
-event output_data (i++) {
+event output_data (t += 0.02) {
   char name[80];
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
@@ -230,7 +234,7 @@ event output_data (i++) {
   double relerr = fabs (effective_radius - exact_radius)/effective_radius;
 
   fprintf (fp, "%g %g %g %g %g %g %g\n", t, t/sq(D0*1e3), effective_radius,
-      d_over_d02, mLiq/mLiq0, relerr, exact_d_over_d02);
+      d_over_d02, mLiq/mLiq0, relerr, exact_d_over_d02), fflush (fp);
 }
 
 /**
@@ -345,6 +349,38 @@ plot basedir350."OutputData-5" u 2:7 every 5000 w p ps 0.8 lc 1 pt 6 dt 2 t "Ste
      basedir375."OutputData-5" u 2:4 w l lw 2 lc 2 dt 4 notitle, \
      basedir400."OutputData-5" u 2:7 every 5000 w p ps 0.8 lc 3 pt 6 dt 2 notitle, \
      basedir400."OutputData-5" u 2:4 w l lw 2 lc 3 dt 4 notitle
+~~~
+
+~~~gnuplot Convergence rate
+stats "<tail -n 1 OutputData-5" u 6 nooutput name "LEVEL5"
+stats "<tail -n 1 OutputData-6" u 6 nooutput name "LEVEL6"
+stats "<tail -n 1 OutputData-7" u 6 nooutput name "LEVEL7"
+
+set print "errors"
+
+print sprintf ("%d %.12f", 2**5, LEVEL5_mean)
+print sprintf ("%d %.12f", 2**6, LEVEL6_mean)
+print sprintf ("%d %.12f", 2**7, LEVEL7_mean)
+
+unset print
+
+reset
+set xlabel "N"
+set ylabel "Relative Error"
+
+set xr[2**4:2**8]
+set size square
+set grid
+
+set logscale x 2
+set logscale y
+
+f(x) = a*x**-b
+fit f(x) "errors" u 1:2 via a,b
+ftitle(a,b) = sprintf("%.3f/x^{%4.2f}", exp(a), -b)
+
+plot "errors" w p pt 8 title "Results", \
+     f(x) w l t ftitle(a,b)
 ~~~
 */
 

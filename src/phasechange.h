@@ -292,8 +292,17 @@ event chemistry (i++) {
       NEQ++;
     }
 #if BINNING
-    phase_chemistry_binning (gas, dt, batch, NEQ, {T,Y}, (double[]){1e-1,1e-1},
-        verbose = false, f = f, tol = 1-F_ERR);
+    scalar YH2 = lookup_field ("YGCH3OH");
+    scalar YO2 = lookup_field ("YO2");
+    scalar YCO = lookup_field ("YCO");
+    scalar T = gas->T;
+
+    double eps = 1e-2;
+    phase_chemistry_binning (gas, dt, batch, NEQ, {T,YH2,YO2,YCO},
+        (double[]){eps,eps,eps,eps,eps}, verbose = true, f = f, tol = 1-F_ERR);
+
+    //phase_chemistry_binning (gas, dt, batch, NEQ, {T,Y}, (double[]){1e-2,1e-2},
+    //    verbose = true, f = f, tol = 1-F_ERR);
 #else
     phase_chemistry_direct (gas, dt, batch, NEQ, f, tol = 1-F_ERR);
 #endif
@@ -352,11 +361,16 @@ event divergence (i++) {
     phase_update_divergence (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
     phase_update_divergence (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
 
-    //vector ul = (nv > 1) ? ulist[1] : ulist[0];
-    //vector ug = ulist[0];
+#if 0
+    vector ul = (nv > 1) ? ulist[1] : ulist[0];
+    vector ug = ulist[0];
 
-    //phase_update_divergence_density (liq, ul, f);
-    //phase_update_divergence_density (gas, ug, f);
+    face vector ufl = (nv > 1) ? uflist[1] : uflist[0];
+    face vector ufg = uflist[0];
+
+    phase_update_divergence_density (liq, ul, ufl, f);
+    phase_update_divergence_density (gas, ug, ufg, f);
+#endif
 
     scalar divu1 = liq->divu, divu2 = gas->divu;
     foreach()
@@ -366,6 +380,9 @@ event divergence (i++) {
       scalar drhodt1 = drhodtlist[1];
       foreach()
         drhodt1[] = divu1[];
+
+      shift_field (drhodt1, f, 1);
+      shift_field (drhodt, f, 0);
     }
 
     phase_scalars_to_tracers (liq, f);
@@ -450,7 +467,7 @@ event tracer_diffusion (i++) {
   phase_update_mw_moles (gas, f, tol = P_ERR, extend = true);
 
   // [DIFF]
-  //// Let's perform the velocity correction step
+  // Let's perform the velocity correction step
   phase_diffusion_velocity (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
   phase_diffusion_velocity (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
 
