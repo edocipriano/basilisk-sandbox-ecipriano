@@ -27,7 +27,7 @@ external dependencies:
 
 #include "OpenSMOKE_Interface.h"
 
-#pragma autolink -L$OPENSMOKE_INTERFACE_NEW/build -lopensmoke
+#pragma autolink -L$OPENSMOKE_INTERFACE/build -lopensmoke
 
 /**
 ## User Data
