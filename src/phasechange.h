@@ -68,7 +68,7 @@ struct PhaseChangeModel {
   false,                      // fick_corrected
   false,                      // molar_diffusion
   false,                      // mass_diffusion_enthalpy
-  true,                       // divergence
+  false,                      // divergence
 #endif
   false,                      // chemistry
   true,                       // normalize
@@ -380,9 +380,6 @@ event divergence (i++) {
       scalar drhodt1 = drhodtlist[1];
       foreach()
         drhodt1[] = divu1[];
-
-      shift_field (drhodt1, f, 1);
-      shift_field (drhodt, f, 0);
     }
 
     phase_scalars_to_tracers (liq, f);
