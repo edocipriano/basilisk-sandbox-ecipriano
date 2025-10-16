@@ -5,14 +5,10 @@ CFLAGS += -O2 \
 	-DUSE_GSL=1 \
 	-DUSE_LIBCONFIG=0 \
 	-DTEST_RESTART=0 \
-	-DMTRACE=2 \
+	-DMTRACE=0 \
 	-disable-dimensions \
-	-I$(BASILISKSANDBOX)/../dev \
-	-I$(BASILISKSANDBOX)/../dev/navier-stokes \
-	-I$(BREW_INCLUDE_PATHS) \
-	-L$(BREW_LIBRARY_PATHS) \
-	-I$(OPENSMOKE_INTERFACE_NEW)/src \
-	-rpath $(OPENSMOKE_INTERFACE_NEW)/build
+	$(BASILISK_INCLUDES) \
+	$(BASILISK_LIBS)
 
 expansion-T375.c: expansion.c
 	ln -s expansion.c expansion-T375.c
