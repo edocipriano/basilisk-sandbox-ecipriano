@@ -523,9 +523,6 @@ void phase_set_properties (Phase * phase,
     if (provided (rho)) {
       scalar phase_rho = phase->rho;
       phase_rho[] = rho;
-
-      scalar phase_rho0 = phase->rho0;
-      phase_rho0[] = rho;
     }
     if (provided (mu)) {
       scalar phase_mu = phase->mu;
@@ -717,8 +714,6 @@ void phase_update_properties (Phase * phase, const ThermoProps * tp,
         ts.T = T[];
         ts.P = P[];
         ts.x = (phase->n == 1) ? (double[]){1.} : xmole;
-
-        rho0[] = rho[];
 
         if (tp->rhov) rho[] = tp->rhov (&ts);
         if (tp->muv) mu[] = tp->muv (&ts);
@@ -941,16 +936,10 @@ void phase_update_divergence (Phase * phase,
 }
 
 #if 0
-void phase_update_divergence_density (Phase * phase, vector u, face vector uf,
+void phase_update_divergence_density (Phase * phase, vector u,
     (const) scalar f = unity)
 {
   foreach_scalar_in (phase) {
-
-    double (*gradient_backup)(double, double, double) = rho.gradient;
-    rho.gradient = NULL;
-    face vector flux[];
-    tracer_fluxes (rho, uf, flux, dt, zeroc);
-
     vector grho[];
     gradients ({rho}, {grho});
 
@@ -958,29 +947,11 @@ void phase_update_divergence_density (Phase * phase, vector u, face vector uf,
       divu[] = (rho[] - rho0[])/dt;
 
       foreach_dimension()
-        divu[] += (flux.x[1] - flux.x[])/(Delta);
-
-      //double divfu = 0.;
-      //foreach_dimension()
-      //  divfu += (face_value (rho, 1)*uf.x[1] - face_value (rho, 0)*uf.x[]);
-      //divfu /= Delta;
-
-      double div = 0.;
-      foreach_dimension()
-        div += (uf.x[1] - uf.x[]);
-      div /= Delta;
-      divu[] -= rho[]*div;
-
-      //divu[] += divfu - div;
-
-      //foreach_dimension()
-      //  divu[] += u.x[]*grho.x[];
+        divu[] += u.x[]*grho.x[];
 
       double ff = phase->inverse ? 1. - f[] : f[];
       divu[] *= (rho[] > 0.) ? cm[]/rho[]*ff : 0.;
-      //divu[] *= (rho[] > 0.) ? 1./rho[]*ff : 0.;
     }
-    rho.gradient = gradient_backup;
   }
 }
 #endif
@@ -1151,7 +1122,7 @@ void phase_chemistry_direct (Phase * phase, double dt,
 
 scalar BINID[];
 
-// fixme: missing divergence source terms
+// fixme: to test
 void phase_chemistry_binning (Phase * phase, double dt,
     ode_function batch, unsigned int NEQ,
     scalar * targets, double * eps, bool verbose = false,
@@ -1187,18 +1158,6 @@ void phase_chemistry_binning (Phase * phase, double dt,
   BinTable * table = binning (fields, targets, eps,
       phase->rho, phase->cp, mask = mask);
 
-#if 0
-  // Print infos
-  foreach_bin (table) {
-    foreach_bin_field (bin) {
-      fprintf (stdout, "bin[%zu] - field[%zu] = %g\n",
-          bin->id, j, bin->phi[j]);
-    }
-    fprintf (stdout, "\n");
-    fflush (stdout);
-  }
-#endif
-
   // Bin-wise integration
   foreach_bin (table) {
     UserDataODE data;
@@ -1207,16 +1166,6 @@ void phase_chemistry_binning (Phase * phase, double dt,
     data.P = bin_average (bin, phase->P);
     data.T = bin_average (bin, phase->T);
     data.sources = s0;
-
-    //correctfrac (bin->phi, phase->n);
-
-    //  foreach_bin_field (bin) {
-    //    phi = max (phi, 1e-6);
-    //    fprintf (stdout, "bin[%zu] - field[%zu] = %g\n",
-    //        bin->id, j, bin->phi[j]),
-    //    fflush (stdout);
-    //  }
-    //}
 
     stiff_ode_solver (batch, NEQ, dt, bin->phi, &data);
 
