@@ -328,7 +328,6 @@ server. The simulation converges to the steady state values with increasing
 mesh resolution.
 
 ~~~gnuplot Expansion of the Square Diameter
-set border linewidth 2
 set grid
 set key bottom right
 set xlabel "t/D_0^2 [s/mm^2]"
@@ -346,17 +345,17 @@ set label "∆T = 75 K"  at 2.45,1.078 left font ",11" tc rgb "black"
 set label "∆T = 100 K" at 2.45,1.11  left font ",11" tc rgb "black"
 
 plot basedir350."OutputData-5" u 2:7 every 10 w p ps 0.8 lc 1 pt 6 dt 2 t "Steady State", \
-     basedir350."OutputData-5" u 2:4 w l lw 2 lc 1 dt 4 t "LEVEL 5", \
-     basedir350."OutputData-6" u 2:4 w l lw 2 lc 1 dt 3 t "LEVEL 6", \
-     basedir350."OutputData-7" u 2:4 w l lw 2 lc 1 dt 1 t "LEVEL 7", \
+     basedir350."OutputData-5" u 2:4 w l lc 1 dt 4 t "LEVEL 5", \
+     basedir350."OutputData-6" u 2:4 w l lc 1 dt 3 t "LEVEL 6", \
+     basedir350."OutputData-7" u 2:4 w l lc 1 dt 1 t "LEVEL 7", \
      basedir375."OutputData-5" u 2:7 every 10 w p ps 0.8 lc 2 pt 6 dt 2 notitle, \
-     basedir375."OutputData-5" u 2:4 w l lw 2 lc 2 dt 4 notitle, \
-     basedir375."OutputData-6" u 2:4 w l lw 2 lc 2 dt 3 notitle, \
-     basedir375."OutputData-7" u 2:4 w l lw 2 lc 2 dt 1 notitle, \
+     basedir375."OutputData-5" u 2:4 w l lc 2 dt 4 notitle, \
+     basedir375."OutputData-6" u 2:4 w l lc 2 dt 3 notitle, \
+     basedir375."OutputData-7" u 2:4 w l lc 2 dt 1 notitle, \
      basedir400."OutputData-5" u 2:7 every 10 w p ps 0.8 lc 3 pt 6 dt 2 notitle, \
-     basedir400."OutputData-5" u 2:4 w l lw 2 lc 3 dt 4 notitle, \
-     basedir400."OutputData-6" u 2:4 w l lw 2 lc 3 dt 3 notitle, \
-     basedir400."OutputData-7" u 2:4 w l lw 2 lc 3 dt 1 notitle
+     basedir400."OutputData-5" u 2:4 w l lc 3 dt 4 notitle, \
+     basedir400."OutputData-6" u 2:4 w l lc 3 dt 3 notitle, \
+     basedir400."OutputData-7" u 2:4 w l lc 3 dt 1 notitle
 ~~~
 
 ~~~gnuplot Convergence rate
