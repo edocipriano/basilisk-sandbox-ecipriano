@@ -20,7 +20,7 @@ expansion-T400.c: expansion.c
 expansion-T400.s: CFLAGS += -DTEMPERATURE=400
 expansion-T400.tst: CFLAGS += -DTEMPERATURE=400
 
-#expansion.tst: expansion-T375.tst expansion-T400.tst
+expansion.tst: expansion-T375.tst expansion-T400.tst
 
 microgravity.tst: CFLAGS += -DTEMPERATURE=773 -DPRESSURE=10 \
 	-DKINFOLDER=evaporation/n-heptane-in-nitrogen

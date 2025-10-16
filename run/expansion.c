@@ -115,7 +115,9 @@ int main (void) {
   L0 = 1.5*D0;
 
   /**
-  We change the surface tension coefficient. */
+  We change the surface tension coefficient. The value is reduced to a very small
+  surface tension compared to the value reported in the paper, because we want to
+  reduce the simulation time on the Basilisk server for quick testing. */
 
   //f.sigma = 0.03;
   f.sigma = 0.0001;
@@ -306,7 +308,7 @@ We write the animation with the evolution of the n-heptane mass fraction, the
 interface position and the temperature field. */
 
 event movie (t += 0.02; t <= 3) {
-  if (TG0 == 350) {
+  if (TG0 == 350 && maxlevel == 7) {
     clear();
     box();
     view (tx = -0.5, ty = -0.5);
@@ -343,24 +345,48 @@ set label "∆T = 50 K"  at 2.45,1.05  left font ",11" tc rgb "black"
 set label "∆T = 75 K"  at 2.45,1.078 left font ",11" tc rgb "black"
 set label "∆T = 100 K" at 2.45,1.11  left font ",11" tc rgb "black"
 
-plot basedir350."OutputData-5" u 2:7 every 5000 w p ps 0.8 lc 1 pt 6 dt 2 t "Steady State", \
+plot basedir350."OutputData-5" u 2:7 every 10 w p ps 0.8 lc 1 pt 6 dt 2 t "Steady State", \
      basedir350."OutputData-5" u 2:4 w l lw 2 lc 1 dt 4 t "LEVEL 5", \
-     basedir375."OutputData-5" u 2:7 every 5000 w p ps 0.8 lc 2 pt 6 dt 2 notitle, \
+     basedir350."OutputData-6" u 2:4 w l lw 2 lc 1 dt 3 t "LEVEL 6", \
+     basedir350."OutputData-7" u 2:4 w l lw 2 lc 1 dt 1 t "LEVEL 7", \
+     basedir375."OutputData-5" u 2:7 every 10 w p ps 0.8 lc 2 pt 6 dt 2 notitle, \
      basedir375."OutputData-5" u 2:4 w l lw 2 lc 2 dt 4 notitle, \
-     basedir400."OutputData-5" u 2:7 every 5000 w p ps 0.8 lc 3 pt 6 dt 2 notitle, \
-     basedir400."OutputData-5" u 2:4 w l lw 2 lc 3 dt 4 notitle
+     basedir375."OutputData-6" u 2:4 w l lw 2 lc 2 dt 3 notitle, \
+     basedir375."OutputData-7" u 2:4 w l lw 2 lc 2 dt 1 notitle, \
+     basedir400."OutputData-5" u 2:7 every 10 w p ps 0.8 lc 3 pt 6 dt 2 notitle, \
+     basedir400."OutputData-5" u 2:4 w l lw 2 lc 3 dt 4 notitle, \
+     basedir400."OutputData-6" u 2:4 w l lw 2 lc 3 dt 3 notitle, \
+     basedir400."OutputData-7" u 2:4 w l lw 2 lc 3 dt 1 notitle
 ~~~
 
 ~~~gnuplot Convergence rate
-stats "<tail -n 1 OutputData-5" u 6 nooutput name "LEVEL5"
-stats "<tail -n 1 OutputData-6" u 6 nooutput name "LEVEL6"
-stats "<tail -n 1 OutputData-7" u 6 nooutput name "LEVEL7"
+reset
+
+stats "<tail -n 1 OutputData-5" u 6 nooutput name "T1_LEVEL5"
+stats "<tail -n 1 OutputData-6" u 6 nooutput name "T1_LEVEL6"
+stats "<tail -n 1 OutputData-7" u 6 nooutput name "T1_LEVEL7"
+
+stats "<tail -n 1 ../expansion-T375/OutputData-5" u 6 nooutput name "T2_LEVEL5"
+stats "<tail -n 1 ../expansion-T375/OutputData-6" u 6 nooutput name "T2_LEVEL6"
+stats "<tail -n 1 ../expansion-T375/OutputData-7" u 6 nooutput name "T2_LEVEL7"
+
+stats "<tail -n 1 ../expansion-T400/OutputData-5" u 6 nooutput name "T3_LEVEL5"
+stats "<tail -n 1 ../expansion-T400/OutputData-6" u 6 nooutput name "T3_LEVEL6"
+stats "<tail -n 1 ../expansion-T400/OutputData-7" u 6 nooutput name "T3_LEVEL7"
 
 set print "errors"
 
-print sprintf ("%d %.12f", 2**5, LEVEL5_mean)
-print sprintf ("%d %.12f", 2**6, LEVEL6_mean)
-print sprintf ("%d %.12f", 2**7, LEVEL7_mean)
+print sprintf ("350K %d %.12f", 2**5, T1_LEVEL5_mean)
+print sprintf ("350K %d %.12f", 2**6, T1_LEVEL6_mean)
+print sprintf ("350K %d %.12f", 2**7, T1_LEVEL7_mean)
+
+print sprintf ("375K %d %.12f", 2**5, T2_LEVEL5_mean)
+print sprintf ("375K %d %.12f", 2**6, T2_LEVEL6_mean)
+print sprintf ("375K %d %.12f", 2**7, T2_LEVEL7_mean)
+
+print sprintf ("400K %d %.12f", 2**5, T3_LEVEL5_mean)
+print sprintf ("400K %d %.12f", 2**6, T3_LEVEL6_mean)
+print sprintf ("400K %d %.12f", 2**7, T3_LEVEL7_mean)
 
 unset print
 
@@ -376,11 +402,30 @@ set logscale x 2
 set logscale y
 
 f(x) = a*x**-b
-fit f(x) "errors" u 1:2 via a,b
+
+# fit for 350K
+a = 1; b = 1
+fit f(x) "<grep 350K errors" u 2:3 via a,b
+a350 = a; b350 = b
+
+# fit for 375K
+a = 1; b = 1
+fit f(x) "<grep 375K errors" u 2:3 via a,b
+a375 = a; b375 = b
+
+# fit for 400K
+a = 1; b = 1
+fit f(x) "<grep 400K errors" u 2:3 via a,b
+a400 = a; b400 = b
+
 ftitle(a,b) = sprintf("%.3f/x^{%4.2f}", exp(a), -b)
 
-plot "errors" w p pt 8 title "Results", \
-     f(x) w l t ftitle(a,b)
+plot "<grep 350K errors" u 2:3 w p pt 4 lc 1 title "350K data", \
+     "<grep 375K errors" u 2:3 w p pt 6 lc 2 title "375K data", \
+     "<grep 400K errors" u 2:3 w p pt 8 lc 3 title "400K data", \
+     a350*x**-b350 w l lc 1 title sprintf("350K: %s", ftitle(a350,b350)), \
+     a375*x**-b375 w l lc 2 title sprintf("375K: %s", ftitle(a375,b375)), \
+     a400*x**-b400 w l lc 3 title sprintf("400K: %s", ftitle(a400,b400))
 ~~~
 */
 
