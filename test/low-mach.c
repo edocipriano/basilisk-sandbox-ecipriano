@@ -35,11 +35,17 @@ scalar divu[];
 
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
+uf.n[top] = neumann (0.);
+uf.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
+pf[top] = dirichlet (0.);
 
 u.n[right] = neumann (0.);
 u.t[right] = neumann (0.);
+uf.n[right] = neumann (0.);
+uf.t[right] = neumann (0.);
 p[right] = dirichlet (0.);
+pf[right] = dirichlet (0.);
 
 int maxlevel;
 double R0 = 0.05;
@@ -50,7 +56,7 @@ int main (void) {
 
   f.sigma = 0.03;
 
-  for (maxlevel = 4; maxlevel <= 8; maxlevel++) {
+  for (maxlevel = 4; maxlevel <= 9; maxlevel++) {
     init_grid (1 << maxlevel);
     run();
   }
@@ -132,13 +138,27 @@ event end_timestep (i++) {
 }
 #endif
 
+#if TREE
+event adapt (i++) {
+  scalar ff[];
+  foreach()
+    ff[] = f[];
+  adapt_wavelet ({f}, (double[]){1e-3}, maxlevel);
+}
+#endif
+
 event stop (t += 0.1; t <= 0.7) {
+  scalar magu[];
+  foreach()
+    magu[] = norm (u);
+
 #if TREE
   restriction ((scalar *){u});
 #endif
   clear();
   view (tx = -0.5, ty = -0.5);
   draw_vof ("f", lw = 1.5);
+  squares ("magu", spread = -1);
   vectors ("u", scale = 0.001, level = 5);
   save ("movie.mp4");
 }
