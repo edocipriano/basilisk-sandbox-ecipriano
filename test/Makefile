@@ -5,11 +5,8 @@ CFLAGS += -O2 \
 	-DMOVIE=1 \
 	-DUSE_GSL=1 \
 	-DMTRACE=2 \
-	-I$(BASILISKSANDBOX)/../dev \
-	-I$(BREW_INCLUDE_PATHS) \
-	-L$(BREW_LIBRARY_PATHS) \
-	-I$(OPENSMOKE_INTERFACE_NEW)/src \
-	-rpath $(OPENSMOKE_INTERFACE_NEW)/build
+	$(BASILISK_INCLUDES) \
+	$(BASILISK_LIBS)
 
 poisson-gfm.tst: CFLAGS += -DGFM=1
 capwave.tst: CFLAGS += -DGFM=1
