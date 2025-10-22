@@ -29,7 +29,7 @@ static void vofi (scalar c, int maxlevel) {
 #include "two-phase.h"
 #include "tension.h"
 #include "view.h"
-#define DIVERGENCE 1
+#define DIVERGENCE 0
 
 scalar divu[];
 
