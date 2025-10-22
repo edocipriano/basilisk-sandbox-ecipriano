@@ -74,8 +74,9 @@ change models.
 
 ## Governing equations
 
-This model resolves the following set of equations for the bulk liquid and gas
-phases ($k = l, g$):
+This model resolves the mass, momentum, chemical species mass fractions, and
+temperature, according to the following set of equations for the bulk liquid and
+gas phases ($k = l, g$):
 
 $$
 \nabla\cdot\mathbf{u}_k
@@ -110,7 +111,10 @@ $$
 $$
 
 where blue terms account for the low-Mach number variable material properties
-while red terms include chemical reactions and radiation.
+while red terms include chemical reactions and radiation. The variable $\phi_k$
+is a generic phase property (i.e. density, viscosity, diffusivity, ecc.),
+computed as a function of the thermodynamic state, defined by temperature,
+pressure, and mass fractions.
 
 ### Interface jump conditions
 
@@ -123,8 +127,13 @@ $$
 $$
 
 $$
-[p]_\Gamma = \sigma\kappa
-\textcolor{green}{- \dot{m}^2[1/\rho]_\Gamma}
+\textcolor{green}{\dot{m}^2[1/\rho]_\Gamma} + [p]_\Gamma
+- [2\mathbf{n}_\Gamma\cdot\mathbf{D}\cdot\mathbf{n}_\Gamma]_\Gamma
+= \sigma\kappa
+$$
+
+$$
+-[2\mathbf{t}_\Gamma\cdot\mathbf{D}\cdot\mathbf{n}_\Gamma]_\Gamma = 0
 $$
 
 $$
@@ -142,7 +151,9 @@ $$
 \textcolor{red}{+ \dot{q}_{rad}}
 $$
 
-where green terms account for the phase change.
+where green terms account for the phase change. The recoil pressure term
+$\dot{m}^2[1/\rho]_\Gamma$ is often neglected because it is small compared to
+$\sigma\kappa$, especially for small droplets.
 
 The reader can refer to the papers in the [State-Of-The-Art](#State-of-the-Art)
 section for details about the numerical approximation of these equations.
@@ -164,20 +175,20 @@ care in order to avoid non-physical results. In this context, the one-fild
 formulation is not always the best approach. At least, not as it is. In phase
 change simulation it might be necessary to resolve the liquid and the gas phase
 velocities separately. For this reason, the
-[navier-stokes/centered-new.h](../dev/navier-stokes/centered-new.h) extends the
+[navier-stokes/centered-new.h](../src/navier-stokes/centered-new.h) extends the
 centered solver by repeating the same solution of the Navier--Sokes equations
 for `nv` velocities. The code is still incompressible, and the introduction of
 volumetric sources, either continuous or localized at the interface is
-implemented in [navier-stokes/low-mach.h](../dev/navier-stokes/low-mach.h).  If
+implemented in [navier-stokes/low-mach.h](../src/navier-stokes/low-mach.h).  If
 we want to use a GFM-style approach for setting the gas-liquid boundary
 condition we can skip the localized source term and enforce directly the
 velocity jump into the liquid and velocity fields, as implemented in
-[navier-stokes/velocity-jump.h](../dev/navier-stokes/velocity-jump.h). It is important
+[navier-stokes/velocity-jump.h](../src/navier-stokes/velocity-jump.h). It is important
 to specify that, the low-Mach solver itself do not decide how the flow
 divergence should be computed. That is something that depends on the problem,
 and it is usually a function of scalar fields such as temperature, pressure, and
 mass fractions. The peculiarity of
-[navier-stokes/low-mach.h](../dev/navier-stokes/low-mach.h) is that it extends
+[navier-stokes/low-mach.h](../src/navier-stokes/low-mach.h) is that it extends
 the centered solver introducing the possibility of adding volumetric sources,
 called `drhodt` for continuous functions and `intexp` for expansions
 localized at the gas-liquid interface.  Those fields must be computed with
@@ -186,10 +197,10 @@ different approaches depending on the simulation.
 ### Phase Change
 
 The main character of the phase change model is the `Phase` model
-[phase.h](../dev/phase.h).  `Phase` is a structure which contains all the fields
+[phase.h](../src/phase.h).  `Phase` is a structure which contains all the fields
 of a phase, such as temperature, mass fractions, but also the variable
 properties fields, and other important information.  The file
-[phase.h](../dev/phase.h) declares this structures and implements many function
+[phase.h](../src/phase.h) declares this structures and implements many function
 for the solution of advection-diffusion-reaction equations of a single variable
 properties phase. This phase library allows the code duplication to be reduced,
 and it makes the code more easily extendible with new phase features. Example
@@ -251,7 +262,7 @@ The iterators automatically define scalars from the scalar lists within the
 phase, keeping their names short and intuitive, reflecting the mathematical
 notation. This makes the code shorter and more readable.
 
-The [phasechange.h](../dev/phasechange.h)
+The [phasechange.h](../src/phasechange.h)
 model creates two objects of type `Phase`, i.e. a `liq` and a `gas` phase, and
 it calls the phase library functions on the two phases at the right events for
 phase change problems. Given a list of evaporation rates per unit of surface
@@ -260,38 +271,46 @@ the divergence and the material properties, and integrates chemistry. These
 operations are common to all the phase change models (i.e. evaporation, boiling,
 a combination of the two, ecc.).
 
-However, the [phasechange.h](../dev/phasechange.h) itself does not calculates
+However, the [phasechange.h](../src/phasechange.h) itself does not calculates
 the interface jump conditions. This task is performed by the interface models,
 which describe the policy for the calculation of the evaporation rate per
 unit of surface, and it computes the gas-liquid interface boundary
-conditions for the scalar fields to be resolved. Two different interface models
+conditions for the scalar fields to be resolved. Three different interface models
 are implemented:
 
-* [temperature-gradient.h](../dev/temperature-gradient.h): the vaporization rate
+* [fixedflux.h](../src/fixedflux.h): the vaporization rate is provided as a constant
+value. This is interesting for debugging but also to focus only on the effect of the expansion,
+decoupled from the solution of other scalar fields:
+$$
+  \dot{m} = K
+$$
+
+* [temperature-gradient.h](../src/temperature-gradient.h): the vaporization rate
 is computed from the interface energy balance assuming boiling conditions:
 $$
   \dot{m} = \dfrac{\lambda_l \nabla T_l\cdot\mathbf{n}_\Gamma
     - \lambda_g \nabla T_g\cdot\mathbf{n}_\Gamma}{\Delta h_{ev}}
 $$
 
-* [multicomponent.h](../dev/multicomponent.h): the vaporization rate is computed
+* [multicomponent.h](../src/multicomponent.h): the vaporization rate is computed
 from the interface species mass balance assuming diffusion-driven evaporation:
 $$
   \dot{m} = \dfrac{\sum_{i=1}^{NS} \mathbf{j}_{i,g}\cdot\mathbf{n}_\Gamma}{1 - \sum_{i=1}^{NS} \omega_{i,g}}
 $$
 
-These two models cover all the types of phase change models implemented in
-Basilisk so far. The combination of [phasechange.h](../dev/phasechange.h) and
+These three models cover all the types of phase change models implemented in
+Basilisk so far. The combination of [phasechange.h](../src/phasechange.h) and
 one interface calculation policy can be used to carry out a simulation of
 evaporation or boiling. However, the two models may require tuning some of the
-phase change settings in the `pcm` structure. Therefore, in order to simplify
-setting up phase change simulations, we have two additional modules:
-[evaporation.h](../dev/evaporation.h) and [boiling.h](../dev/boiling.h) which
+phase change settings in the `pcm` structure (see [Phase Change
+Options](#phase-change-options)). Therefore, in order to simplify setting up
+phase change simulations, we have two additional modules:
+[evaporation.h](../src/evaporation.h) and [boiling.h](../src/boiling.h) which
 include the necessary headers and set the phase change model parameters at the
 current best configuration. These two files are the user interface.
 
 Do you need to develop a new interface model? Just use
-[phasechange.h](../dev/phasechange.h) with a new policy for the solution of the
+[phasechange.h](../src/phasechange.h) with a new policy for the solution of the
 interface. For example, the automatic transition from evaporation to boiling
 can be an interesting development.
 
@@ -309,27 +328,66 @@ which is already implemented in the specialized libraries.
 
 In this case we use the OpenSMOKE++ library, and the [C
 interface](https://github.com/edocipriano/OpenSMOKEppInterface). This interface is
-included in the file [opensmoke/opensmoke.h](../dev/opensmoke/opensmoke.h) which implements
+included in the file [opensmoke/opensmoke.h](../src/opensmoke/opensmoke.h) which implements
 functions for reading the CHEMKIN files, returning the number and names of the species in the
 kinetic scheme and their molecular weights.
-[opensmoke/properties.h](../dev/opensmoke/properties.h) defines functions for
+[opensmoke/properties.h](../src/opensmoke/properties.h) defines functions for
 the calculation of the material properties, and connects the `ThermoProps`
 function pointers to the correct functions.
-[opensmoke/chemistry.h](../dev/opensmoke/chemistry.h) connect the pointer
+[opensmoke/chemistry.h](../src/opensmoke/chemistry.h) connect the pointer
 `stiff_ode_solver()` to the stiff ODE solver in OpenSMOKE++. Additionally, it
-includes [opensmoke/reactors.h](../dev/opensmoke/reactors.h) which implement the
+includes [opensmoke/reactors.h](../src/opensmoke/reactors.h) which implement the
 system of equations for the chemistry integration.
 
 You can use different libraries as long as you mimic this structure.
+
+### External Libraries
+
+Although most of the codes in this sandbox work a legacy Basilisk installation, some models
+or features rely on external libraries.
+
+#### GNU Scientific Library: root-finding
+
+The evaporation model in non-isothermal conditions requires a root-finding
+routine to update the interfacial temperature. This procedure exploits the [GNU
+Scientific
+Library](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.gnu.org/software/gsl/&ved=2ahUKEwiZwLe2qquQAxXJ2QIHHVrJMiYQFnoECBkQAQ&usg=AOvVaw1dDT-zgyioHdBMIT7chUoD)
+which is already installed on the Basilisk server. Activate the GSL support
+using the compilation flag:
+
+~~~literatec
+CFLAGS += -DUSE_GSL=1 -I/path/to/gsl/include -L/path/to/gsl/lib
+~~~
+
+#### Libconfig: read simulation data from an input file
+
+Reading input parameters is usually performed using compilation macros,
+following Basilisk's tests and examples. This is very convenient when solving a
+pure fluid dynamic problem, which does not require many input data. However, when
+we solve for non-isothermal, multicomponent phases, we have to provide several other
+input parameters. It can be convenient to read these parameters from an input file. To
+this purpose, the simulation [burningdroplet.c](../run/burningdroplet.c) reads data from
+the file [burningdroplet.input](../run/burningdroplet.input) and it exploits [libconfig](https://hyperrealm.github.io/libconfig/)
+for parsing. Activate this mechanism with the compilation flag:
+
+~~~literatec
+CFLAGS += -DUSE_LIBCONFIG=1 -I/path/to/libconfig/include -L/path/to/libconfig/lib
+~~~
+
+#### OpenSMOKE++: variable thermodynamic, chemical kinetics, and stiff ODE solver
+
+As explained in the previous section, the variable material properties and
+chemical reactions rely on the [C Interface for the OpenSMOKE++
+library](https://github.com/edocipriano/OpenSMOKEppInterface).
 
 ## Setting-up phase change simulations
 
 This phase change model tries to mimic Basilisk's structure as much as possible.
 The first thing you have to include for phase change simulations is the
 Navier--Stokes solver, choosing between the one-field formulation with localized
-source terms [navier-stokes/low-mach.h](../dev/navier-stokes/low-mach.h), and
+source terms [navier-stokes/low-mach.h](../src/navier-stokes/low-mach.h), and
 the ghost fluid formulation
-[navier-stokes/velocity-jump.h](../dev/navier-stokes/velocity-jump.h).  Finaly,
+[navier-stokes/velocity-jump.h](../src/navier-stokes/velocity-jump.h).  Finaly,
 decide which phase change model (i.e., evaporation or boiling) including the
 proper header after the definition of the [two-phase.h](/src/two-phase.h)
 solver. The models are compatible with the CLSVOF solver.
@@ -382,7 +440,7 @@ phase_set_thermo_state (gas, &tsg);
 ~~~
 
 Apart from the initial state, if we want to overwrite specific properties we can
-use the function `phase_set_properties()` in [phase.h](../dev/phase.h) functions
+use the function `phase_set_properties()` in [phase.h](../src/phase.h) functions
 within the `init` event. Assuming 1 liquid species and two gas phase species, we
 have:
 
@@ -394,7 +452,7 @@ phase_set_properties (gas, MWs = (double[]){100.2,29.}, Ds = (double[]){1.5e-2,2
 Calling these functions we set the thermodynamic state (i.e. initial
     temperature, pressure, and composition) of the mixtures, and then we set the
 desired array of properties. See examples such as
-[c7pathak.c](../run_dev/c7pathak.c) which utilizes these functions for
+[c7pathak.c](../run/c7pathak.c) which utilizes these functions for
 initialization.
 
 Species and temperature are created by the `Phase` model in the `default` event.
@@ -414,12 +472,95 @@ TG[top] = dirichlet (800.);
 Other parameters related with the phase change model are no longet set through
 compiler macros. Conversely, each parameter of the model is gathered in the
 structure `PhaseChangeModel pcm` and they can be adjusted as needed. See the
-section XX for details on the possible settings of the phase change model.
+section [Phase Change Options](#phase-change-options) for details on the
+possible settings of the phase change model.
+
+By default, the evaporation rate is set to zero. Therefore, if you run the
+simulations with the discussed setup, you will not see any phase change. To
+change this behavior we have to use different methods depending on the phase
+change model used:
+
+#### Default boiling
+
+For boiling, the mass flowrate per unit of surface is a function of the
+interfacial temperature gradients. By default, there is no boiling because gas,
+liquid, and interface, are set to the same constant temperature (300 K).
+Changing the default values will automatically trigger the phase change:
+
+~~~literatec
+int main() {
+  TL0 = 354.55, TG0 = 351.45, TIntVal = TG0;
+}
+~~~
+
+#### Default evaporation
+
+For (multicomponent) evaporation, the thermodynamic equilibrium constant,
+expressed as the ratio between the interface mole fractions in gas and in
+liquid phase $K_{eq} = \hat{x}_{i,g}/\hat{x}_{i,l}$ is set to zero by
+default. Physically, this means that there is no evaporation, and
+consequently the vaporization rate per unit of surface is null. There are
+different ways to change this behavior, with different levels of complexity.
+If the evaporation is assumed isothermal, the thermodynamic equilibrium
+constant is provided as follows.
+
+~~~literatec
+// Pure liquid
+YIntVal = 0.5;
+
+// Liquid mixture with 2 components
+YIntVals[0] = 0.8;
+YIntVals[1] = 0.4;
+~~~
+
+If the evaporation is affected by the local temperature profile, we calculate
+the thermodynamic equilibrium constant using [Atoine's
+equation](https://en.wikipedia.org/wiki/Antoine_equation), which can be provided
+using the function pointer attribute `antoine`, for a specific liquid phase mass
+fraction field:
+
+~~~literatec
+// Declare Antoine's equation for n-decane with parameters from NIST database
+double antoine_dodecane (double T, double P) {
+  double A = 4.10549, B = 1625.928, C = -92.839;
+  return pow (10., A - B/(T + C)) / (P*1.e-5);
+}
+
+event init (i = 0) {
+  // Unpack the n-decane and set the function
+  scalar YC10 = liq->YList[index_C10];
+  YC10.antoine = antoine_dodecane;
+}
+~~~
+
+Note that [Clausius-Clapeyron's
+equation](https://en.wikipedia.org/wiki/Clausius–Clapeyron_relation), which is a
+special case, can be adopted as well. If instead of setting the `antoine()`
+function for each liquid species we want to use a single function for all
+species, for example when we rely on an external thermodynamic library, we can
+overwrite the global function pointer `antoine`. This is what we do when using
+OpenSMOKE++ (see the next section for more info about it).
+
+~~~literatec
+double opensmoke_antoine (double T, double P, int i) {
+  ThermoState ts;
+  ts.T = T, ts.P = P;
+  return opensmoke_liqprop_pvap (&ts, i)/P;
+}
+
+event init (i = 0) {
+  antoine = opensmoke_antoine;
+}
+~~~
+
+What happends if you set all of these methods? The priority will be given to the
+global `antoine()` function, then the attribute of the liquid mass fraction, the
+vector `YIntVals`, and lastly the pure equilibrium constant value `YIntVal`.
 
 ### Variable material properties and chemical reactions
 
 For a variable material properties formulation, before the two-phase model we
-have to include [two-phase-varprop.h](../dev/two-phase-varprop.h) which
+have to include [two-phase-varprop.h](../src/two-phase-varprop.h) which
 overwrites the calculation of the one-field properties (i.e. density and
 viscosity) by utilizing the variable properties fields instead of the
 constant `rho1`, `rho2`, `mu1`, and `mu2`.
@@ -427,7 +568,7 @@ constant `rho1`, `rho2`, `mu1`, and `mu2`.
 Additionally, an header that defines the policy for the calculation of the
 variable properties must be added. This is not strictly required, and it can be
 avoided using the base module
-[variable-properties.h](../dev/variable-properties.h) and successively writing
+[variable-properties.h](../src/variable-properties.h) and successively writing
 the functions for the properties calculation directly in the .c simulation file.
 However, if you use this approach you will quickly realize that it is very
 verbose and non-general: it can be doable only if a single or a couple of
@@ -458,7 +599,7 @@ library for managing thermodynamics, transport and kinetics. One can simply
 write functions that return a specific property and set it to the corresponding
 function pointer. As an example, we want to write the density using the ideal
 gas law. We need to respect the definition of density function in the
-`ThermoProps` structure ([variable-properties.h](../dev/variable-properties.h)).
+`ThermoProps` structure ([variable-properties.h](../src/variable-properties.h)).
 We can see that the mixture properties take a void pointer with the data
 necessary for the variable calculation and they return a `double` with the
 property itself. On the contrary, species properties are void function that take
@@ -482,7 +623,7 @@ connect it to the gas phase `ThermoProps` structure. The function `tp2.rhov()`,
 if not `NULL`, is automatically called by the functions that update the
 material properties.
 
-To avoid this, use an external library and follow the same structure of [opensmoke/properties.h](../dev/opensmoke/properties.h).
+To avoid this, use an external library and follow the same structure of [opensmoke/properties.h](../src/opensmoke/properties.h).
 These libraries usually read a file in [CHEMKIN format](#kee1996chemkin) and store
 information about each chemical species. This implies that, at the beginning of
 variable properties simulations, you have to call the `kinetics()` functions to readf
@@ -498,7 +639,7 @@ int main () {
 ~~~
 
 If you use a different library, implement the interface to Basilisk using the
-same structure in [opensmoke/opensmoke.h](../dev/opensmoke/opensmoke.h). Please
+same structure in [opensmoke/opensmoke.h](../src/opensmoke/opensmoke.h). Please
 consider that there are important differences between the gas phase and the
 liquid phase when it comes to the calculation of kinetics and material
 properties: the gas phase have an underlying theory (kinetic theory of gases),
@@ -508,18 +649,48 @@ liquid properties information depending on the set of properties that we
 decide to use.
 
 In a similar way, chemical reactions are also stored and read from the CHEMKIN
-file, and including [opensmoke/chemistry.h](../dev/opensmoke/chemistry.h) we
+file, and including [opensmoke/chemistry.h](../src/opensmoke/chemistry.h) we
 compile the functions with the implementation of the chemical reactions step,
 and they exploit the stiff ODE solver in OpenSMOKE++ for the accurate
 (and stable) integration of the chemistry with an operator-splitting
 approach.
+
+### Phase Change Options
+
+The [phasechange.h](../src/phasechange.h) model defines options that modifies
+the behavior of every phase change model. The default configurations can be
+modified by the user, changing the variables in the `pcm` structure. The
+following table reports an overview of the available settings.
+
+| **Option**                | **Default**          | **Possible Values**                                                   | **Description**                                                                                                                                       |
+| ------------------------- | -------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `advection`               | `ADVECTION_VELOCITY` | `NO_ADVECTION`, `ADVECTION_VELOCITY`, `SOURCE_TERM`, `PLANE_SHIFTING` | Controls how phase change mass transfer is coupled to the VOF advection: disabled, via advection velocity, source term, or plane-shifting correction. |
+| `shifting`                | `SHIFT_TO_LIQUID`    | `NO_SHIFTING`, `SHIFT_TO_LIQUID`, `SHIFT_TO_GAS`                      | Specifies in which phase the interfacial expansion term is shifted when computing mass transfer.                                                      |
+| `diffusion`               | `EXPLICIT_IMPLICIT`  | `EXPLICIT_ONLY`, `EXPLICIT_IMPLICIT`                                  | Selects the diffusion scheme for tracer transport: fully explicit or explicit–implicit coupling.                                                      |
+| `boiling`                 | `false`              | `true`, `false`                                                       | Enables boiling mode (used with velocity jump conditions).                                                                                            |
+| `byrhogas`                | `false`              | `true`, `false`                                                       | If true, advection due to phase change uses gas density; otherwise liquid density.                                                                    |
+| `expansion`               | `true`               | `true`, `false`                                                       | Activates interfacial expansion term due to density difference between phases.                                                                        |
+| `consistent`              | `false`              | `true`, `false`                                                       | Ensures consistent tracer transport between liquid and gas (recommended for single velocity field).                                                   |
+| `isothermal`              | `false`              | `true`, `false`                                                       | Sets both phases to isothermal mode (constant temperature).                                                                                           |
+| `isomassfrac`             | `false`              | `true`, `false`                                                       | Sets both phases to have uniform species mass fractions.                                                                                              |
+| `isothermal_interface`    | `false`              | `true`, `false`                                                       | Imposes temperature continuity at the interface (constant interfacial temperature).                                                                   |
+| `fick_corrected`          | `false` or `true`¹   | `true`, `false`                                                       | Enables Fick’s law correction for multi-component diffusion (only available if `TWO_PHASE_VARPROP` is defined).                                       |
+| `molar_diffusion`         | `false` or `true`¹   | `true`, `false`                                                       | Enables molar-based diffusion formulation (requires variable properties).                                                                             |
+| `mass_diffusion_enthalpy` | `false` or `true`¹   | `true`, `false`                                                       | Includes enthalpy transport due to species diffusion.                                                                                                 |
+| `divergence`              | `false` or `true`¹   | `true`, `false`                                                       | Updates phase divergence fields for variable-property systems.                                                                                        |
+| `chemistry`               | `false`              | `true`, `false`                                                       | Enables chemical reaction source terms (requires chemistry module).                                                                                   |
+| `normalize`               | `true`               | `true`, `false`                                                       | Normalizes species mass fractions after diffusion to maintain conservation.                                                                           |
+| `emissivity`              | `0.0`                | Any real number (≥ 0)                                                 | Sets the surface emissivity for radiation models (if enabled).                                                                                        |
+
+¹ The options `fick_corrected`, `molar_diffusion`, `mass_diffusion_enthalpy`, and `divergence` default to `true` **only if** `TWO_PHASE_VARPROP` is defined; otherwise, they default to `false`.
+
 
 ## Desired features
 
 This section reports a lists of interesting improvements of the phase change
 models. Feel free to add new ideas below.
 
-1. Consistent advection of species in [regression.h](../dev/regression.h) also
+1. Consistent advection of species in [regression.h](../src/regression.h) also
 for plane shifting and explicit sources.
 1. The velocity field that transports the interface might be independent from
 those in `uflist`.
@@ -528,6 +699,9 @@ those in `uflist`.
 this is not so difficult for pure liquids, but it is really challenging for
 multicomponent systems.
 1. Avoid dependency from GSL library for root-finding
+1. Move the species diffusion contribution to the heat equation from
+[multicomponent.h](../src/multicomponent.h) to
+[phasechange.h](../src/phasechange.h).
 
 ## References
 
