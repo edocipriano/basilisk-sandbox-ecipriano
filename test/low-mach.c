@@ -35,17 +35,11 @@ scalar divu[];
 
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
-uf.n[top] = neumann (0.);
-uf.t[top] = neumann (0.);
 p[top] = dirichlet (0.);
-pf[top] = dirichlet (0.);
 
 u.n[right] = neumann (0.);
 u.t[right] = neumann (0.);
-uf.n[right] = neumann (0.);
-uf.t[right] = neumann (0.);
 p[right] = dirichlet (0.);
-pf[right] = dirichlet (0.);
 
 int maxlevel;
 double R0 = 0.05;
