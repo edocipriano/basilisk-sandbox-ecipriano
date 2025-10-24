@@ -2,28 +2,7 @@
 # VOF advection with non-solenoidal velocity
 
 We test the convergence of the VOF method in combination with a prescribed non
-divergence-free velocity field. We include the option ot use the Vofi library is
-used to initialize the volume fraction field in order to limit errors in the
-initialization of the volume fraction. */
-
-#if USE_VOFI
-#include "vofi.h"
-#pragma autolink -L$HOME/Local/Vofi/build/lib -lvofi
-
-static double xc = 0., yc = 0., Rc = 0.05;
-
-static double sphere (vofi_creal p[dimension]) {
-  return sq(p[0] - xc) + sq(p[1] - yc) - sq(Rc);
-}
-
-static void vofi (scalar c, int maxlevel) {
-  double fh = vofi_Get_fh (sphere, NULL, 1./(1 << maxlevel), dimension, 0);
-  foreach() {
-    vofi_creal p[3] = {x - Delta/2., y - Delta/2., z - Delta/2.};
-    c[] = vofi_Get_cc (sphere, p, Delta, fh, dimension);
-  }
-}
-#endif
+divergence-free velocity field. */
 
 #include "navier-stokes/low-mach.h"
 #include "two-phase.h"
@@ -59,11 +38,7 @@ int main (void) {
 #define circle(x,y,R) (sq(R) - sq(x) - sq(y))
 
 event init (i = 0) {
-#if USE_VOFI
-  vofi (f, maxlevel);
-#else
   fraction (f, circle (x, y, R0));
-#endif
 }
 
 double exact (double t) {
