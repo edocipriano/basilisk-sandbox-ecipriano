@@ -3,21 +3,21 @@
 
 This module provides a documentation of the phase change models in Basilisk, it
 explains the core differences among the different models, and it provides an
-overview of the implementation in [my sandbox](/sandbox/ecipriano). The latter
-contains a <u>unified model</u> for phase change, including variable material
+overview of the implementation in [my sandbox](/sandbox/ecipriano/). The latter
+contains a unified model for phase change, including variable material
 properties and gas phase chemical kinetics.
 
 ## State-of-the-Art
 
 Let's first make an initial distinction. In the present documentation we
-consider only <u>gas-liquid phase change</u> model, which do not neglect the
+consider only gas-liquid phase change model, which do not neglect the
 volume expansion associated with the transformation of the liquid to the gas
 phase.  Although this term is always present, as it derives from mass
 conservation, it can be neglected when the density ratio or the vaporization
 rate are small.  This approximation is convenient because it allows
 complications due to the interface velocity discontinuity to be avoided.
 However, it is usually inaccurate for boiling and droplet evaporation processes.
-Additionally, we consider only the models that were <u>publicly released</u> on
+Additionally, we consider only the models that were publicly released on
 the Basilisk sandbox, paying back the benefit of utilizing free software.
 
 In the last few years, different phase change models were proposed and implented.
@@ -318,15 +318,15 @@ can be an interesting development.
 The thermodynamic properties and combustion chemistry are handled by an external
 library for several reasons:
 
-* <u>Generality</u>: Species and reactions are not hard-coded. Instead, they are
+* Generality: Species and reactions are not hard-coded. Instead, they are
 stored in a standard CHEMKIN-format file, making it easy to change or modify the
 chemical mechanisms.
-* <u>Stability</u>: Combustion chemistry often requires stiff ODE solvers for
+* Stability: Combustion chemistry often requires stiff ODE solvers for
 stable integration, which are already implemented in specialized libraries.
-* <u>Efficiency</u>: Implementing these routines from scratch is unnecessary and
+* Efficiency: Implementing these routines from scratch is unnecessary and
 error-prone.
 
-In this framework, we use the [OpenSMOKE++ library](#cuoci2015opensmoke++), and
+In this framework, we use the [OpenSMOKE++ library](#cuoci2015), and
 the [C interface](https://github.com/edocipriano/OpenSMOKEppInterface).  Key
 components include:
 
@@ -338,7 +338,7 @@ components include:
   function pointers to the appropriate routines.
 * [opensmoke/chemistry.h](../src/opensmoke/chemistry.h):
   Connects the pointer stiff_ode_solver() to the stiff ODE solver in
-  [OpenSMOKE++](#cuoci2015opensmoke++), and implements the system of equations
+  [OpenSMOKE++](#cuoci2015), and implements the system of equations
   for the chemistry integration.
 
 This modular structure allows other libraries to be used as long as they provide
@@ -510,16 +510,16 @@ equation](https://en.wikipedia.org/wiki/Antoine_equation) via a function pointer
 assigned to each liquid species:
 
 ~~~literatec
-// Declare Antoine's equation for n-decane with parameters from NIST database
+// Declare Antoine's equation for dodecane with parameters from NIST database
 double antoine_dodecane (double T, double P) {
   double A = 4.10549, B = 1625.928, C = -92.839;
   return pow (10., A - B/(T + C)) / (P*1.e-5);
 }
 
 event init (i = 0) {
-  // Unpack the n-decane and set the function
-  scalar YC10 = liq->YList[index_C10];
-  YC10.antoine = antoine_dodecane;
+  // Unpack the dodecane and set the function
+  scalar Y = liq->YList[index_dodecane];
+  Y.antoine = antoine_dodecane;
 }
 ~~~
 
@@ -528,7 +528,7 @@ equation](https://en.wikipedia.org/wiki/Clausius–Clapeyron_relation), which is
 special case, can be adopted as well.
 
 You can also set a global `antoine()` function valid for all species, e.g., using
-[OpenSMOKE++](#cuoci2015opensmoke++):
+[OpenSMOKE++](#cuoci2015):
 
 ~~~literatec
 double opensmoke_antoine (double T, double P, int i) {
@@ -555,7 +555,7 @@ This replaces the one-field property calculation with variable property fields.
 A policy header can define how the variable properties are computed, or you can
 use variable-properties.h and implement the functions directly in the .c file.
 For general, multicomponent mixtures, it is more efficient to rely on a
-thermodynamic library such as [OpenSMOKE++](#cuoci2015opensmoke++).
+thermodynamic library such as [OpenSMOKE++](#cuoci2015).
 
 Example setup with variable properties and chemistry:
 
@@ -703,7 +703,7 @@ multicomponent systems.
   publisher={Elsevier}
 }
 
-@article{cuoci2015opensmoke++,
+@article{cuoci2015,
   title={OpenSMOKE++: An object-oriented framework for the numerical modeling of reactive systems with detailed kinetic mechanisms},
   author={Cuoci, Alberto and Frassoldati, Alessio and Faravelli, Tiziano and Ranzi, Eliseo},
   journal={Computer Physics Communications},
