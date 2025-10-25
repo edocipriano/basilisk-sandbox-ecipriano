@@ -599,7 +599,7 @@ void phase_set_composition_from_string (Phase * phase, char * s,
     char species[80];
     double val = 0.;
     if (count%2 != 0) {
-      strncpy (species, token, 80);
+      strcpy (species, token);
       val = 0;
     }
     else {
