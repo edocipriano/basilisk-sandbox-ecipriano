@@ -596,16 +596,14 @@ void phase_set_composition_from_string (Phase * phase, char * s,
   unsigned int count = 0;
   while (token != NULL) {
     count++;
-    char * species = NULL;
+    char species[80];
     double val = 0.;
     if (count%2 != 0) {
-      species = token;
+      strncpy (species, token, 80);
       val = 0;
     }
-    else
+    else {
       val = atof (token);
-
-    if (val) {
       size_t index = phase_species_index (phase, species);
       ts->x[index] = val;
     }
