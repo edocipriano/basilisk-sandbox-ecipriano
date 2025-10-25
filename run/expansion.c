@@ -30,7 +30,7 @@ species and temperature fields and for the interface boundary conditions.
 #endif
 #define P_ERR 1.e-6
 #include "two-phase-varprop.h"
-#include "opensmoke/properties.h"
+#include "basilisk-properties.h"
 #include "two-phase.h"
 #include "tension.h"
 #include "evaporation.h"
@@ -45,6 +45,19 @@ The following data can be overwritten during compilation. */
 #endif
 #ifndef PRESSURE
 # define PRESSURE 10
+#endif
+
+/**
+We define the function/laws for updating material properties. In this case, a
+function for the calculation of liquid phase density. */
+
+#if BASILISK_PROPERTIES
+double liqprop_density_heptane (void * p) {
+  double a = 5.2745973, b = 0.07741, c = 557.342, d = 0.13673;
+  ThermoState * ts = p;
+  double Teff = min (ts->T, 0.999*c);
+  return a / (pow (b, 1. + pow (1. - Teff / c, d)));
+}
 #endif
 
 /**
@@ -77,7 +90,7 @@ int main (void) {
   it is used by OpenSMOKE++ for the calculation of the thermodynamic and
   transport properties. */
 
-#if TWO_PHASE_VARPROP
+#if defined(TWO_PHASE_VARPROP) && !defined(BASILISK_PROPERTIES)
   kinetics ("evaporation/n-heptane-in-nitrogen", &NGS);
   kinetics_liquid ("evaporation/n-heptane-in-nitrogen", &NLS);
   properties_liquid ("LiquidProperties");
@@ -161,6 +174,10 @@ event init (i = 0) {
   phase_set_properties (liq, MWs = (double[]){100.2});
   phase_set_properties (gas, MWs = (double[]){100.2,29.});
 
+#if BASILISK_PROPERTIES
+  tp1.rhov = liqprop_density_heptane;
+#endif
+
   /**
   We compute variables for the analytical steady-state solution. */
 
@@ -174,16 +191,13 @@ event init (i = 0) {
   tsf.P = Pref;
   tsf.x = (double[]){1.};
 
-
   rho0 = tp1.rhov (&ts0);
   rhof = tp1.rhov (&tsf);
-}
 
-/**
-We fix the temperature and composition on the top and right sides of the domain.
-*/
+  /**
+  We add boundary conditions for the scalar fields. In particular, we fix the
+  temperature and composition on the top and right sides of the domain. */
 
-event bcs (i = 0) {
   scalar NC7H16 = gas->YList[0], N2 = gas->YList[1];
   scalar TG = gas->T;
 
@@ -204,7 +218,7 @@ n-heptane, the temperature, and the velocity field. */
 #if TREE
 event adapt (i++) {
   adapt_wavelet_leave_interface ({T,u.x,u.y}, {f},
-      (double[]){1.e-2,1.e-1,1.e-1}, maxlevel, minlevel, 1);
+      (double[]){1e0,1.e-1,1.e-1}, maxlevel, minlevel, 1);
 }
 #endif
 
@@ -307,7 +321,7 @@ event pictures (t = 0.1) {
 We write the animation with the evolution of the n-heptane mass fraction, the
 interface position and the temperature field. */
 
-event movie (t += 0.02; t <= 3) {
+event movie (t += 0.05; t <= 3) {
   if (TG0 == 350 && maxlevel == 7) {
     clear();
     box();

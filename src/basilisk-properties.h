@@ -6,6 +6,7 @@ OpenSMOKE++ library.
 */
 
 #include "variable-properties.h"
+#define BASILISK_PROPERTIES 1
 
 extern int NLS, NGS;
 
@@ -184,7 +185,17 @@ void const_gasprop_species_expansion (const void * p, void * s, double * r) {
 */
 
 double const_liqprop_thermal_expansion (const void * p, void * s) {
-  return 0;
+  ThermoProps * tp = (ThermoProps *)p;
+  ThermoState * ts = (ThermoState *)s;
+
+  double epsT = 1.e-3;
+  double Ttop = ts->T + epsT, Tbot = ts->T - epsT;
+  ThermoState tstop, tsbot;
+  tstop.T = Ttop, tstop.P = ts->P, tstop.x = ts->x;
+  tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
+  double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
+  double rhoval = tp->rhov (ts);
+  return (rhoval > 0.) ? -1./rhoval*(rhotop - rhobot)/(2.*epsT) : 0.;
 }
 
 /**
@@ -196,7 +207,6 @@ void const_liqprop_species_expansion (const void * p, void * s, double * r)
   for (unsigned int i = 0; i < NLS; i++)
     r[i] = 0.;  // fixme: empty
 }
-
 
 /**
 ## Thermodynamic Properties
@@ -243,4 +253,3 @@ event defaults (i = 0) {
   tp2.betaT   = const_gasprop_thermal_expansion;
   tp2.betaY   = const_gasprop_species_expansion;
 }
-

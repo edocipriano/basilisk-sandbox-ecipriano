@@ -28,5 +28,3 @@ microgravity.tst: CFLAGS += -DTEMPERATURE=773 -DPRESSURE=10 \
 normalgravity.tst: CFLAGS += -DTEMPERATURE=773 -DPRESSURE=10 \
 	-DKINFOLDER=evaporation/n-heptane-in-nitrogen -DGRAVITY=-9.81
 
-burningdroplet.tst: CFLAGS += -DBINNING=0 -DGRAVITY=-9.81
-
