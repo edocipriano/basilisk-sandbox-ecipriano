@@ -145,7 +145,7 @@ double cantera_liqprop_heatcapacity (void * p) {
 
 void cantera_liqprop_heatcapacity_species (void * p, double * r) {
   extern double cp1;
-  for (int i = 0; i < thermo_nSpecies (thermo); i++)
+  for (int i = 0; i < thermo_nSpecies (thermo_liq); i++)
     r[i] = cp1;
 }
 
@@ -155,7 +155,7 @@ void cantera_liqprop_heatcapacity_species (void * p, double * r) {
 
 void cantera_liqprop_dhev (void * p, double * r) {
   extern double dhev;
-  for (int i = 0; i < thermo_nSpecies (thermo); i++)
+  for (int i = 0; i < thermo_nSpecies (thermo_liq); i++)
     r[i] = dhev;
 }
 
@@ -164,7 +164,7 @@ void cantera_liqprop_dhev (void * p, double * r) {
 */
 
 void cantera_liqprop_sigma (void * p, double * r) {
-  for (int i = 0; i < thermo_nSpecies (thermo); i++)
+  for (int i = 0; i < thermo_nSpecies (thermo_liq); i++)
       r[i] = 0.03;
 }
 
@@ -174,7 +174,7 @@ void cantera_liqprop_sigma (void * p, double * r) {
 
 void cantera_liqprop_diff (void * p, double * r) {
   extern double Dmix1;
-  for (int i = 0; i < thermo_nSpecies (thermo); i++)
+  for (int i = 0; i < thermo_nSpecies (thermo_liq); i++)
     r[i] = Dmix1;
 }
 
@@ -228,7 +228,7 @@ double cantera_liqprop_thermal_expansion (const void * p, void * s) {
 
 void cantera_liqprop_species_expansion (const void * p, void * s, double * r)
 {
-  for (unsigned int i = 0; i < thermo_nSpecies (thermo); i++)
+  for (unsigned int i = 0; i < thermo_nSpecies (thermo_liq); i++)
     r[i] = 0.;
 }
 

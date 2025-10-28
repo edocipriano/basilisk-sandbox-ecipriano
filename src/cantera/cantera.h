@@ -30,6 +30,8 @@ of the Cantera library.
 
 int soln = -1;
 int thermo = -1, kin = -1, tran = -1;
+int soln_liq = -1;
+int thermo_liq = -1, kin_liq = -1, tran_liq = -1;
 
 #define MAX_KINFOLDER_LEN 1200
 
@@ -51,7 +53,20 @@ void kinetics (char * kinfolder, int * NS = NULL) {
 }
 
 void kinetics_liquid (char * kinfolder, int * NS = NULL) {
-  return;
+  char kinfolder_root[MAX_KINFOLDER_LEN];
+  sprintf (kinfolder_root, "%s/kinetics/%s/kinetics/kinetics.yaml",
+      getenv ("OPENSMOKE_INTERFACE"), kinfolder);
+
+  soln_liq = soln_newSolution (kinfolder_root, "liq", "default");
+  if (soln < 0) {
+    fprintf (stderr, "error: Cantera was unable to read the liquid kinetics.\n");
+    exit(1);
+  }
+  thermo_liq = soln_thermo (soln_liq);
+  kin_liq = soln_kinetics (soln_liq);
+  tran_liq = soln_transport (soln_liq);
+
+  if (NS) *NS = thermo_nSpecies (thermo_liq);
 }
 
 void properties_liquid (char * liqfolder) {
@@ -80,7 +95,15 @@ char ** new_species_names (size_t ns) {
 }
 
 char ** new_species_names_liquid (size_t ns) {
-  return NULL;
+  char ** species = (char **)malloc (ns*sizeof (char *));
+  for (size_t i = 0; i < ns; i++) {
+    species[i] = (char *)malloc (80*sizeof (char));
+    char fullspecies[80];
+    thermo_getSpeciesName (thermo_liq, i, 80, fullspecies);
+    size_t len = strlen (fullspecies);
+    strncpy (species[i], fullspecies, len-3);
+  }
+  return species;
 }
 
 void free_species_names (size_t ns, char ** species) {

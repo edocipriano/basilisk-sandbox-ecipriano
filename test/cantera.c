@@ -26,8 +26,8 @@ kinetics, the variable material properties, and the chemical reactions module.
 /**
 We need to store the number of species and the species names. */
 
-int NS;
-char ** species = NULL;
+int NS, NLS;
+char ** species = NULL, ** species_liq = NULL;
 
 /**
 #fixme: liquid properties should not be necessary. */
@@ -45,12 +45,18 @@ events, and free the heap allocations. */
 
 int main (void) {
   kinetics ("two-step/methanol", &NS);
+  kinetics_liquid ("two-step/methanol", &NLS);
+
   fprintf (stderr, "NS = %d\n", NS);
+  fprintf (stderr, "NLS = %d\n", NLS);
+
   species = new_species_names (NS);
+  species_liq = new_species_names_liquid (NLS);
 
   run();
 
   free_species_names (NS, species);
+  free_species_names (NLS, species_liq);
   kinetics_clean();
   return 0;
 }
@@ -67,7 +73,12 @@ event init (i = 0) {
   for (int i = 0; i < NS; i++)
     fprintf (stderr, "species[%d] = %s\n", i, species[i]);
 
+  for (int i = 0; i < NLS; i++)
+    fprintf (stderr, "species_liquid[%d] = %s\n", i, species_liq[i]);
+
   double x[NS];
+  for (int i = 0; i < NS; i++)
+    x[i] = 0.;
   x[index_species ("CH3OH")] = 0.4;
   x[index_species ("O2")] = 0.126;
   x[index_species ("N2")] = 0.474;
