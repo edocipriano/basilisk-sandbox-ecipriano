@@ -1,8 +1,7 @@
 /**
-# OpenSMOKE++ Properties
+# Cantera Properties
 
-We compute the material properties of a mixture using the
-OpenSMOKE++ library.
+We compute the material properties of a mixture using the Cantera library.
 */
 
 #include "cantera/cantera.h"
