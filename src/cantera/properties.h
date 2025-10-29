@@ -26,7 +26,9 @@ double cantera_gasprop_density (void * p) {
   thermo_setPressure (thermo, ts->P);
   size_t ns = thermo_nSpecies (thermo);
   thermo_setMoleFractions (thermo, ns, ts->x, 1);
-  return thermo_density (thermo);
+  //return thermo_density (thermo);
+  double MWmix = thermo_meanMolecularWeight (thermo);
+  return ts->P*MWmix / (R_GAS*1e3*ts->T);
 }
 
 /**
@@ -97,12 +99,14 @@ void cantera_gasprop_diff (void * p, double * r) {
   size_t ns = thermo_nSpecies (thermo);
   thermo_setTemperature (thermo, ts->T);
   thermo_setPressure (thermo, ts->P);
-  thermo_setMoleFractions (thermo, ns, ts->x, 1);
-
-  //trans_getMultiDiffCoeffs (tran, ns, r);
+  double xm[ns];
+  for (int i = 0; i < ns; i++)
+    xm[i] = max (ts->x[i], 1e-10);
+  thermo_setMoleFractions (thermo, ns, xm, 1);
   trans_getMixDiffCoeffs (tran, ns, r);
 }
 
+#if 0
 /**
 ### *cantera_liqprop_density_addvol()*: liquid phase mixture density with the additive volume method
 */
@@ -177,6 +181,7 @@ void cantera_liqprop_diff (void * p, double * r) {
   for (int i = 0; i < thermo_nSpecies (thermo_liq); i++)
     r[i] = Dmix1;
 }
+#endif
 
 /**
 ### *cantera_antoine()*: implementation of the antoine function using opensmoke
@@ -200,8 +205,18 @@ double cantera_gasprop_thermal_expansion (const void * p, void * s) {
 */
 
 void cantera_gasprop_species_expansion (const void * p, void * s, double * r) {
-  for (int i = 0; i < thermo_nSpecies (thermo); i++)
-    r[i] = 0.;
+  ThermoState * ts = (ThermoState *)s;
+  thermo_setTemperature (thermo, ts->T);
+  thermo_setPressure (thermo, ts->P);
+  size_t ns = thermo_nSpecies (thermo);
+  thermo_setMoleFractions (thermo, ns, ts->x, 1);
+  double MWmix = thermo_meanMolecularWeight (thermo);
+
+  double MW[ns];
+  thermo_getMolecularWeights (thermo, ns, MW);
+
+  for (int i = 0; i < ns; i++)
+    r[i] = MWmix / MW[i];
 }
 
 /**
@@ -257,6 +272,7 @@ event defaults (i = 0) {
   correct opensmoke functions that compute material
   properties. */
 
+#if 1
   tp2.rhov    = cantera_gasprop_density;
   tp2.muv     = cantera_gasprop_viscosity;
   tp2.lambdav = cantera_gasprop_thermalconductivity;
@@ -266,6 +282,25 @@ event defaults (i = 0) {
   tp2.betaT   = cantera_gasprop_thermal_expansion;
   tp2.betaY   = cantera_gasprop_species_expansion;
 
+  //tp2.rhov    = cantera_gasprop_density;
+  //tp2.muv     = cantera_gasprop_viscosity;
+  //tp2.lambdav = cantera_gasprop_thermalconductivity;
+  //tp2.cpv     = cantera_gasprop_heatcapacity;
+  //tp2.diff    = cantera_gasprop_diff;
+  //tp2.cps     = cantera_gasprop_heatcapacity_species;
+  //tp2.betaT   = cantera_gasprop_thermal_expansion;
+  //tp2.betaY   = cantera_gasprop_species_expansion;
+#else
+  tp2.rhov    = NULL;
+  tp2.muv     = NULL;
+  tp2.lambdav = NULL;
+  tp2.cpv     = NULL;
+  tp2.diff    = NULL;
+  tp2.cps     = NULL;
+  tp2.betaT   = NULL;
+  tp2.betaY   = NULL;
+#endif
+
 #if 0
   tp1.rhov    = cantera_liqprop_density_addvol;
   tp1.muv     = cantera_liqprop_viscosity;
@@ -274,7 +309,7 @@ event defaults (i = 0) {
   tp1.dhev    = cantera_liqprop_dhev;
   tp1.diff    = cantera_liqprop_diff;
   tp1.cps     = cantera_liqprop_heatcapacity_species;
-  tp1.sigmas  = cantera_liqprop_sigma;
+  tp1.sigmas  = NULL;
   tp1.betaT   = cantera_liqprop_thermal_expansion;
   tp1.betaY   = cantera_liqprop_species_expansion;
 #else
