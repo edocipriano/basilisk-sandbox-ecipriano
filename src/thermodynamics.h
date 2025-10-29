@@ -93,3 +93,16 @@ double antoine_hexadecane (double T, double P) {
   return pow (10., A - B/(T + C)) / (P*1.e-5);
 }
 
+/**
+### *antoine_methanol(T,P)*: Antoine equation for methanol.
+*/
+
+double antoine_methanol (double T, double P) {
+  double A, B, C;
+  if (T > 354)
+    A = 5.15853, B = 1569.613, C = -34.846;
+  else
+    A = 5.20409, B = 1581.341, C = -33.50;
+  return pow (10., A - B/(T + C)) / (P*1.e-5);
+}
+
