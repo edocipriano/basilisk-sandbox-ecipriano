@@ -16,6 +16,7 @@ of the Cantera library.
 #define CANTERA_H
 #define CANTERA 1
 
+#include <sys/stat.h>
 #include "cantera/clib/ct.h"
 #include "cantera/clib/ctreactor.h"
 #include "cantera/clib/ctfunc.h"
@@ -36,11 +37,16 @@ int thermo_liq = -1, kin_liq = -1, tran_liq = -1;
 #define MAX_KINFOLDER_LEN 1200
 
 void kinetics (char * kinfolder, int * NS = NULL) {
-  char kinfolder_root[MAX_KINFOLDER_LEN];
-  sprintf (kinfolder_root, "%s/kinetics/%s/kinetics/kinetics.yaml",
-      getenv ("OPENSMOKE_INTERFACE"), kinfolder);
+  struct stat sb;
+  if (stat (kinfolder, &sb) == 0)
+    soln = soln_newSolution (kinfolder, "gas", "default");
+  else {
+    char kinfolder_root[MAX_KINFOLDER_LEN];
+    sprintf (kinfolder_root, "%s/kinetics/%s/kinetics/kinetics.yaml",
+        getenv ("OPENSMOKE_INTERFACE"), kinfolder);
+    soln = soln_newSolution (kinfolder_root, "gas", "default");
+  }
 
-  soln = soln_newSolution (kinfolder_root, "gas", "default");
   if (soln < 0) {
     fprintf (stderr, "error: Cantera was unable to read the kinetics.\n");
     exit(1);
@@ -53,11 +59,17 @@ void kinetics (char * kinfolder, int * NS = NULL) {
 }
 
 void kinetics_liquid (char * kinfolder, int * NS = NULL) {
-  char kinfolder_root[MAX_KINFOLDER_LEN];
-  sprintf (kinfolder_root, "%s/kinetics/%s/kinetics/kinetics.yaml",
-      getenv ("OPENSMOKE_INTERFACE"), kinfolder);
+  struct stat sb;
+  if (stat (kinfolder, &sb) == 0) {
+    soln_liq = soln_newSolution (kinfolder, "liq", "default");
+  }
+  else {
+    char kinfolder_root[MAX_KINFOLDER_LEN];
+    sprintf (kinfolder_root, "%s/kinetics/%s/kinetics/kinetics.yaml",
+        getenv ("OPENSMOKE_INTERFACE"), kinfolder);
 
-  soln_liq = soln_newSolution (kinfolder_root, "liq", "default");
+    soln_liq = soln_newSolution (kinfolder_root, "liq", "default");
+  }
   if (soln < 0) {
     fprintf (stderr, "error: Cantera was unable to read the liquid kinetics.\n");
     exit(1);
