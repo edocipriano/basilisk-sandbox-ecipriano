@@ -44,8 +44,8 @@ We read the kinetics, store the number of species and their names, run all the
 events, and free the heap allocations. */
 
 int main (void) {
-  kinetics ("two-step/methanol", &NS);
-  kinetics_liquid ("two-step/methanol", &NLS);
+  kinetics ("cantera.yaml", &NS);
+  kinetics_liquid ("cantera.yaml", &NLS);
 
   fprintf (stderr, "NS = %d\n", NS);
   fprintf (stderr, "NLS = %d\n", NLS);
