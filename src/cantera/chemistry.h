@@ -1,6 +1,10 @@
 #include "cantera/cantera.h"
 #include "common-chemistry.h"
 
+typedef void(*odefunction)(const double * y, const double t, double * dy, void * args);
+void batch_isothermal_constantpressure (const double * y, const double dt, double * dy, void * args) {}
+void batch_nonisothermal_constantpressure (const double * y, const double dt, double * dy, void * args) {}
+
 void cantera_ode_solver (ode_function batch,
     unsigned int NEQ, double dt, double * y0, void * args)
 {
@@ -8,8 +12,6 @@ void cantera_ode_solver (ode_function batch,
   bool isothermal = (ns == NEQ) ? true : false;
 
   UserDataODE * data = (UserDataODE *)args;
-  double rho = data->rho;
-  double cp = data->cp;
   double P = data->P;
   double T = isothermal ? data->T : y0[ns];
   double * sources = data->sources;
@@ -26,6 +28,7 @@ void cantera_ode_solver (ode_function batch,
   reactor_setEnergy (reactor, !isothermal);
   int net = reactornet_new();
   reactornet_addreactor (net, reactor);
+  reactornet_setTolerances (net, 1e-5, 1e-7);
 
   reactornet_advance (net, dt);
 
@@ -44,25 +47,23 @@ void cantera_ode_solver (ode_function batch,
   thermo_setPressure (thermo, P);
   thermo_setMassFractions (thermo, ns, ymass, 1);
 
-  double wdot[ns], hm[ns];
-  thermo_getPartialMolarEnthalpies (thermo, ns, hm);
-  kin_getNetProductionRates (kin, ns, wdot);
-
-  rho = thermo_density (thermo);
-  cp = thermo_cp_mass (thermo);
+  double wdot[ns], hm[ns], MW[ns];
+  thermo_getPartialMolarEnthalpies (thermo, ns, hm);  // [J/kmol]
+  kin_getNetProductionRates (kin, ns, wdot);          // [kmol/m3/s]
+  thermo_getMolecularWeights (thermo, ns, MW);
 
   sources[ns] = 0.;
   for (int i = 0; i < ns; i++) {
-    sources[i] = wdot[i]/rho;
+    sources[i] = wdot[i]*MW[i];
     sources[ns] -= wdot[i]*hm[i];
   }
-  sources[ns] /= (rho*cp);
 
   // Re-assign values to the UserDataODE, it may be useful for binning
-  data->rho = rho;
-  data->cp = cp;
+  data->rho = thermo_density (thermo);
+  data->cp = thermo_cp_mass (thermo);
 
-  ct_clearReactors();
+  reactor_del (reactor);
+  reactornet_del (net);
 }
 
 event defaults (i = 0) {
