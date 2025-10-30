@@ -27,7 +27,8 @@ of the Cantera library.
 
 #define CANTERA 1
 
-#pragma autolink -lcantera
+#pragma autolink -lcantera -lstdc++ -lfmt -lyaml-cpp -lblas -llapack -lsundials_arkode -lsundials_cvode -lsundials_cvodes -lsundials_ida -lsundials_idas
+
 
 int soln = -1;
 int thermo = -1, kin = -1, tran = -1;
