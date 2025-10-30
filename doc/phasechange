@@ -365,14 +365,11 @@ CFLAGS += -DUSE_GSL=1 -I/path/to/gsl/include -L/path/to/gsl/lib
 
 #### Libconfig: read simulation data from an input file
 
-In standard Basilisk examples, input parameters are typically provided using
-compilation macros, which works well for pure fluid dynamics problems. For
-non-isothermal, multicomponent phase simulations, many additional input
-parameters are required. In this case, it is convenient to read them from an
-input file. For example, the simulation
-[burningdroplet.c](../run/burningdroplet.c) can read its parameters from
-[burningdroplet.input](../run/burningdroplet.input) using
-[libconfig](https://hyperrealm.github.io/libconfig/) for parsing.
+The simulation [burningdroplet.c](../run/burningdroplet.c) can be run either
+providing the input parameters via compilation macros or using an input file,
+such as [burningdroplet.input](../run/burningdroplet.input). The latter method
+employs [libconfig](https://hyperrealm.github.io/libconfig/) for parsing, and
+it is useful only if you want to change the input parameters at run-time.
 
 To enable libconfig support, compile with:
 
