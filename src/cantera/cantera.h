@@ -17,13 +17,13 @@ of the Cantera library.
 #define CANTERA 1
 
 #include <sys/stat.h>
-#include "cantera/clib/ct.h"
-#include "cantera/clib/ctreactor.h"
-#include "cantera/clib/ctfunc.h"
-#include "cantera/clib/ctmultiphase.h"
-#include "cantera/clib/ctonedim.h"
-#include "cantera/clib/ctrpath.h"
-#include "cantera/clib/ctsurf.h"
+#include <cantera/clib/ct.h>
+#include <cantera/clib/ctreactor.h>
+#include <cantera/clib/ctfunc.h>
+#include <cantera/clib/ctmultiphase.h>
+#include <cantera/clib/ctonedim.h>
+#include <cantera/clib/ctrpath.h>
+#include <cantera/clib/ctsurf.h>
 
 #define CANTERA 1
 
