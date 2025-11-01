@@ -204,8 +204,8 @@ event defaults (i = 0) {
   tp1.diff    = NULL;
   tp1.cps     = NULL;
   tp1.sigmas  = NULL;
-  tp1.betaT   = NULL;
-  tp1.betaY   = NULL;
+  tp1.betaT   = cantera_liqprop_thermal_expansion;
+  tp1.betaY   = cantera_liqprop_species_expansion;
 
   tp2.rhov    = cantera_gasprop_density;
   tp2.muv     = cantera_gasprop_viscosity;
