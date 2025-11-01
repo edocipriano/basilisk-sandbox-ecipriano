@@ -21,8 +21,8 @@ event properties (i++)
 {
   foreach_face() {
     double ff = face_value (sf, 0);
-    double rho1f = face_value (rho1v, 0);
-    double rho2f = face_value (rho2v, 0);
+    double rho1f = face_value (rho1v, 0) + 1e-10;
+    double rho2f = face_value (rho2v, 0) + 1e-10;
     alphav.x[] = fm.x[]/aavg (ff, rho1f, rho2f);
 
     double mu1f = face_value (mu1v, 0);
