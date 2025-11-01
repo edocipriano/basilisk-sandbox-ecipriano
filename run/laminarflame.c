@@ -13,8 +13,8 @@ multicomponent gas mixture.
 #include "axi.h"
 #include "navier-stokes/low-mach.h"
 #include "navier-stokes/perfs.h"
-#include "opensmoke/properties.h"
-#include "opensmoke/chemistry.h"
+#include "cantera/properties.h"
+#include "cantera/chemistry.h"
 #include "combustion.h"
 #include "gravity.h"
 #include "spark.h"
@@ -122,6 +122,8 @@ event init (i = 0) {
   x[index_species ("O2")] = O2_IN;
   x[index_species ("N2")] = 1. - O2_IN;
 
+  //pcm.divergence = false;
+
   ThermoState tsg;
   tsg.T = T0, tsg.P = Pref, tsg.x = x;
 
@@ -180,6 +182,21 @@ event adapt (i++) {
   adapt_wavelet ({fuel,gas->T,u.x,u.y},
       (double[]){1e-2,1e0,1e-1,1e-1}, maxlevel, minlevel);
   unrefine (x >= (0.9*L0));
+}
+#endif
+
+/**
+## Tracing
+
+Check the distribution of the computational time among the different events and
+functions. */
+
+#if TRACE > 1
+event profiling (i += 20) {
+  char name[80];
+  sprintf (name, "profiling-%d", maxlevel);
+  static FILE * fp = fopen (name, "w");
+  trace_print (fp, 1);
 }
 #endif
 
