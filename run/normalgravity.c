@@ -22,6 +22,10 @@ from the suspending solid fiber, which may affect experimental data if
 the fiber is large. The simulation is performed by simulating a droplet
 at the edge of a square domain, exploting the axial-symmetry, which is
 acceptable for small Reynolds number.
+
+<div class="message">
+Note that [burningdroplet.c](burningdroplet.c) provides the same functionality,
+but with improved generality and flexibility. It should be preferred.</div>
 */
 
 /**
@@ -33,69 +37,33 @@ of the numerical results to the operative conditions (temperature,
 pressure, ecc...) and to the liquid fuel or the ambient conditions.
 To avoid code duplication, we set a bunch of default compiler variables,
 which are overwritten in the `Makefile` to create different cases with
-different operative conditions.
+different operative conditions. The default properties are collected in the
+file [defaultvars.h](defaultvars.h).
 
-The default properties are:
-
-* initial ambient temperature: `TEMPERATURE = 773 K`
-* initial droplet temperature: `TEMPERATURE_DROPLET = 300 K`
-* constant thermodynamic pressure: `PRESSURE = 10 atm`
-* initial droplet diameter: `DIAMETER = 1 mm`
-* emissivity of the liquid fuel: `RADIATION_INTERFACE = 0.93`
-* name of the liquid fuel: `FUEL = n-heptane`
-* name of the inert/ambient species: `INERT = nitrogen`
-* path of the kinetics folder: `KINFOLDER = evaporation/n-heptane-in-nitrogen`
-* path of the liquid properties folder: `LIQFOLDER = LiquidProperties`
-* gravitational acceleration: `GRAVITY = -9.81 ` $m/s^2$
-* ratio between solid fiber diameter and droplet diameter: `FIBER = 0.1`
-
-these properties describe the evaporation of a n-heptane droplet in
-nitrogen in normal gravity conditions, including the interface radiation.
-These properties can be easily changed by overwriting the compilation
-variables, for example by setting `-DTEMPERATURE=473 -DPRESSURE=1` to
-change the ambient temperature and pressure. The interface radiation is
-suppressed by setting a null value of emissivity: `-DRADIATION_INTERFACE=0`.
-
-Eventually, one may consider the possibility of compiling a code which
-reads the properties directly from an input file (using libconfig for example).
-
-The following example considers a 1 mm droplet, without interface radiation,
-in a 773 K environment. The simulation runs until 0.5 s. During this transient,
-we observe the heating of the liquid phase and the formation of a downward
-wake (P = 10 atm). The simulation is stopped before the complete consumption
-of the droplet in order to reduce the simulation time on the basilisk server
-as much as possible.
+By default, in this test case we consider the properties of a n-heptane liquid,
+evaporating in pure nitrogen environment. We considers a 1 mm droplet, without
+interface radiation, in a 773 K environment. The simulation runs until 0.5 s.
+During this transient, we observe the heating of the liquid phase and the
+formation of a downward wake (P = 10 atm). The simulation is stopped before the
+complete consumption of the droplet in order to reduce the simulation time on
+the basilisk server as much as possible.
 
 ![Temperature field](normalgravity/temperature.mp4)
 */
 
 /**
-We solve both mass fractions and temperature fields, also in the interface
-jump condition. The GSL library is used for root finding operations, whose
-tolerance is controlled by the variable `FSOLVE_ABSTOL`. The thermodynamic
-equlibrium is computed from Antoine's law, and we solve the momentum equation
-in non-conservative form by setting the variable `NO_ADVECTION_DIV` to 1.
-
-Additional compiler variables are used to activate terms in the governing
-equations. In particular: `FICK_CORRECTED` is used to force the diffusive
-fluxes to close to zero, even if the diffusivity of every chemical species
-is different; `MOLAR_DIFFUSION` is used to correct Fick's law considering
-that the diffusivity values are mole fractions-based; `MASS_DIFFUSION_ENTHALPY`
-includes the species diffusion contribution in the temperature eqation. All
-of them should be used.
-*/
-
-/**
 ## Simulation Setup
 
-In this simulation, the Navier-Stokes equations can be solved both using the
-centered solver with divergence source term, or using the centered solver with
-velocity jump. The latter should be preferred since it is able to limit oscillations in the velocity field. The [two-phase.h](/src/two-phase.h)
-solver is extended to variable physical properties by including a policy
-for the calculation of such properties. In this case, we use correlations implemented in OpenSMOKE++ libraries.
-The solution of the jump conditions and of the temperature and mass fraction
-fields is performed by the multicomponent phase change model. We include the
-recoil pressure contribution, and the non-reduced gravity contribution. Using
+We use the centered Navier--Stokes equations solver with volumetric source in
+the projection step. The phase change is directly included using the evaporation
+module, which sets the best (default) configuration for evaporation problems.
+Many features of the phase change (evaporation) model can be modified directly
+in this file without changing the source code, using the phase change model
+object `pcm`. Compiling with `-DJUMP=1` changes the Navier--Stokes solver to the
+velocity-jump formulation, which employs a GFM approach to set the interface
+velocity jump. The density field is filtered in order to reduce convergence
+issues related with strong density ratios. We include variable material properties
+computed using OpenSMOKE++ or Cantera. Using
 [gravity.h](/sandbox/ecipriano/src/gravity.h) simplifies the boundary condition
 for pressure, analogously to the [reduced.h](/src/reduced.h) approach but
 considering variable liquid and gas phase densities.
@@ -110,7 +78,11 @@ considering variable liquid and gas phase densities.
 #define FILTERED 1
 #define P_ERR 0.1
 #include "two-phase-varprop.h"
-#include "opensmoke/properties.h"
+#if USE_OPENSMOKE
+# include "opensmoke/properties.h"
+#elif USE_CANTERA
+# include "cantera/properties.h"
+#endif
 #include "pinning.h"
 #include "two-phase.h"
 #include "tension.h"
@@ -123,10 +95,10 @@ considering variable liquid and gas phase densities.
 /**
 ### Boundary conditions
 
-We initialize the droplet at the lower edge of the domain, and we
-exploit axial symmetry. We set no-slip boundary conditions on the side
-in contact with the droplet (left), and outflow boundary
-conditions on the other sides of the domain. */
+We initialize the droplet at the lower edge of the domain, and we exploit axial
+symmetry. We set no-slip boundary conditions on the side in contact with the
+droplet (left), and outflow boundary conditions on the other sides of the
+domain. */
 
 u.n[top] = neumann (0.);
 u.t[top] = neumann (0.);
@@ -149,10 +121,9 @@ uf.t[bottom] = 0.;
 /**
 ### Simulation Data
 
-We declare the maximum and minimum levels of refinement,
-the initial droplet diameter, and additional data for
-post-processing. We also transport a scalar tracer `tr`
-which can be useful to visualize liquid internal recirculation. */
+We declare the maximum and minimum levels of refinement, the initial droplet
+diameter, and additional data for post-processing. We also transport a scalar
+tracer `tr` which can be useful to visualize liquid internal recirculation. */
 
 int maxlevel, minlevel = 2;
 double D0 = DIAMETER, effective_radius0, mLiq0;
@@ -162,15 +133,26 @@ bool restored = false;
 
 scalar tr[];
 
+/**
+### Variable properties functions
+
+We declare variable properties functions for the liquid phase. This is not
+necessary using OpenSMOKE++, but it is required by the Cantera interface, since
+liquid phase laws are not implemented yet. */
+
+double liqprop_density_heptane (void * p) {
+  double a = 5.2745973, b = 0.07741, c = 557.342, d = 0.13673;
+  ThermoState * ts = p;
+  double Teff = min (ts->T, 0.999*c);
+  return a / (pow (b, 1. + pow (1. - Teff / c, d)));
+}
+
 int main (void) {
 
   /**
-  We set the kinetics folder, which defines the species
-  of the simulation, and it is used by OpenSMOKE++ for the
-  calculation of the thermodynamic and transport properties.
-  The path is relative to `OpenSMOKEppInterface/kinetics`.
-  We do the same for the folder gathering the properties of
-  the liquid species. */
+  We set the kinetics folder, which defines the species of the simulation and 
+  their properties. It is used by the kinetics library for the calculation
+  of thermodynamic and transport properties. */
 
 #if TWO_PHASE_VARPROP
   kinetics (TOSTRING(KINFOLDER), &NGS);
@@ -184,19 +166,30 @@ int main (void) {
   We set additional simulation properties. Be careful, these are "dummy"
   properties which are overwritten by the variable-properties formulation
   already at the first iteration. To start the simulation without any
-  problem of division by zero, the viscosity value should be non-null. */
+  problem of division by zero, the viscosity value should be non-null. If
+  a function in [ThermoProps](../src/variable-properties.h) is NULL, the
+  value initialized here is used. */
 
   rho1 = 681.042; rho2 = 9.75415;
   mu1 = 0.00037446; mu2 = 2.02391e-05;
+  Dmix1 = 0., Dmix2 = 1e-4;
   lambda1 = 0.124069, lambda2 = 0.0295641;
   cp1 = 2244.92, cp2 = 1041.52;
   dhev = 364482;
 
   /**
-  We set the thermodynamic pressure in SI units (Pa). */
+  We set the thermodynamic pressure in SI units (Pa), and the initial
+  temperatures of the system. */
 
   Pref = PRESSURE*101325.;
   TG0 = TEMPERATURE, TL0 = TEMPERATURE_DROPLET;
+
+  /**
+  We solve two different sets of Navier--Stokes equations according with the
+  double pressure velocity coupling approach, or with the velocity jump
+  formulations.  In either case we need two different velocity fields. Here
+  we can overwrite some phase change model `pcm` property. The emissivity
+  controls the interface radiation. */
 
   nv = 2;
   pcm.emissivity = EMISSIVITY;
@@ -285,16 +278,13 @@ event init (i = 0) {
   phase_set_properties (liq, MWs = (double[]){100.2});
   phase_set_properties (gas, MWs = (double[]){100.2,29.});
 
+#if OPENSMOKE
+  antoine = &opensmoke_antoine;
+#else
+  tp1.rhov = liqprop_density_heptane;
+
   scalar lfuel = liq->YList[0];
   lfuel.antoine = antoine_heptane;
-
-#if TWO_PHASE_VARPROP
-  foreach_species_in (gas)
-    gas->MWs[i] = OpenSMOKE_MW (i);
-  foreach_species_in (liq)
-    liq->MWs[i] = OpenSMOKE_MW (LSI[i]);
-
-  antoine = &opensmoke_antoine;
 #endif
 
   /**
@@ -344,6 +334,16 @@ event adapt (i++) {
 ## Post-Processing
 
 The following lines of code are for post-processing purposes. */
+
+/**
+### Logger
+
+We output the dimensionless droplet radius. */
+
+event logger (t += 0.02) {
+  double R = pow (3./4./pi*(2.*pi*statsf(f).sum - volumecorr), 1./3.);
+  fprintf (stderr, "%d %g %.5g\n", i, t, R / (0.5*D0));
+}
 
 /**
 ### Grashof Number
