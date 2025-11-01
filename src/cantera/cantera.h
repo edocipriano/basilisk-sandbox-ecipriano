@@ -109,12 +109,13 @@ char ** new_species_names (size_t ns) {
 
 char ** new_species_names_liquid (size_t ns) {
   char ** species = (char **)malloc (ns*sizeof (char *));
+  char fullspecies[80];
   for (size_t i = 0; i < ns; i++) {
     species[i] = (char *)malloc (80*sizeof (char));
-    char fullspecies[80];
     thermo_getSpeciesName (thermo_liq, i, 80, fullspecies);
     size_t len = strlen (fullspecies);
-    strncpy (species[i], fullspecies, len-3);
+    memcpy (species[i], fullspecies, len-3);
+    species[i][len-3] = '\0';
   }
   return species;
 }
