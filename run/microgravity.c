@@ -362,7 +362,7 @@ We run the simulation for long time, which is not reached because
 the stopping condition on the droplet diameter is reached first. */
 
 #if BASILISK_SERVER
-event end (t = 0.5);
+event end (t = 1.6e-4);
 #else
 event end (t = 50.);
 #endif
