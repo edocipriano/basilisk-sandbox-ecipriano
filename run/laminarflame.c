@@ -13,8 +13,13 @@ multicomponent gas mixture.
 #include "axi.h"
 #include "navier-stokes/low-mach.h"
 #include "navier-stokes/perfs.h"
-#include "cantera/properties.h"
-#include "cantera/chemistry.h"
+#if USE_OPENSMOKE
+# include "opensmoke/properties.h"
+# include "opensmoke/chemistry.h"
+#elif USE_CANTERA
+# include "cantera/properties.h"
+# include "cantera/chemistry.h"
+#endif
 #include "combustion.h"
 #include "gravity.h"
 #include "spark.h"
@@ -27,7 +32,7 @@ We gather data for problem, including the kinetics folder with the detailed
 hydrogen mechanism, the geometry of the problem, the inlet velocity, and the
 inlet and initial species compositon (mass fractions). */
 
-#define KINFOLDER "skeletal/hydrogen/CRECK_2003_H2"
+#define KINFOLDER "laminarflame.yaml"
 #define FUEL_NOZZLE 9e-3
 #define AIR_NOZZLE 95e-3
 #define LENGTH 150e-3
@@ -335,6 +340,10 @@ event end (t = 0.3);
 
 /**
 ## Results
+
+We plot maps, radial, and axial profiles for species and temperatures. The comparison with experimental data shows displacements which can be due to:
+(i) low level of refinement; (ii) no radiation if using Cantera; (iii) 
+neglected Soret effect.
 
 ~~~gnuplot Temperature map
 LEVEL = 7
