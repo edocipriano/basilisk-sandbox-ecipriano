@@ -5,7 +5,19 @@ This simulation file helps setting up numerical simulations of droplet
 combustion in axial symmetry, in any gravity conditions, and considering
 different kinetic schemes and chemical species.
 
-![Maps of temperature and mass fraction fields during methanol droplet combustion under normal gravity and ambient pressure conditions.](https://ars.els-cdn.com/content/image/1-s2.0-S0017931025009238-gr5_lrg.jpg){width=80%}
+In the following animation, the top-left panel shows the temperature field,
+which rises due to the ignition by a spark. This heat causes the fuel to
+evaporate, as reflected by the increasing fuel mass fraction in the top-right
+panel. When the temperature and the local concentrations of fuel and oxygen
+(bottom-right panel) fall within the flammability limits, combustion begins,
+leading to the formation of a stable envelope flame surrounding the droplet. The
+flame front corresponds to the region of peak temperature in the field. The
+elevated flame temperature further enhances fuel evaporation, which in turn
+sustains the combustion process while consuming the available oxygen in the
+surrounding environment. The flame front keeps expanding with respect to the
+droplet diameter.
+
+![Ignition of a microgravity droplet](burningdroplet/movie.mp4)(width="65%")
 */
 
 #include "axi.h"
@@ -13,15 +25,22 @@ different kinetic schemes and chemical species.
 #define FILTERED 1
 #define P_ERR 0.1
 #include "two-phase-varprop.h"
-#include "opensmoke/properties.h"
-#include "opensmoke/chemistry.h"
+#if USE_OPENSMOKE
+# include "opensmoke/properties.h"
+# include "opensmoke/chemistry.h"
+#elif USE_CANTERA
+# include "cantera/properties.h"
+# include "cantera/chemistry.h"
+#endif
 #include "pinning.h"
 #include "two-phase.h"
 #include "tension.h"
 #include "gravity.h"
 #include "evaporation.h"
 #include "spark.h"
-#include "opensmoke/flame.h"
+#if OPENSMOKE
+# include "opensmoke/flame.h"
+#endif
 #include "defaultvars.h"
 #include "maxruntime.h"
 #include "view.h"
@@ -232,6 +251,11 @@ int main (int argc, char ** argv) {
 #endif
 
   /**
+  On the Basilisk server, we download the kinetics scheme. */
+
+  system ("wget https://raw.githubusercontent.com/edocipriano/basilisk-sandbox-ecipriano/refs/heads/main/run/burningdroplet.yaml");
+
+  /**
   We set the kinetics folders, for the gas and for the liquid kinetics. The
   liquid properties are initialized as well. */
 
@@ -253,7 +277,14 @@ int main (int argc, char ** argv) {
   NON-NULL VISCOSITY, because the [two-phase-generic.h](src/two-phase-generic.h)
   module creates the variable viscosity field only if mu is non-zero. */
 
-  mu1 = mu2 = 1.;
+  mu1 = mu2 = 1;
+
+  rho1 = 789.008, rho2 = 1.30161;
+  mu1 = 0.000523973, mu2 = 1.86309e-05;
+  lambda1 = 0.199406, lambda2 = 0.0264842;
+  cp1 = 2544.9, cp2 = 1011.42;
+  Dmix1 = 0., Dmix2 = 1.e-5;
+  dhev = 1.1714e+06;
 
   /**
   We set the initial thermodynamic state of the two-phase system (SI units). */
@@ -394,8 +425,13 @@ event init (i = 0) {
   phase_set_properties (liq, MWs = MWLs);
   phase_set_properties (gas, MWs = MWGs);
 
-#if TWO_PHASE_VARPROP
+  scalar fuel = liq->YList[0];
+  fuel.antoine = antoine_methanol;
+
+#if OPENSMOKE
   antoine = &opensmoke_antoine;
+#else
+  //tp1.rhov = liqprop_density_heptane;
 #endif
 
   /**
@@ -410,6 +446,11 @@ event init (i = 0) {
   spark.duration = inputdata.spark_time;
   spark.temperature = inputdata.spark_value;
   spark.phase = gas;
+#endif
+
+#if 0
+  print_thermoprop (&tp1, liq->ts0, liq->n, stderr);
+  print_thermoprop (&tp2, gas->ts0, gas->n, stderr);
 #endif
 }
 
@@ -463,10 +504,22 @@ event adapt (i++) {
 }
 #endif
 
-double CFL_MAX = 0.1;
+#if 0
+double CFL_MAX = 0.5;
 event stability (i++) {
   if (CFL > CFL_MAX)
     CFL = CFL_MAX;
+}
+#endif
+
+/**
+### Logger
+
+We output the dimensionless droplet radius. */
+
+event logger (t += 0.001) {
+  double R = pow (3./4./pi*(2.*pi*statsf(f).sum), 1./3.);
+  fprintf (stderr, "%d %g %.5g\n", i, t, R / (0.5*D0));
 }
 
 /**
@@ -519,6 +572,7 @@ event output_data (i += 50) {
 We write periodic sanpshots of the simulation in order to restart the simulation
 if needed, or for post-processing. */
 
+#if DUMP
 event snapshots (t += inputdata.dump_every) {
   if (i > 1) {
     char name[80];
@@ -526,6 +580,7 @@ event snapshots (t += inputdata.dump_every) {
     dump (name);
   }
 }
+#endif
 
 /**
 ## Movie
@@ -533,27 +588,27 @@ event snapshots (t += inputdata.dump_every) {
 We write the animation with the evolution of the fuel mass fraction, the
 temperature field, the interface position and the flame front. */
 
-#if 0
+#if BASILISK_SERVER
 event movie (t += inputdata.movie_every) {
   if (setup == microgravity) {
     clear();
-    view (fov = 2);
+    view (fov = 4);
     draw_vof ("f", lw = 1.5);
     squares ("Y", min = 0., max = 1., linear = true);
-    isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+    //isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
     mirror ({0,1}) {
       draw_vof ("f", lw = 1.5);
       squares ("YGO2", min = 0., max = 0.21, linear = true);
-      isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+      //isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
     }
     mirror ({1,0}) {
       draw_vof ("f", lw = 1.5);
-      squares ("T", min = TL0, max = 2100., linear = true);
-      isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+      squares ("T", spread=-1, linear = true);
+      //isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
       mirror ({0,1}) {
         cells();
         draw_vof ("f", lw = 1.5);
-        isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
+        //isoline ("zmix - zsto", lw = 1.5, lc = {1.,1.,1.});
       }
     }
     save ("movie.mp4");
@@ -587,7 +642,7 @@ event stop (DD02 < MAX_DD02) {
   return 1;
 }
 
-#if BASILISK_SANDBOX
+#if BASILISK_SERVER
 event end (t = 0.02);
 #else
 event end (t = 50);

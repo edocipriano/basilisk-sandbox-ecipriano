@@ -37,3 +37,4 @@ microgravity.tst: CFLAGS += -DJUMP=0 -DTEMPERATURE=565 -DTEMPERATURE_DROPLET=363
 normalgravity.tst: CFLAGS += -DJUMP=0 -DMOVIE_EVERY=0.002 -DTEMPERATURE=773 \
 	-DPRESSURE=10 -DKINFOLDER=normalgravity.yaml -DGRAVITY=-9.81
 
+burningdroplet.tst: CFLAGS += -DKINFOLDER=burningdroplet.yaml -DMOVIE_EVERY=0.0001
