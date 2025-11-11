@@ -513,7 +513,7 @@ event stability (i++) {
 #endif
 
 /**
-### Logger
+## Logger
 
 We output the dimensionless droplet radius. */
 
