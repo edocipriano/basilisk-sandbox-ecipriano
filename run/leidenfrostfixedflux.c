@@ -8,23 +8,24 @@ keeps the liquid droplet away from the solid surface.
 
 ## Choice of the Navier-Stokes Equations Solver
 
-The numerical simulation of this phenomena is not straight-forward,
-the main complication is that the model to obtain the liquid (extended)
-velocity for the transport of the volume fraction must consider the
-influence of the Stefan flow. Initially, the droplet moves toward the
-solid surface. The evaporation process creates a velocity field which
-points radially outward from the droplet and, when the drop is sufficiently
-close to the solid surface, the Stefan flow pushes the droplet away
-from the wall.
+The numerical simulation of this phenomena is not straight-forward, the main
+complication is that the model to obtain the liquid (extended) velocity for the
+transport of the volume fraction must consider the influence of the Stefan flow.
+Initially, the droplet moves toward the solid surface. The evaporation process
+creates a velocity field which points radially outward from the droplet and,
+when the drop is sufficiently close to the solid surface, the Stefan flow pushes
+the droplet away from the wall.
 
-To achieve this coupling between the transport of the liquid phase and the Stefan flow
-we can't use the [navier-stokes/centered-doubled.h](/sandbox/ecipriano/src/navier-stokes/centered-doubled.h),
-because this model decouples the advection velocity from the field velocity
-which includes the Stefan flow. Although this approach is beneficial when
-dealing with static droplets with strong density ratio, it is not adequate
-for Leidenfrost effect simulations. We use the [navier-stokes/velocity-jump.h](/sandbox/ecipriano/src/navier-stokes/velocity-jump.h)
-approach instead, which limits oscillations in the velocity field, and it couples
-the effect of the Stefan flow with the advection of the liquid phase.
+To achieve this coupling between the transport of the liquid phase and the
+Stefan flow we can't use the
+[navier-stokes/low-mach.h](/sandbox/ecipriano/src/navier-stokes/low-mach.h)
+model with 2 velocity fields, because this model decouples the advection
+velocity from the field velocity which includes the Stefan flow. Although this
+approach is beneficial when dealing with static droplets with strong density
+ratio, it is not adequate for Leidenfrost effect simulations. We use the
+[navier-stokes/velocity-jump.h](/sandbox/ecipriano/src/navier-stokes/velocity-jump.h)
+approach instead, which limits oscillations in the velocity field, and it
+couples the effect of the Stefan flow with the advection of the liquid phase.
 
 ## Results
 
