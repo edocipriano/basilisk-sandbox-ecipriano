@@ -1,3 +1,11 @@
+/**
+# Phase Model
+
+We gather information about a multicomponent, non-isothermal, variable material
+properties phase into a structure. This organization facilitates the solution of
+advection-diffusion-reaction equations for each scalar field of the phase,
+improving re-usability, and limiting code duplication. */
+
 #include "variable-properties.h"
 #include "common-evaporation.h"
 #include "fracface.h"
@@ -7,6 +15,12 @@
 #ifndef F_ERR
 # define F_ERR 1e-10
 #endif
+
+/**
+## Phase structure
+
+The following structure contains the attributes of the phase
+*/
 
 typedef struct {
   // Public attributes
@@ -45,6 +59,12 @@ typedef struct {
   scalar DTDt;
   scalar * DYDtList;
 } Phase;
+
+/**
+## Iterators
+
+The following iterators can be used to expose the scalar fields of the phase
+and to loop over the species and relative properties. */
 
 macro foreach_scalar_in (Phase * phase) {
   {
@@ -89,65 +109,72 @@ macro foreach_species_in (Phase * phase) {
   }
 }
 
-// fixme: name has a size of 80 chars: using snprintf can avoid buffer overflow
+/**
+## Constructors
 
-#define new_field_scalar(Y, phase, no_dump)                          \
-  {                                                                 \
-    scalar Y = new scalar;                                          \
-    phase->Y = Y;                                                   \
-    Y.inverse = phase->inverse;                                     \
-    char name[80];                                                  \
-    sprintf (name, "%s%s", #Y, phase->name);                        \
-    free (Y.name);                                                  \
-    Y.name = strdup (name);                                         \
-    Y.nodump = no_dump;                                              \
+We define macros that facilitates the creation of new scalar or vector fields
+*/
+
+#define new_field_scalar(Y, phase, no_dump)                                   \
+  {                                                                           \
+    scalar Y = new scalar;                                                    \
+    phase->Y = Y;                                                             \
+    Y.inverse = phase->inverse;                                               \
+    char name[80];                                                            \
+    sprintf (name, "%s%s", #Y, phase->name);                                  \
+    free (Y.name);                                                            \
+    Y.name = strdup (name);                                                   \
+    Y.nodump = no_dump;                                                       \
   }
 
-#define new_field_type(type, Y, phase, no_dump)                     \
+#define new_field_type(type, Y, phase, no_dump)                               \
   new_field_##type(Y, phase, no_dump);
 
-#define scalar_name(name, Y, phase, i)                              \
-  sprintf (name, "%s%s%s", #Y, phase->name, phase->species[i]);     \
+#define scalar_name(name, Y, phase, i)                                        \
+  sprintf (name, "%s%s%s", #Y, phase->name, phase->species[i]);               \
 
-#define vector_name(name, Y, phase, i, ext)                             \
-  sprintf (name, "%s%s%s%s", #Y, phase->name, phase->species[i], ext.x) \
+#define vector_name(name, Y, phase, i, ext)                                   \
+  sprintf (name, "%s%s%s%s", #Y, phase->name, phase->species[i], ext.x)       \
 
-#define new_field_scalar_name(Y, phase, no_dump)                    \
-  scalar Y = new scalar;                                            \
-  Y.inverse = phase->inverse;                                       \
-  char name[80];                                                    \
-  scalar_name (name, Y, phase, i);                                  \
-  free (Y.name);                                                    \
-  Y.name = strdup (name);                                           \
+#define new_field_scalar_name(Y, phase, no_dump)                              \
+  scalar Y = new scalar;                                                      \
+  Y.inverse = phase->inverse;                                                 \
+  char name[80];                                                              \
+  scalar_name (name, Y, phase, i);                                            \
+  free (Y.name);                                                              \
+  Y.name = strdup (name);                                                     \
   Y.nodump = no_dump;
 
-#define new_list_scalar_name(Y, phase, list, no_dump)               \
-  for (size_t i = 0; i < phase->n; i++) {                           \
-    new_field_scalar_name (Y, phase, no_dump);                      \
-    list = list_add (list, Y);                                      \
+#define new_list_scalar_name(Y, phase, list, no_dump)                         \
+  for (size_t i = 0; i < phase->n; i++) {                                     \
+    new_field_scalar_name (Y, phase, no_dump);                                \
+    list = list_add (list, Y);                                                \
   }
 
-#define new_field_vector_name(Y, phase, no_dump)                    \
-  vector Y = new vector;                                            \
-  char name[80];                                                    \
-  foreach_dimension() {                                             \
-    Y.x.inverse = phase->inverse;                                   \
-    vector_name (name, Y, phase, i, ext);                           \
-    free (Y.x.name);                                                \
-    Y.x.name = strdup (name);                                       \
-    Y.x.nodump = no_dump;                                           \
-  }                                                                 \
+#define new_field_vector_name(Y, phase, no_dump)                              \
+  vector Y = new vector;                                                      \
+  char name[80];                                                              \
+  foreach_dimension() {                                                       \
+    Y.x.inverse = phase->inverse;                                             \
+    vector_name (name, Y, phase, i, ext);                                     \
+    free (Y.x.name);                                                          \
+    Y.x.name = strdup (name);                                                 \
+    Y.x.nodump = no_dump;                                                     \
+  }                                                                           \
 
-#define new_list_vector_name(Y, phase, list, no_dump)               \
-  struct { char * x, * y, * z; } ext = {".x", ".y", ".z"};          \
-  for (size_t i = 0; i < phase->n; i++) {                           \
-    new_field_vector_name(Y, phase, no_dump);                       \
-    list = vectors_add (list, Y);                                   \
+#define new_list_vector_name(Y, phase, list, no_dump)                         \
+  struct { char * x, * y, * z; } ext = {".x", ".y", ".z"};                    \
+  for (size_t i = 0; i < phase->n; i++) {                                     \
+    new_field_vector_name(Y, phase, no_dump);                                 \
+    list = vectors_add (list, Y);                                             \
   }
 
-#define new_list_type_name(type, Y, phase, list, no_dump)           \
-  list = NULL;                                                      \
+#define new_list_type_name(type, Y, phase, list, no_dump)                     \
+  list = NULL;                                                                \
   new_list_##type##_name(Y, phase, list, no_dump)
+
+/**
+### *phase_species_names()*: populate species names with user provided names */
 
 void phase_species_names (Phase * phase, char ** names = NULL) {
   if (names) {
@@ -164,6 +191,9 @@ void phase_species_names (Phase * phase, char ** names = NULL) {
     }
   }
 }
+
+/**
+### *new_phase_empty()*: create an empty phase, i.e. without fields */
 
 Phase * new_phase_empty (char * name = "", bool inverse = false) {
   Phase * phase = (Phase *)malloc (sizeof (Phase));
@@ -210,6 +240,9 @@ Phase * new_phase_empty (char * name = "", bool inverse = false) {
   return phase;
 }
 
+/**
+### *new_phase_minimal()*: create a minimal phase, i.e. without properties */
+
 Phase * new_phase_minimal (char * name = "", size_t ns = 0,
     bool inverse = false, char ** species = NULL)
 {
@@ -248,6 +281,9 @@ Phase * new_phase_minimal (char * name = "", size_t ns = 0,
 
   return phase;
 }
+
+/**
+### *new_phase()*: create a field with all fields of of the structure */
 
 Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
     char ** species = NULL)
@@ -337,6 +373,9 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
   return phase;
 }
 
+/**
+### *delete_phase()*: free phases from memory */
+
 void delete_phase (Phase * phase) {
   foreach_scalar_in (phase)
     delete ({T,P,STimp,STexp,rho,mu,MW,lambda,cp,dhev,divu,betaT,DTDt});
@@ -364,129 +403,14 @@ void delete_phase (Phase * phase) {
   free (phase), phase = NULL;
 }
 
-void phase_set_tracers (Phase * phase) {
-  if (!phase->isomassfrac)
-    phase->tracers = list_concat (phase->tracers, phase->YList);
-  if (!phase->isothermal)
-    phase->tracers = list_add (phase->tracers, phase->T);
-}
+/**
+## Initial Conditions
 
-void phase_set_gradient (Phase * phase,
-    double (* gradient) (double, double, double))
-{
-  for (scalar s in phase->tracers)
-    s.gradient = gradient;
-}
+The following functions can be used to set the initial conditions of the phase
+*/
 
-void phase_reset_sources (Phase * phase) {
-  foreach() {
-    foreach_scalar_in (phase) {
-      STexp[] = 0.;
-      STimp[] = 0.;
-      divu[] = 0.;
-      DTDt[] = 0.;
-      foreach_species_in (phase) {
-        DYDt[] = 0.;
-        SYexp[] = 0.;
-        SYimp[] = 0.;
-      }
-    }
-  }
-}
-
-bool phase_is_uniform (Phase * phase) {
-  bool uniform = true;
-  foreach_scalar_in (phase) {
-    double Tmin = statsf (T).min;
-    double Tmax = statsf (T).max;
-    uniform &= (Tmin == Tmax);
-    foreach_species_in (phase) {
-      double Ymin = statsf (Y).min;
-      double Ymax = statsf (Y).max;
-      uniform &= (Ymin == Ymax);
-    }
-  }
-  return uniform;
-}
-
-void phase_diffusion (Phase * phase, (const) scalar f = unity,
-    bool varcoeff = false)
-{
-  scalar ff[];
-  foreach()
-    ff[] = phase->inverse ? 1. - f[] : f[];
-
-  face vector fs[];
-  face_fraction (ff, fs); // fixme: can't use f in this function
-
-  foreach_scalar_in (phase) {
-    if (!phase->isothermal) {
-      scalar thetaT[];
-      foreach()
-        thetaT[] = varcoeff ? cm[]*max (ff[]*rho[]*cp[], F_ERR)
-                            : cm[]*max (ff[], F_ERR);
-
-      face vector lambdaf[];
-      foreach_face() {
-        lambdaf.x[] = varcoeff ? face_value (lambda, 0)
-          : face_value (lambda, 0) /
-            (face_value (rho, 0)*face_value (cp, 0) + 1e-16);
-        lambdaf.x[] *= fs.x[]*fm.x[];
-      }
-
-      if (!varcoeff)
-        foreach() {
-          STexp[] = (rho[]*cp[] > 0.) ? STexp[]/(rho[]*cp[]) : STexp[];
-          STimp[] = (rho[]*cp[] > 0.) ? STimp[]/(rho[]*cp[]) : STimp[];
-        }
-
-      diffusion (T, dt, D=lambdaf, r=STexp, beta=STimp, theta=thetaT);
-    }
-
-    if (!phase->isomassfrac) {
-      foreach_species_in (phase) {
-        scalar thetaY[];
-        foreach()
-          thetaY[] = varcoeff ? cm[]*max (ff[]*rho[], F_ERR)
-                              : cm[]*max (ff[], F_ERR);
-
-        face vector Df[];
-        foreach_face() {
-          Df.x[] = varcoeff ? face_value (rho, 0)*face_value (D, 0)
-                            : face_value (D, 0);
-          Df.x[] *= fs.x[]*fm.x[];
-        }
-
-        if (!varcoeff)
-          foreach() {
-            SYexp[] = (rho[] > 0.) ? SYexp[]/rho[] : SYexp[];
-            SYimp[] = (rho[] > 0.) ? SYimp[]/rho[] : SYimp[];
-          }
-
-        diffusion (Y, dt, D=Df, r=SYexp, beta=SYimp, theta=thetaY);
-      }
-
-    }
-  }
-
-  phase_reset_sources (phase);  // fixme: maybe I still need those terms
-}
-
-void phase_set_thermo_state (Phase * phase, const ThermoState * ts,
-    bool force = false)
-{
-  copy_thermo_state (phase->ts0, ts, phase->n);
-  if (phase_is_uniform (phase) || force) {
-    foreach() {
-      foreach_scalar_in (phase) {
-        T[] = ts->T;
-        P[] = ts->P;
-        foreach_species_in (phase)
-          if (ts->x) Y[] = ts->x[i];
-      }
-    }
-  }
-}
+/**
+### *phase_set_properties()*: set phase material property fields */
 
 #define provided(x) (x != UNDEFINED)
 
@@ -564,6 +488,27 @@ void phase_set_properties (Phase * phase,
   }
 }
 
+/**
+### *phase_is_uniform()*: check if species and temperature are constant in space */
+
+bool phase_is_uniform (Phase * phase) {
+  bool uniform = true;
+  foreach_scalar_in (phase) {
+    double Tmin = statsf (T).min;
+    double Tmax = statsf (T).max;
+    uniform &= (Tmin == Tmax);
+    foreach_species_in (phase) {
+      double Ymin = statsf (Y).min;
+      double Ymax = statsf (Y).max;
+      uniform &= (Ymin == Ymax);
+    }
+  }
+  return uniform;
+}
+
+/**
+### *phase_species_index()*: index of a species given its name */
+
 size_t phase_species_index (Phase * phase, char * species) {
   if (phase->species) {
     foreach_species_in (phase) {
@@ -581,7 +526,30 @@ size_t phase_species_index (Phase * phase, char * species) {
   }
 }
 
-// Usage: phase_set_composition_from_string (phase, "NC7H16 0.2 N2 0.8");
+/**
+### *phase_set_thermo_state()*: set the initial thermodynamic state */
+
+void phase_set_thermo_state (Phase * phase, const ThermoState * ts,
+    bool force = false)
+{
+  copy_thermo_state (phase->ts0, ts, phase->n);
+  if (phase_is_uniform (phase) || force) {
+    foreach() {
+      foreach_scalar_in (phase) {
+        T[] = ts->T;
+        P[] = ts->P;
+        foreach_species_in (phase)
+          if (ts->x) Y[] = ts->x[i];
+      }
+    }
+  }
+}
+
+/**
+### *phase_set_composition_from_string()*: set species mass fractions
+
+Usage: phase_set_composition_from_string (phase, "NC7H16 0.2 N2 0.8"); */
+
 void phase_set_composition_from_string (Phase * phase, char * s,
     char * sep = " ", bool force = false)
 {
@@ -615,6 +583,123 @@ void phase_set_composition_from_string (Phase * phase, char * s,
   free (input);
 }
 
+
+/**
+## Solvers and Utilities
+
+Functions of the phase, which can be useful in different contexts. */
+
+/**
+### *phase_set_tracers()*: populate the tracers list for advection
+
+The list `phase->tracers` can then be used to perform the advection using the
+methods implemented in [tracer.h](src/tracer.h) or in [vof.h](src/vof.h). */
+
+void phase_set_tracers (Phase * phase) {
+  if (!phase->isomassfrac)
+    phase->tracers = list_concat (phase->tracers, phase->YList);
+  if (!phase->isothermal)
+    phase->tracers = list_add (phase->tracers, phase->T);
+}
+
+/**
+### *phase_set_gradient()*: set a flux limiter to each phase tracer */
+
+void phase_set_gradient (Phase * phase,
+    double (* gradient) (double, double, double))
+{
+  for (scalar s in phase->tracers)
+    s.gradient = gradient;
+}
+
+/**
+### *phase_reset_sources()*: set to zero source term fields */
+
+void phase_reset_sources (Phase * phase) {
+  foreach() {
+    foreach_scalar_in (phase) {
+      STexp[] = 0.;
+      STimp[] = 0.;
+      divu[] = 0.;
+      DTDt[] = 0.;
+      foreach_species_in (phase) {
+        DYDt[] = 0.;
+        SYexp[] = 0.;
+        SYimp[] = 0.;
+      }
+    }
+  }
+}
+
+/**
+### *phase_diffusion()*: resolve diffusion of species and temperature */
+
+void phase_diffusion (Phase * phase, (const) scalar f = unity,
+    bool varcoeff = false)
+{
+  scalar ff[];
+  foreach()
+    ff[] = phase->inverse ? 1. - f[] : f[];
+
+  face vector fs[];
+  face_fraction (ff, fs); // fixme: can't use f in this function
+
+  foreach_scalar_in (phase) {
+    if (!phase->isothermal) {
+      scalar thetaT[];
+      foreach()
+        thetaT[] = varcoeff ? max (cm[]*ff[]*rho[]*cp[], F_ERR)
+                            : max (cm[]*ff[], F_ERR);
+
+      face vector lambdaf[];
+      foreach_face() {
+        lambdaf.x[] = varcoeff ? face_value (lambda, 0)
+          : face_value (lambda, 0) /
+            (face_value (rho, 0)*face_value (cp, 0) + 1e-16);
+        lambdaf.x[] *= fs.x[]*fm.x[];
+      }
+
+      if (!varcoeff)
+        foreach() {
+          STexp[] = (rho[]*cp[] > 0.) ? STexp[]/(rho[]*cp[]) : STexp[];
+          STimp[] = (rho[]*cp[] > 0.) ? STimp[]/(rho[]*cp[]) : STimp[];
+        }
+
+      diffusion (T, dt, D=lambdaf, r=STexp, beta=STimp, theta=thetaT);
+    }
+
+    if (!phase->isomassfrac) {
+      foreach_species_in (phase) {
+        scalar thetaY[];
+        foreach()
+          thetaY[] = varcoeff ? cm[]*max (ff[]*rho[], F_ERR)
+                              : cm[]*max (ff[], F_ERR);
+
+        face vector Df[];
+        foreach_face() {
+          Df.x[] = varcoeff ? face_value (rho, 0)*face_value (D, 0)
+                            : face_value (D, 0);
+          Df.x[] *= fs.x[]*fm.x[];
+        }
+
+        if (!varcoeff)
+          foreach() {
+            SYexp[] = (rho[] > 0.) ? SYexp[]/rho[] : SYexp[];
+            SYimp[] = (rho[] > 0.) ? SYimp[]/rho[] : SYimp[];
+          }
+
+        diffusion (Y, dt, D=Df, r=SYexp, beta=SYimp, theta=thetaY);
+      }
+
+    }
+  }
+
+  phase_reset_sources (phase);  // fixme: maybe I still need those terms
+}
+
+/**
+### *phase_tracers_to_scalars()*: multiply each scalar by a volume fraction */
+
 void phase_tracers_to_scalars (Phase * phase, scalar f, double tol = 1e-10) {
   foreach() {
     double ff = phase->inverse ? 1. - f[] : f[];
@@ -628,6 +713,9 @@ void phase_tracers_to_scalars (Phase * phase, scalar f, double tol = 1e-10) {
   }
 }
 
+/**
+### *phase_scalars_to_tracers()*: divide each scalar by a volume fraction */
+
 void phase_scalars_to_tracers (Phase * phase, scalar f) {
   foreach() {
     double ff = phase->inverse ? 1. - f[] : f[];
@@ -640,6 +728,87 @@ void phase_scalars_to_tracers (Phase * phase, scalar f) {
     }
   }
 }
+
+/**
+### *phase_normalize_fractions()*: normalize mass fractions to 1
+
+When we resolve the diffusion step with variable diffusivity, we need to account
+for explicit corrections which enforce mass conservation. These corrections are
+necessary but they do not work perfectly, i.e. the sum of the mass fractions
+will not be exactly 1. This brutal normalization helps respecting this
+constraint. */
+
+void phase_normalize_fractions (Phase * phase) {
+  double * ymass = (double *)malloc (phase->n*sizeof (double));
+  foreach(serial) {
+    foreach_species_in (phase)
+      ymass[i] = Y[];
+    correctfrac (ymass, phase->n);
+    foreach_species_in (phase)
+      Y[] = ymass[i];
+  }
+  free (ymass);
+}
+
+/**
+### *phase_add_heat_species_diffusion()*: heat contribution from mass diffusion
+
+This term comes from the energy equation for a multicomponent mixture, solved
+for the temperature field. */
+
+void phase_add_heat_species_diffusion (Phase * phase, (const) scalar f = unity,
+    bool molar_diffusion = false, double tol = 1e-10)
+{
+  if (!phase->isothermal) {
+    foreach_scalar_in (phase) {
+      foreach() {
+        double mde = 0.;
+        coord gT = {0.,0.,0.};
+        coord gY = {0.,0.,0.};
+        coord gYsum = {0.,0.,0.};
+
+        foreach_dimension()
+          gT.x = (T[1] - T[-1])/(2.*Delta);
+
+        foreach_dimension() {
+          foreach_species_in (phase) {
+            if (molar_diffusion)
+              gYsum.x -= (MW[] > 0.) ?
+                rho[]*D[]*phase->MWs[i]/MW[]*(X[1] - X[-1])/(2.*Delta) : 0.;
+            else
+              gYsum.x -= rho[]*D[]*(Y[1] - Y[-1])/(2.*Delta);
+          }
+
+          foreach_species_in (phase) {
+            if (molar_diffusion)
+              gY.x = (MW[] > 0.) ?
+                -rho[]*D[]*phase->MWs[i]/MW[]*(X[1] - X[-1])/(2.*Delta) : 0.;
+            else
+              gY.x = -rho[]*D[]*(Y[1] - Y[-1])/(2.*Delta);
+            mde += cps[]*(gY.x - Y[]*gYsum.x)*gT.x;
+          }
+        }
+        double ff = phase->inverse ? 1. - f[] : f[];
+        STexp[] -= mde*cm[]*(ff == 1);  // fixme: use interfacial gradients if
+                                        // you want to apply it to interfacial
+                                        // cells
+      }
+    }
+  }
+}
+
+/**
+## Thermodynamic, transport, and kinetics
+
+The following functions allow including the effect of variable material
+properties and the chemistry integration. */
+
+/**
+### *phase_update_mw_moles()*: compute mole fractions and molecular weights
+
+We resolve for the mass fractions and update the mole fractions at needs, as
+they are used for the variable material properties calculation. The mixture
+molecular weight is also computed during this step. */
 
 void phase_update_mw_moles (Phase * phase, (const) scalar f = unity,
     double tol = 1e-10, bool extend = false)
@@ -682,17 +851,12 @@ void phase_update_mw_moles (Phase * phase, (const) scalar f = unity,
   free (xmole);
 }
 
-void phase_normalize_fractions (Phase * phase) {
-  double * ymass = (double *)malloc (phase->n*sizeof (double));
-  foreach(serial) {
-    foreach_species_in (phase)
-      ymass[i] = Y[];
-    correctfrac (ymass, phase->n);
-    foreach_species_in (phase)
-      Y[] = ymass[i];
-  }
-  free (ymass);
-}
+/**
+### *phase_update_properties()*: update material properties
+
+Compute variable material property fields, according to the thermodynamic state
+(temperature, pressure, and composition, and using the functions of the
+thermodynamic properties structure. */
 
 void phase_update_properties (Phase * phase, const ThermoProps * tp,
     (const) scalar f = unity, double tol = 1e-10)
@@ -717,7 +881,7 @@ void phase_update_properties (Phase * phase, const ThermoProps * tp,
         if (tp->muv) mu[] = tp->muv (&ts);
         if (tp->lambdav) lambda[] = tp->lambdav (&ts);
         if (tp->cpv) cp[] = tp->cpv (&ts);
-        if (tp->betaT) betaT[] = tp->betaT (tp, &ts);
+         if (tp->betaT) betaT[] = tp->betaT (tp, &ts);
 
         if (tp->diff) tp->diff (&ts, arrdiff);
         if (tp->betaY) tp->betaY (tp, &ts, arrbetaY);
@@ -739,6 +903,12 @@ void phase_update_properties (Phase * phase, const ThermoProps * tp,
   free (arrdhev);
   free (arrcps);
 }
+
+/**
+### *phase_extend_properties()*: extend properties across the interface
+
+To avoid SIGFPE problems in dry cells we extend the variable property fields
+around the interface (using a brutal averaging approach). */
 
 #define increment_property(ext_s, s) \
   ext_s += (s.i > 0) ? s[] : 0;
@@ -816,6 +986,9 @@ void phase_extend_properties (Phase * phase,
   free (ext_dhevs);
   free (ext_betaY);
 }
+
+/**
+### *phase_update_divergence()*: compute velocity divergence for this phase */
 
 void phase_update_divergence (Phase * phase,
     (const) scalar f = unity,
@@ -933,6 +1106,13 @@ void phase_update_divergence (Phase * phase,
   }
 }
 
+/**
+### *phase_update_divergence_density()*: compute velocity divergence
+
+Same as the previous function, but trying to discretize the density Lagrangian
+derivative directly. This function has not been tested, and in principle it
+should use the face velocity rather than the centered one. */
+
 #if 0
 void phase_update_divergence_density (Phase * phase, vector u,
     (const) scalar f = unity)
@@ -954,46 +1134,16 @@ void phase_update_divergence_density (Phase * phase, vector u,
 }
 #endif
 
-void phase_add_heat_species_diffusion (Phase * phase, (const) scalar f = unity,
-    bool molar_diffusion = false, double tol = 1e-10)
-{
-  if (!phase->isothermal) {
-    foreach_scalar_in (phase) {
-      foreach() {
-        double mde = 0.;
-        coord gT = {0.,0.,0.};
-        coord gY = {0.,0.,0.};
-        coord gYsum = {0.,0.,0.};
+/**
+### *phase_diffusion_velocity()*: diffusion correction step
 
-        foreach_dimension()
-          gT.x = (T[1] - T[-1])/(2.*Delta);
-
-        foreach_dimension() {
-          foreach_species_in (phase) {
-            if (molar_diffusion)
-              gYsum.x -= (MW[] > 0.) ?
-                rho[]*D[]*phase->MWs[i]/MW[]*(X[1] - X[-1])/(2.*Delta) : 0.;
-            else
-              gYsum.x -= rho[]*D[]*(Y[1] - Y[-1])/(2.*Delta);
-          }
-
-          foreach_species_in (phase) {
-            if (molar_diffusion)
-              gY.x = (MW[] > 0.) ?
-                -rho[]*D[]*phase->MWs[i]/MW[]*(X[1] - X[-1])/(2.*Delta) : 0.;
-            else
-              gY.x = -rho[]*D[]*(Y[1] - Y[-1])/(2.*Delta);
-            mde += cps[]*(gY.x - Y[]*gYsum.x)*gT.x;
-          }
-        }
-        double ff = phase->inverse ? 1. - f[] : f[];
-        STexp[] -= mde*cm[]*(ff == 1);  // fixme: use interfacial gradients if
-                                        // you want to apply it to interfacial
-                                        // cells
-      }
-    }
-  }
-}
+When using variable diffusivity (or different diffusivity values for each
+species), Fick's law does not respect mass conservation. Therefore, we sum up
+the error on the mass conservation, and we introduce it as an additional source
+term of the equation, weighted on the mass fraction of each species
+(`fick_corrected`). Additionally, the `molar_diffusion` correction accounts for
+the fact that the diffusivity values may be computed on a mole-fraction-based
+approach. */
 
 void phase_diffusion_velocity (Phase * phase, (const) scalar f = unity,
     bool fick_corrected = true, bool molar_diffusion = true)
@@ -1051,9 +1201,13 @@ void phase_diffusion_velocity (Phase * phase, (const) scalar f = unity,
         foreach_face()
           flux.x[] = face_value (Y, 0)*phic.x[];
 
+#if !EMBED
         foreach()
           foreach_dimension()
             Y[] += (rho[] > 0.) ? dt/rho[]*(flux.x[] - flux.x[1])/(Delta*cm[]) : 0.;
+#else
+        update_tracer (f, phic, flux, dt);
+#endif
 
 #if 0
         foreach()
@@ -1068,6 +1222,9 @@ void phase_diffusion_velocity (Phase * phase, (const) scalar f = unity,
     }
   }
 }
+
+/**
+### *phase_chemistry_direct()* direct integration of chemical reactions */
 
 #if CHEMISTRY
 void phase_chemistry_direct (Phase * phase, double dt,
@@ -1114,6 +1271,9 @@ void phase_chemistry_direct (Phase * phase, double dt,
   free (y0);
   free (s0);
 }
+
+/**
+### *phase_chemistry_binning()*: chemistry integration with binning */
 
 # if BINNING
 #include "binning.h"
@@ -1202,6 +1362,12 @@ void phase_chemistry_binning (Phase * phase, double dt,
 # endif   // BINNING
 #endif    // CHEMISTRY
 
+/**
+## Phase Mass Balance
+
+The following structure and function simplifies setting up mass balances for the
+phase components. */
+
 typedef struct {
   double * m;       // species mass in the domain
   double * m0;      // initial species mass in the domain
@@ -1213,6 +1379,9 @@ typedef struct {
   double mftot;     // total mass through the domain
   bool first;       // flag the first iteration
 } PhaseMassBalance;
+
+/**
+### *new_phase_mass_balance()*: create a mass balance object */
 
 PhaseMassBalance * new_phase_mass_balance (const Phase * phase) {
   PhaseMassBalance * pmb = malloc (sizeof (PhaseMassBalance));
@@ -1234,6 +1403,9 @@ PhaseMassBalance * new_phase_mass_balance (const Phase * phase) {
   return pmb;
 }
 
+/**
+### *delete_phase_mass_balances()*: free mass balance object */
+
 void delete_phase_mass_balances (PhaseMassBalance * pmb) {
   free (pmb->m), pmb->m = NULL;
   free (pmb->m0), pmb->m = NULL;
@@ -1241,6 +1413,9 @@ void delete_phase_mass_balances (PhaseMassBalance * pmb) {
   free (pmb->mf), pmb->mf = NULL;
   free (pmb), pmb = NULL;
 }
+
+/**
+### *phase_mass_balance()*: compute mass balance for a single time step */
 
 static double face_value_bid (Point point, scalar s, int bid) {
   double val = 0.;
@@ -1384,4 +1559,28 @@ void phase_mass_balance (PhaseMassBalance * pmb, const Phase * phase,
 
   delete_phase_mass_balances (balance);
 }
+
+/**
+## Notes
+
+The C language does not allow inheritance. However, if we need to implement a
+different type of phase with additional attributes, we can define an additional
+structure:
+
+~~~literatec
+typedef struct {
+  Phase phase;
+  scalar new_attribute;
+} CustomPhase;
+~~~
+
+Since the address of the structure is the same as the address of its first
+element, the functions for the original `Phase` can be utilized also for the
+`CustomPhase`, after proper recasting:
+
+~~~literatec
+CustomPhase * cphase = new_phase();
+phase_function ((Phase *)cphase);
+~~~
+*/
 
