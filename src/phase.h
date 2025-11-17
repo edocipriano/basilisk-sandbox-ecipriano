@@ -648,8 +648,8 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
     if (!phase->isothermal) {
       scalar thetaT[];
       foreach()
-        thetaT[] = varcoeff ? max (cm[]*ff[]*rho[]*cp[], F_ERR)
-                            : max (cm[]*ff[], F_ERR);
+        thetaT[] = varcoeff ? cm[]*max (ff[]*rho[]*cp[], F_ERR)
+                            : cm[]*max (ff[], F_ERR);
 
       face vector lambdaf[];
       foreach_face() {
