@@ -27,7 +27,7 @@ In chronological order:
 (diffusion-driven), applied to the growth of vapor bubbles in supersaturated
 liquids. This work introduces the strategy of shifting the interfacial expansion
 term, which avoid problems with non-divergence-free interfacial cells.
-* [Boyd et al., 2023](#boyd2023consistent): pure phase change
+* [Boyd et al., 2023](#boyd2023): pure phase change
 (temperature-driven), applied to boiling droplets in forced convection, with
 strong topological changes. This work introduces the idea of combining the phase
 change model with the momentum-conserving VOF scheme. Additionally, the shifting
@@ -41,7 +41,7 @@ phase change models to (multicomponent) mixtures, and it proposes a double
 pressure-velocity coupling procedure to obtain a liquid velocity which is
 perfectly divergence-free. This method is particularly beneficial for static
 droplets.
-* [Long et al., 2024](#long2024edge): pure phase change (temperature-driven),
+* [Long et al., 2024](#long2024): pure phase change (temperature-driven),
 applied to boiling problems within the Edge-Based Interface Tracking method.
 This is the first implementation of phase change in EBIT, and it highlights the
 benefit of using a Ghost Fluid Method formulation to enforce the velocity jump
@@ -56,7 +56,7 @@ evaporations in buoyancy-driven flows.
 * [Cipriano et al., 2025](#cipriano2025): extension of [Cipriano et al.,
 2024](#cipriano2024) introducing chemical kinetics, applied to droplet
 combustion problems.
-* [Long et al., 2025](#long2025direct): extension and optimization of [Cipriano
+* [Long et al., 2025](#long2025): extension and optimization of [Cipriano
 et al., 2023](#cipriano2023) in boiling conditions, using a Ghost Fluid Method
 to impose the velocity jump.  This approach demonstrates the suppression of
 non-physical oscillations due to the localized expansion term, and it is
@@ -610,7 +610,7 @@ if not `NULL`, is automatically called by the functions that update the
 material properties.
 
 To avoid this, use an external library and follow the same structure of [opensmoke/properties.h](../src/opensmoke/properties.h).
-These libraries usually read a file in [CHEMKIN format](#kee1996chemkin) and store
+These libraries usually read a file in [CHEMKIN format](#kee1996) and store
 information about each chemical species. This implies that, at the beginning of
 variable properties simulations, you have to call the `kinetics()` functions to readf
 the CHEMKIN file and set the number of species:
@@ -684,7 +684,7 @@ multicomponent systems.
 
 @hal{cipriano2025, hal-04962085}
 
-@article{long2025direct,
+@article{long2025,
   title={Direct numerical simulation of nucleate boiling with a resolved
   microlayer and conjugate heat transfer},
   volume={1020},
@@ -697,7 +697,7 @@ multicomponent systems.
   month={October}
 }
 
-@article{gennari2022phase,
+@article{gennari2022,
   title={A phase-change model for diffusion-driven mass transfer problems in incompressible two-phase flows},
   author={Gennari, Gabriele and Jefferson-Loveday, Richard and Pickering, Stephen J},
   journal={Chemical Engineering Science},
@@ -707,7 +707,7 @@ multicomponent systems.
   publisher={Elsevier}
 }
 
-@article{boyd2023consistent,
+@article{boyd2023,
   title={A consistent volume-of-fluid approach for direct numerical simulation of the aerodynamic breakup of a vaporizing drop},
   author={Boyd, Bradley and Ling, Yue},
   journal={Computers \& Fluids},
@@ -717,7 +717,7 @@ multicomponent systems.
   publisher={Elsevier}
 }
 
-@article{long2024edge,
+@article{long2024,
   title={An edge-based interface tracking (EBIT) method for multiphase flows with phase change},
   author={Long, Tian and Pan, Jieyun and Zaleski, St{\'e}phane},
   journal={Journal of Computational Physics},
@@ -737,7 +737,7 @@ multicomponent systems.
   publisher={Elsevier}
 }
 
-@techreport{kee1996chemkin,
+@techreport{kee1996,
   title={CHEMKIN-III: A FORTRAN chemical kinetics package for the analysis of gas-phase chemical and plasma kinetics},
   author={Kee, Robert J and Rupley, Fran M and Meeks, Ellen and Miller, James A},
   year={1996},
