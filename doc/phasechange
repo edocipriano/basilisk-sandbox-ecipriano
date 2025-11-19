@@ -326,9 +326,9 @@ stable integration, which are already implemented in specialized libraries.
 * Efficiency: Implementing these routines from scratch is unnecessary and
 error-prone.
 
-In this framework, we use the [OpenSMOKE++ library](#cuoci2015), and
-the [C interface](https://github.com/edocipriano/OpenSMOKEppInterface).  Key
-components include:
+In this framework, we use the [OpenSMOKE++ library](#cuoci2015), with its [C
+interface](https://github.com/edocipriano/OpenSMOKEppInterface), or the
+[Cantera](https://cantera.org) library. Key components include:
 
 * [opensmoke/opensmoke.h](../src/opensmoke/opensmoke.h):
   Functions to read CHEMKIN files, returning species names, molecular weights,
@@ -343,7 +343,12 @@ components include:
 
 This modular structure allows other libraries to be used as long as they provide
 equivalent functionality for reading species, computing material properties, and
-integrating chemistry.
+integrating chemistry. As an example, see the corresponding
+[cantera/*.h](../src/cantera) headers. Currently, Cantera provides the same
+functionalities of OpenSMOKE++ regarding the gas phase properties calculation
+and the integration of stiff systems. However, it does not include calculation
+of liquid phase mixture properties. As an advantage, it is already installed on
+the Basilisk server.
 
 ### External Dependencies
 
@@ -384,6 +389,22 @@ for the OpenSMOKE++
 library](https://github.com/edocipriano/OpenSMOKEppInterface) as explained in
 the previous section.
 
+To enable OpenSMOKE++ support, compile with:
+
+~~~literatec
+CFLAGS += -DUSE_OPENSMOKE=1 -I/path/to/opensmoke_c/include -L/path/to/opensmoke_c/lib
+~~~
+
+#### Cantera: variable thermodynamic, chemical kinetics, and stiff ODE solver
+
+As an alternative to OpenSMOKE++, Cantera can be used installing the `libcantera-dev`
+following the [official instructions](https://cantera.org/dev/install/ubuntu.html).
+
+To enable Cantera support, compile with:
+
+~~~literatec
+CFLAGS += -DUSE_CANTERA=1 -I/path/to/cantera/include -L/path/to/cantera/lib
+~~~
 
 ## Setting-up phase change simulations
 
@@ -552,7 +573,7 @@ This replaces the one-field property calculation with variable property fields.
 A policy header can define how the variable properties are computed, or you can
 use variable-properties.h and implement the functions directly in the .c file.
 For general, multicomponent mixtures, it is more efficient to rely on a
-thermodynamic library such as [OpenSMOKE++](#cuoci2015).
+thermodynamic libraries such as [OpenSMOKE++](#cuoci2015) or [Cantera](#cantera).
 
 Example setup with variable properties and chemistry:
 
@@ -664,10 +685,16 @@ multicomponent systems.
 @hal{cipriano2025, hal-04962085}
 
 @article{long2025direct,
-  title={Direct numerical simulation of nucleate boiling with a resolved microlayer and conjugate heat transfer},
-  author={Long, Tian and Pan, Jieyun and Cipriano, Edoardo and Bucci, Matteo and Zaleski, St{\'e}phane},
-  journal={arXiv preprint arXiv:2503.12171},
-  year={2025}
+  title={Direct numerical simulation of nucleate boiling with a resolved
+  microlayer and conjugate heat transfer},
+  volume={1020},
+  DOI={10.1017/jfm.2025.10542},
+  journal={Journal of Fluid Mechanics},
+  author={Long, Tian and Pan, Jieyun and Cipriano, Edoardo and Bucci, Matteo
+  and Zaleski, St\'{e}phane},
+  year={2025},
+  pages={A30},
+  month={October}
 }
 
 @article{gennari2022phase,
@@ -715,6 +742,15 @@ multicomponent systems.
   author={Kee, Robert J and Rupley, Fran M and Meeks, Ellen and Miller, James A},
   year={1996},
   institution={Sandia National Lab.(SNL-CA), Livermore, CA (United States)}
+}
+
+@misc{cantera,
+    author={David G. Goodwin and Harry K. Moffat and Ingmar Schoegl and Raymond L. Speth and Bryan W. Weber},
+    title={Cantera: An Object-oriented Software Toolkit for Chemical Kinetics, Thermodynamics, and Transport Processes},
+    year={2025},
+    note={Version 3.2.0},
+    howpublished={\url{https://www.cantera.org}},
+    doi={10.5281/zenodo.17620923},
 }
 ~~~
 */
