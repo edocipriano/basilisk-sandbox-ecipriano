@@ -40,7 +40,7 @@ the continuity equation points toward the liquid phase. Therefore,
 this test case considers the additional transport of temperature from
 the Stefan flow in liquid phase.
 
-![Evolution of the gas layer thickness](suckingproblem/movie.mp4)(width="400" height="400")
+![Evolution of the gas layer thickness](suckingproblem/movie.mp4)(width="100%")
 */
 
 /**

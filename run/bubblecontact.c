@@ -11,7 +11,7 @@ angle, which influences the bubble growth process.
 This is the simplest nucleate boiling configuration, where no microlayer
 modelling and no heat exchange with the solid wall is condered.
 
-![Evolution of the interface, the temperature field, and the grid refinement](bubblecontact/movie.mp4)(height=400 width=900)
+![Evolution of the interface, the temperature field, and the grid refinement](bubblecontact/movie.mp4)(width="100%")
 */
 
 /**

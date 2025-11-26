@@ -37,7 +37,7 @@ additional transport of the temperature field in liquid
 phase. The analytic solution takes into account this
 phenomena.
 
-![Evolution of the interface and temperature field](scrivenproblem/movie.mp4)(width="400" height="400")
+![Evolution of the interface and temperature field](scrivenproblem/movie.mp4)(width="100%")
 */
 
 /**

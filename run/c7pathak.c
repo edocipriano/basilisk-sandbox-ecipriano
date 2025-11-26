@@ -11,7 +11,7 @@ increasing the evaporation rate of the droplet. The interface temperature tends
 to a plateau, given by the interplay between the heat conduction from the
 environment and the evaporation process that cools down the interface.
 
-![Evolution of the temperature field (left) and the n-heptane mass fraction (right)](c7pathak/movie.mp4)(height=400 width=900)
+![Evolution of the temperature field (left) and the n-heptane mass fraction (right)](c7pathak/movie.mp4)(width="100%")
 */
 
 /**
