@@ -73,11 +73,6 @@ scalar qspark[];
 int main (int argc, char ** argv) {
 
   /**
-  On the Basilisk server, we download the kinetics scheme. */
-
-  system ("wget https://raw.githubusercontent.com/edocipriano/basilisk-sandbox-ecipriano/refs/heads/main/run/laminarflame.yaml 2>/dev/null");
-
-  /**
   We set the kinetics folders, with the gas phase kinetics and the names of the
   chemical species in the scheme. Those are mostly used to facilitate pre- and
   post-processing operations. */

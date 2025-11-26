@@ -251,11 +251,6 @@ int main (int argc, char ** argv) {
 #endif
 
   /**
-  On the Basilisk server, we download the kinetics scheme. */
-
-  system ("wget https://raw.githubusercontent.com/edocipriano/basilisk-sandbox-ecipriano/refs/heads/main/run/burningdroplet.yaml 2>/dev/null");
-
-  /**
   We set the kinetics folders, for the gas and for the liquid kinetics. The
   liquid properties are initialized as well. */
 

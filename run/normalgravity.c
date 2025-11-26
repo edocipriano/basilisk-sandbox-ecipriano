@@ -150,11 +150,6 @@ double liqprop_density_heptane (void * p) {
 int main (void) {
 
   /**
-  On the Basilisk server, we download the kinetics scheme. */
-
-  system ("wget https://raw.githubusercontent.com/edocipriano/basilisk-sandbox-ecipriano/refs/heads/main/run/normalgravity.yaml 2>/dev/null");
-
-  /**
   We set the kinetics folder, which defines the species of the simulation and 
   their properties. It is used by the kinetics library for the calculation
   of thermodynamic and transport properties. */
