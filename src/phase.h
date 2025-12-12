@@ -8,7 +8,6 @@ improving re-usability, and limiting code duplication. */
 
 #include "variable-properties.h"
 #include "common-evaporation.h"
-#include "fracface.h"
 #include "diffusion.h"
 
 #define UNDEFINED -1
