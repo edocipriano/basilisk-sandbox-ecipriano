@@ -2,12 +2,12 @@
 # Nucleate Boiling with Conjugate Heat Transfer
 
 Simulation setup for nucleate boiling with conjugate heat transfer. This
-setup is very similar to [bubblcecontact.c](../bubblcecontact.c) but including
-the solution of the energy equation within the solid heater and the energy
-transfer at the fluid--solid interface.
+setup is very similar to [bubblcecontact.c](../run/bubblcecontact.c) but
+including the solution of the energy equation within the solid heater and the
+energy transfer at the fluid--solid interface.
 
 This setup aims to be the same described by [Torres et al., 2024](#torres2024)
-which describes the expansion of a FC-72 bubble expanding over a solid surface
+which consists of the expansion of a FC-72 bubble expanding over a solid surface
 in microgravity conditions. Experiments for this configuration were performed
 in the context of the [RUBI project](https://www.eoportal.org/satellite-missions/iss-rubi)
 which allowed boiling experiments to be carried out on the International Space
