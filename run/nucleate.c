@@ -239,6 +239,7 @@ event movie (t += 0.05; t <= 8) {
 /**
 ## References
 
+~~~bib
 @article{torres2024,
   title={On the coupling between direct numerical simulation of nucleate boiling and a micro-region model at the contact line},
   author={Torres, Loric and Urbano, Annafederica and Colin, Catherine and Tanguy, S{\'e}bastien},
@@ -248,4 +249,5 @@ event movie (t += 0.05; t <= 8) {
   year={2024},
   publisher={Elsevier}
 }
+~~~
 */
