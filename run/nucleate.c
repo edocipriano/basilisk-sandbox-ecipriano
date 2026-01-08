@@ -236,6 +236,24 @@ event movie (t += 0.05; t <= 8) {
 }
 
 /**
+## Results
+
+~~~gnuplot Evolution of the equivalent diameter in time
+set xr[0:3]
+set yr[0:8]
+
+set xlabel "time [s]"
+set ylabel "d_{eq} [mm]"
+
+set grid
+set size square
+set key left top
+
+plot "<grep 'level 7' log" u ($3-5):($5*1e3) w l t "Basilisk", \
+     "../data/torres2024/rubi-exp.csv" w p t "Experiments", \
+     "../data/torres2024/rubi-nmr.csv" w p t "Torres-NMR"
+~~~
+
 ## References
 
 ~~~bib
