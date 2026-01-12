@@ -122,6 +122,7 @@ event init (i = 0) {
   solid (cw, fw, -(x - X0) + 5e-3 + 1e-5);
   foreach()
     f[] = 1.;
+  f.sigma = 0.;
 
   /**
   The boundary conditions for temperature are set here because the phase model
