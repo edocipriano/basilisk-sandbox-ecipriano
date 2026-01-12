@@ -26,7 +26,11 @@ be further investigated.
 */
 
 #include "axi.h"
-#include "navier-stokes/low-mach.h"
+#if JUMP
+# include "navier-stokes/velocity-jump.h"
+#else
+# include "navier-stokes/low-mach.h"
+#endif
 #include "contact.h"
 #include "two-phase.h"
 #include "tension.h"
@@ -102,8 +106,12 @@ int main (void) {
 
   f.height = h;
 
+#if JUMP
+  nv = 2;
+#else
   nv = 1;
   pcm.consistent = true;
+#endif
 
   DT = 0.01;
   size (8e-3);
