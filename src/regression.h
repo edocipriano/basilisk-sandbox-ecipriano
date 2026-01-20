@@ -101,11 +101,13 @@ void vof_advection_phasechange (
     ufsave.x[] = uf.x[];
     uf.x[] = upc.x[];
   }
+  boundary ((scalar *){uf});
 
   vof_advection ({f}, i);
 
   foreach_face()
     uf.x[] = ufsave.x[];
+  boundary ((scalar *){uf});
 }
 
 /**
