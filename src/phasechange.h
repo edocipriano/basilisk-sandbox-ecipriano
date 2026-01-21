@@ -419,7 +419,7 @@ event vof (i++) {
       ufsave.x[] = uf.x[];
       uf.x[] = ufl.x[];
     }
-    boundary ((scalar *){uf});
+    boundary ((scalar *){uf});  // do not remove
     vof_advection ({ful}, i);
   }
 }
@@ -428,7 +428,7 @@ event vof_sources (i++) {
   if (nv == 2)
     foreach_face()
       uf.x[] = ufsave.x[];
-    boundary ((scalar *){uf});
+    boundary ((scalar *){uf});  // do not remove
 
   foreach() {
     f[] = clamp (f[], 0., 1.);
