@@ -32,6 +32,7 @@ be further investigated.
 # include "navier-stokes/low-mach.h"
 #endif
 #include "contact.h"
+#define FILTERED 1
 #include "two-phase.h"
 #include "tension.h"
 #include "boiling.h"
@@ -124,7 +125,6 @@ int main (void) {
   nv = 2;
 #else
   nv = 1;
-  pcm.consistent = true;
 #endif
 
   DT = 0.01;
@@ -195,8 +195,8 @@ the solution of the solid phase on the same grid. */
 
 #if TREE
 event adapt (i++) {
-  adapt_wavelet_leave_interface ({T,u.x,u.y}, {f},
-      (double[]){1e-2,1e-2,1e-2,1e-2}, maxlevel, 5, 1);
+  adapt_wavelet_leave_interface ({T,TS,u.x,u.y}, {f},
+      (double[]){1e-2,1e-1,1e-2,1e-2}, maxlevel, 5, 1);
 }
 #endif
 
