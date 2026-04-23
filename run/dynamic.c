@@ -621,17 +621,10 @@ event end (t = tend) {
   number={15},
   pages={5370--5389},
   year={2009},
-  publisher={Elsevier}
+  publisher={Elsevier},
+  pdf={https://web.njit.edu/~shahriar/download/AZB_JCP09.pdf}
 }
 
-@article{legendre2015,
-  title={Comparison between numerical models for the simulation of moving contact lines},
-  author={Legendre, Dominique and Maglio, Marco},
-  journal={Computers \& Fluids},
-  volume={113},
-  pages={2--13},
-  year={2015},
-  publisher={Elsevier}
-}
+@hal{legendre2015, hal-01340390}
 ~~~
 */
