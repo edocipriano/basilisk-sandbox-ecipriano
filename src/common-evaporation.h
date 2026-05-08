@@ -17,7 +17,7 @@ for evaporation models. */
 # define I_TOL 1.e-8
 #endif
 
-#include "curvature.h"
+//#include "curvature.h"
 #include "adapt_wavelet_leave_interface.h"
 #include "mass_refine_prolongation.h"
 
@@ -215,76 +215,6 @@ void shift_field (scalar fts, scalar f, int dir) {
         foreach_neighbor (1) {
           if (f[] > F_ERR && f[] < 1. - F_ERR && avg[] > 0) {
             val += sf0[]/avg[];
-          }
-        }
-        fts[] += val;
-      }
-    }
-  }
-}
-
-trace
-void shift_field_conservative (scalar fts, scalar f, int dir) {
-
-  // scalar avg[]; // fixme: if avg is local and not global, there is a problem.
-  // My impression is that `no_restriction` is not working - but it should be
-  // investigated more deeply
-  avg.c = f;
-#if TREE
-  avg.refine = avg.prolongation = refinement_avg;
-  avg.restriction = no_restriction;
-  avg.dirty = true;
-#endif
-
-  // Compute avg
-  foreach() {
-    avg[] = 0.;
-    if (f[] > F_ERR && f[] < 1. - F_ERR) {
-      if (dir == 1) {
-        double count = 0.;
-        foreach_neighbor (1) {
-          if (f[] > 1.-F_ERR) // Number of pure-liquid cells close to the interfacial cell
-            count += dv();
-        }
-        avg[] = count;
-      }
-      else {
-        double count = 0.;
-        foreach_neighbor (1) {
-          if (f[] < F_ERR) // Number of pure-gas cells close to the interfacial cell
-            count += dv();
-        }
-        avg[] = count;
-      }
-    }
-  }
-
-  scalar sf0[];
-  foreach() {
-    sf0[] = fts[];
-    if (f[] > F_ERR && f[] < 1. - F_ERR)
-      fts[] = 0.;
-  }
-
-  // Compute m
-  foreach() {
-    if (dir == 1) {
-      if (f[] > 1.-F_ERR) { // Move toward pure-liquid
-        double val = 0.;
-        foreach_neighbor (1) {
-          if (f[] > F_ERR && f[] < 1. - F_ERR && avg[] > 0) {
-            val += sf0[]*dv()/avg[];
-          }
-        }
-        fts[] += val;
-      }
-    }
-    else {
-      if (f[] < F_ERR) { // Move toward pure-gas
-        double val = 0.;
-        foreach_neighbor (1) {
-          if (f[] > F_ERR && f[] < 1. - F_ERR && avg[] > 0) {
-            val += sf0[]*dv()/avg[];
           }
         }
         fts[] += val;
