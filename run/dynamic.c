@@ -60,10 +60,10 @@ table (adapted from [Legendre and Maglio, 2015](#legendre2015)).
 | Stat1 | $\theta_d = \theta_s$     | —                | —                | $0$               |
 | Stat2 | $\theta_d = \theta_s$     | —                | —                | $\Delta/2$        |
 | Stat3 | $\theta_d = \theta_s$     | —                | —                | $\Delta_{32}/2$   |
-| Dyn1  | $\theta_d = \theta_{d2}$  | $10^{-6}$        | $10^{-9}$        | $0$               |
-| Dyn2  | $\theta_d = \theta_{d2}$  | $\Delta/2$       | $10^{-9}$        | $0$               |
-| Dyn3  | $\theta_d = \theta_{d2}$  | $\Delta/2$       | $10^{-9}$        | $\Delta/2$        |
-| Dyn4  | $\theta_d = \theta_{d1}$  | $\Delta/2$       | $K=0.04R$        | $0$               |
+| Dyn1  | $\theta_d = \theta_{d1}$  | $10^{-6}$        | $10^{-9}$        | $0$               |
+| Dyn2  | $\theta_d = \theta_{d1}$  | $\Delta/2$       | $10^{-9}$        | $0$               |
+| Dyn3  | $\theta_d = \theta_{d1}$  | $\Delta/2$       | $10^{-9}$        | $\Delta/2$        |
+| Dyn4  | $\theta_d = \theta_{d2}$  | $\Delta/2$       | $K=0.04R$        | $0$               |
 
 ## Sessile droplet
 
