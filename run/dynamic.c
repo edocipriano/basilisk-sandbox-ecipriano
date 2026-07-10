@@ -77,8 +77,6 @@ set size square
 set xr[0:1]
 set yr[0:1]
 set grid
-set arrow from -0.1,0.4 to -0.1,0.6 lw 1.5
-set label "U_0" at -0.15,0.5
 
 plot "facets-5" u 1:2 w l lw 1.2 lc -1 dt 4 t "LEVEL 5", \
      "facets-6" u 1:2 w l lw 1.2 lc -1 dt 3 t "LEVEL 6", \
@@ -91,7 +89,7 @@ set term pop
 ~~~gnuplot (Stat1) Contact line height
 reset
 set xlabel "tau [-]"
-set ylabel "Contact line height"
+set ylabel "R/R_0 [-]"
 set grid
 set key bottom right
 
@@ -118,7 +116,7 @@ converge, but at a much lower elevation compared to the no-slip case.
 ~~~gnuplot (Stat3) Contact line height
 reset
 set xlabel "tau [-]"
-set ylabel "Contact line height"
+set ylabel "R/R_0 [-]"
 set grid
 set key bottom right
 
@@ -137,7 +135,7 @@ reconstructed.
 ~~~gnuplot (Dyn2) Contact line height
 reset
 set xlabel "tau [-]"
-set ylabel "Contact line height"
+set ylabel "R/R_0 [-]"
 set grid
 set key bottom right
 
@@ -151,7 +149,7 @@ plot "<grep 'setup 5 level 5' log" every 2 u 5:6 w lp lw 1.2 lc -1 dt 4 t "LEVEL
 ~~~gnuplot (Dyn4) Contact line height
 reset
 set xlabel "tau [-]"
-set ylabel "Contact line height"
+set ylabel "R/R_0 [-]"
 set grid
 set key bottom right
 
@@ -307,3 +305,4 @@ event end (t = tend) {
 @hal{legendre2015, hal-01340390}
 ~~~
 */
+
