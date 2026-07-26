@@ -258,7 +258,7 @@ event logger (t += 0.05) {
   double xcl = HUGE;
   foreach_boundary (left, serial)
     if (is_contact_x (point, f, theta0*pi/180.))
-      xcl = min (xcl, interface_position (point, f));
+      xcl = min (xcl, interface_position (point, f, boundary = true));
   double Ca = capillary();
 
   fprintf (stderr, "setup %d level %d %g %g %g %g\n",
