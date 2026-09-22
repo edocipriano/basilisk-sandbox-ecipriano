@@ -161,6 +161,26 @@ void cantera_liqprop_species_expansion (const void * p, void * s, double * r)
 }
 
 /**
+### *cantera_gasprop_isothermal_compressibility()*: gas isothermal compressibility
+
+Consistently with `cantera_gasprop_density()`, the gas phase follows the ideal
+gas law, therefore the isothermal compressibility is the inverse of the
+thermodynamic pressure.
+*/
+
+double cantera_gasprop_isothermal_compressibility (const void * p, void * s) {
+  return gasprop_isothermal_compressibility (p, s);
+}
+
+/**
+### *cantera_liqprop_isothermal_compressibility()*: liq isothermal compressibility
+*/
+
+double cantera_liqprop_isothermal_compressibility (const void * p, void * s) {
+  return liqprop_isothermal_compressibility (p, s);
+}
+
+/**
 ## Thermodynamic Properties
 
 We create the instance of two structures with the
@@ -195,6 +215,7 @@ event defaults (i = 0) {
   tp1.sigmas  = NULL;
   tp1.betaT   = cantera_liqprop_thermal_expansion;
   tp1.betaY   = cantera_liqprop_species_expansion;
+  tp1.chiT    = cantera_liqprop_isothermal_compressibility;
 
   tp2.rhov    = cantera_gasprop_density;
   tp2.muv     = cantera_gasprop_viscosity;
@@ -204,5 +225,6 @@ event defaults (i = 0) {
   tp2.cps     = cantera_gasprop_heatcapacity_species;
   tp2.betaT   = cantera_gasprop_thermal_expansion;
   tp2.betaY   = cantera_gasprop_species_expansion;
+  tp2.chiT    = cantera_gasprop_isothermal_compressibility;
 }
 

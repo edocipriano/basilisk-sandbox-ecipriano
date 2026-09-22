@@ -266,6 +266,27 @@ void opensmoke_liqprop_species_expansion (const void * p, void * s, double * r)
 
 
 /**
+### *opensmoke_gasprop_isothermal_compressibility()*: gas isothermal compressibility
+
+Consistently with `opensmoke_gasprop_density()`, which uses
+`OpenSMOKE_GasProp_Density_IdealGas()`, the gas phase follows the ideal gas
+law, therefore the isothermal compressibility is the inverse of the
+thermodynamic pressure.
+*/
+
+double opensmoke_gasprop_isothermal_compressibility (const void * p, void * s) {
+  return gasprop_isothermal_compressibility (p, s);
+}
+
+/**
+### *opensmoke_liqprop_isothermal_compressibility()*: liq isothermal compressibility
+*/
+
+double opensmoke_liqprop_isothermal_compressibility (const void * p, void * s) {
+  return liqprop_isothermal_compressibility (p, s);
+}
+
+/**
 ## Thermodynamic Properties
 
 We create the instance of two structures with the
@@ -300,6 +321,7 @@ event defaults (i = 0) {
   tp1.sigmas  = opensmoke_liqprop_sigma;
   tp1.betaT   = opensmoke_liqprop_thermal_expansion;
   tp1.betaY   = opensmoke_liqprop_species_expansion;
+  tp1.chiT    = opensmoke_liqprop_isothermal_compressibility;
 
   tp2.rhov    = opensmoke_gasprop_density;
   tp2.muv     = opensmoke_gasprop_viscosity;
@@ -309,5 +331,6 @@ event defaults (i = 0) {
   tp2.cps     = opensmoke_gasprop_heatcapacity_species;
   tp2.betaT   = opensmoke_gasprop_thermal_expansion;
   tp2.betaY   = opensmoke_gasprop_species_expansion;
+  tp2.chiT    = opensmoke_gasprop_isothermal_compressibility;
 }
 

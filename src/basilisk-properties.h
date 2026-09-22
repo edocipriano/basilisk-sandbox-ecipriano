@@ -199,6 +199,26 @@ void const_liqprop_species_expansion (const void * p, void * s, double * r)
 }
 
 /**
+### *const_gasprop_isothermal_compressibility()*: gas isothermal compressibility
+
+Consistently with `const_gasprop_density()`, the gas density is constant and
+does not depend on the thermodynamic pressure, therefore the isothermal
+compressibility is null.
+*/
+
+double const_gasprop_isothermal_compressibility (const void * p, void * s) {
+  return 0.;
+}
+
+/**
+### *const_liqprop_isothermal_compressibility()*: liq isothermal compressibility
+*/
+
+double const_liqprop_isothermal_compressibility (const void * p, void * s) {
+  return liqprop_isothermal_compressibility (p, s);
+}
+
+/**
 ## Thermodynamic Properties
 
 We create the instance of two structures with the
@@ -233,6 +253,7 @@ event defaults (i = 0) {
   tp1.sigmas  = const_liqprop_sigma;
   tp1.betaT   = const_liqprop_thermal_expansion;
   tp1.betaY   = const_liqprop_species_expansion;
+  tp1.chiT    = const_liqprop_isothermal_compressibility;
 
   tp2.rhov    = const_gasprop_density;
   tp2.muv     = const_gasprop_viscosity;
@@ -242,4 +263,5 @@ event defaults (i = 0) {
   tp2.cps     = const_gasprop_heatcapacity_species;
   tp2.betaT   = const_gasprop_thermal_expansion;
   tp2.betaY   = const_gasprop_species_expansion;
+  tp2.chiT    = const_gasprop_isothermal_compressibility;
 }
