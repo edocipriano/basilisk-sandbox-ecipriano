@@ -120,8 +120,7 @@ double cantera_antoine (double T, double P, int i) {
 */
 
 double cantera_gasprop_thermal_expansion (const void * p, void * s) {
-  ThermoState * ts = (ThermoState *)s;
-  return (ts->T > 0.) ? 1./ts->T : 0.;
+  return gasprop_thermal_expansion (p, s);
 }
 
 /**
@@ -148,21 +147,7 @@ void cantera_gasprop_species_expansion (const void * p, void * s, double * r) {
 */
 
 double cantera_liqprop_thermal_expansion (const void * p, void * s) {
-  ThermoProps * tp = (ThermoProps *)p;
-  ThermoState * ts = (ThermoState *)s;
-
-  if (tp->rhov == NULL)
-    return 0;
-  else {
-    double epsT = 1.e-3;
-    double Ttop = ts->T + epsT, Tbot = ts->T - epsT;
-    ThermoState tstop, tsbot;
-    tstop.T = Ttop, tstop.P = ts->P, tstop.x = ts->x;
-    tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
-    double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
-    double rhoval = tp->rhov (ts);
-    return (rhoval > 0.) ? -1./rhoval*(rhotop - rhobot)/(2.*epsT) : 0.;
-  }
+  return liqprop_thermal_expansion (p, s);
 }
 
 /**

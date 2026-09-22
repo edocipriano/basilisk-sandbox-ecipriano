@@ -27,7 +27,7 @@ $\mathbf{D}=[\nabla\mathbf{u} + (\nabla\mathbf{u})^T]/2$.
 ## Field Allocations
 
 We define scalar fields with two possible sources of divergence:
-`stefanflow` is the phase change source term, localized at the
+`intexp` is the phase change source term, localized at the
 gas-liquid interface, while `drhodt` considers density changes. */
 
 #define LOW_MACH 1
@@ -38,11 +38,44 @@ scalar intexp[], * intexplist = NULL;
 bool no_advection_div = false, closed = false;
 
 /**
+## Closed systems
+
+If the domain is closed, the total volume cannot change, and the net expansion
+must be balanced by a variation of the thermodynamic pressure $P_0$, which is
+uniform in space for a low Mach number system. Splitting the density variations
+into a thermodynamic pressure contribution and into the remaining effects
+(temperature, composition, and phase change), the divergence reads:
+$$
+  \nabla\cdot\mathbf{u} = S - \chi_T\dfrac{dP_0}{dt}
+$$
+where $\chi_T = 1/\rho\left(\partial\rho/\partial P\right)_{T,\omega}$ is the
+isothermal compressibility. Integrating over the closed domain, where
+$\int_\Omega\nabla\cdot\mathbf{u}\,dV = 0$, the pressurization rate is obtained:
+$$
+  \dfrac{dP_0}{dt} = \dfrac{\int_\Omega S\,dV}{\int_\Omega \chi_T\,dV}
+$$
+The compensation is weighted on the *local* compressibility: since the gas phase
+is about five orders of magnitude more compressible than the liquid phase, the
+ullage absorbs almost the entire volume variation, while the liquid remains
+still. The field `chiT` must be filled by the module that computes the material
+properties; if it is left to zero everywhere, the net expansion is redistributed
+uniformly over the domain, which is the behaviour of an incompressible closed
+system.
+
+The thermodynamic pressure `P0` is integrated in time at the end of every time
+step, and it should be initialized by the user (or by the phase change model) to
+the initial pressure of the system. The pressurization rate is computed by
+`project_lowmach()`, therefore it is not available when the velocity jump
+formulation is used. */
+
+scalar chiT[];
+double P0 = 0., dP0dt = 0.;
+
+/**
 ## Projection Function
 
-We define the function that performs the projection step with the
-volume expansion term due to the phase change or due to density
-changes. */
+We define the function that performs the projection step with the volume
+expansion term due to the phase change or due to density changes. */
 
 #include "poisson.h"
 
@@ -74,20 +107,30 @@ mgstats project_lowmach (face vector uf, scalar p,
   scalar intexp = intexplist[inv];
   scalar drhodt = drhodtlist[inv];
 
-  double volume = 0., intexpsum = 0., drhodtsum = 0.;
+  double volume = 0., srcsum = 0., chisum = 0.;
   if (closed) {
-    foreach (reduction(+:volume) reduction(+:intexpsum) reduction(+:drhodtsum)) {
+    foreach (reduction(+:volume) reduction(+:srcsum) reduction(+:chisum)) {
       volume += dv();
-      intexpsum += intexp[]*dv();
-      drhodtsum += drhodt[]*dv();
+      srcsum += (intexp[] + drhodt[])*dv();
+      chisum += chiT[]*dv();
     }
-    intexpsum /= volume;
-    drhodtsum /= volume;
+    /**
+    The pressurization rate is computed just once, using the fields of the
+    whole domain, because the thermodynamic pressure is a property of the
+    system and not of the single velocity field. */
+
+    if (inv == 0)
+      dP0dt = (chisum > 0.) ? -srcsum/chisum : 0.;
   }
 
+  /**
+  If the field `chiT` is zero (by default), the pressurization is evenly
+  distributed in the domain. */
+
   foreach() {
-    div[] += (intexp[] - intexpsum)/dt;
-    div[] += (drhodt[] - drhodtsum)/dt;
+    div[] += (intexp[] + drhodt[])/dt;
+    if (closed)
+      div[] += ((chisum > 0.) ? chiT[]*dP0dt : -srcsum/volume)/dt;
   }
   inv++;
   inv = (inv == nv) ? 0 : inv;
@@ -112,6 +155,15 @@ mgstats project_lowmach (face vector uf, scalar p,
 
   return mgp;
 }
+
+/**
+## Advection Function
+
+We overwrite the advection function for non-incompressible flows, by removing
+the divergence of the velocity from the convective term of the momentum
+equation, in order to be consistent with the non-conservative formulation.
+
+TODO: embed compatibility */
 
 #include "utils.h"
 #include "bcg.h"
@@ -155,9 +207,9 @@ void advection_div (scalar * tracers, face vector u, double dt,
 }
 
 /**
-We overwrite the function `project` in [centered.h](/src/navier-stokes/centered.h)
-in order to call `project_lowmach` instead, accounting for the divergcence
-source terms. */
+We overwrite the functions `project()` and `advection()` in
+[centered.h](/src/navier-stokes/centered.h) in order to call `project_lowmach()`
+and `advection_div()` instead, accounting for the divergcence source terms. */
 
 #if VELOCITY_JUMP
 #define advection(...) advection_div(__VA_ARGS__)

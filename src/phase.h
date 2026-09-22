@@ -54,6 +54,7 @@ typedef struct {
   // Flow divergence
   scalar divu;
   scalar betaT;
+  scalar chiT;
   scalar * betaYList;
   scalar DTDt;
   scalar * DYDtList;
@@ -79,6 +80,7 @@ macro foreach_scalar_in (Phase * phase) {
     scalar STimp = phase->STimp; NOT_UNUSED (STimp);
     scalar divu = phase->divu; NOT_UNUSED (divu);
     scalar betaT = phase->betaT; NOT_UNUSED (betaT);
+    scalar chiT = phase->chiT; NOT_UNUSED (chiT);
     scalar DTDt = phase->DTDt; NOT_UNUSED (DTDt);
     {...}
   }
@@ -224,6 +226,7 @@ Phase * new_phase_empty (char * name = "", bool inverse = false) {
   phase->STimp.i = -1;
   phase->divu.i = -1;
   phase->betaT.i = -1;
+  phase->chiT.i = -1;
   phase->DTDt.i = -1;
 
   phase->YList = NULL;
@@ -316,6 +319,7 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
   new_field_type (scalar, dhev, phase, false);
   new_field_type (scalar, divu, phase, nodump);
   new_field_type (scalar, betaT, phase, nodump);
+  new_field_type (scalar, chiT, phase, nodump);
   new_field_type (scalar, DTDt, phase, nodump);
 
   // Create source terms
@@ -340,6 +344,7 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
       STexp[] = 0.;
       divu[] = 0.;
       betaT[] = 0.;
+      chiT[] = 0.;
       DTDt[] = 0.;
       foreach_species_in (phase) {
         Y[] = 0.;
@@ -377,7 +382,7 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
 
 void delete_phase (Phase * phase) {
   foreach_scalar_in (phase)
-    delete ({T,P,STimp,STexp,rho,mu,MW,lambda,cp,dhev,divu,betaT,DTDt});
+    delete ({T,P,STimp,STexp,rho,mu,MW,lambda,cp,dhev,divu,betaT,chiT,DTDt});
 
   if (phase->YList) delete (phase->YList), free (phase->YList);
   if (phase->XList) delete (phase->XList), free (phase->XList);
@@ -880,7 +885,8 @@ void phase_update_properties (Phase * phase, const ThermoProps * tp,
         if (tp->muv) mu[] = tp->muv (&ts);
         if (tp->lambdav) lambda[] = tp->lambdav (&ts);
         if (tp->cpv) cp[] = tp->cpv (&ts);
-         if (tp->betaT) betaT[] = tp->betaT (tp, &ts);
+        if (tp->betaT) betaT[] = tp->betaT (tp, &ts);
+        if (tp->chiT) chiT[] = tp->chiT (tp, &ts);
 
         if (tp->diff) tp->diff (&ts, arrdiff);
         if (tp->betaY) tp->betaY (tp, &ts, arrbetaY);
@@ -934,6 +940,7 @@ void phase_extend_properties (Phase * phase,
         double ext_cp = 0.;
         double ext_dhev = 0.;
         double ext_betaT = 0.;
+        double ext_chiT = 0.;
 
         foreach_species_in (phase) {
           ext_diff[i] = 0.;
@@ -954,6 +961,7 @@ void phase_extend_properties (Phase * phase,
             increment_property (ext_cp, cp);
             increment_property (ext_dhev, dhev);
             increment_property (ext_betaT, betaT);
+            increment_property (ext_chiT, chiT);
 
             foreach_species_in (phase) {
               increment_property (ext_diff[i], D);
@@ -970,6 +978,7 @@ void phase_extend_properties (Phase * phase,
         assign_property (ext_cp, cp, counter);
         assign_property (ext_dhev, dhev, counter);
         assign_property (ext_betaT, betaT, counter);
+        assign_property (ext_chiT, chiT, counter);
 
         foreach_species_in (phase) {
           assign_property (ext_diff[i], D, counter);

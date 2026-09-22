@@ -230,8 +230,7 @@ double opensmoke_antoine (double T, double P, int i) {
 */
 
 double opensmoke_gasprop_thermal_expansion (const void * p, void * s) {
-  ThermoState * ts = (ThermoState *)s;
-  return (ts->T > 0.) ? 1./ts->T : 0.;
+  return gasprop_thermal_expansion (p, s);
 }
 
 /**
@@ -252,17 +251,7 @@ void opensmoke_gasprop_species_expansion (const void * p, void * s, double * r) 
 */
 
 double opensmoke_liqprop_thermal_expansion (const void * p, void * s) {
-  ThermoProps * tp = (ThermoProps *)p;
-  ThermoState * ts = (ThermoState *)s;
-
-  double epsT = 1.e-3;
-  double Ttop = ts->T + epsT, Tbot = ts->T - epsT;
-  ThermoState tstop, tsbot;
-  tstop.T = Ttop, tstop.P = ts->P, tstop.x = ts->x;
-  tsbot.T = Tbot, tsbot.P = ts->P, tsbot.x = ts->x;
-  double rhotop = tp->rhov (&tstop), rhobot = tp->rhov (&tsbot);
-  double rhoval = tp->rhov (ts);
-  return (rhoval > 0.) ? -1./rhoval*(rhotop - rhobot)/(2.*epsT) : 0.;
+  return liqprop_thermal_expansion (p, s);
 }
 
 /**
