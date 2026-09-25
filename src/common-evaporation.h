@@ -223,6 +223,42 @@ void shift_field (scalar fts, scalar f, int dir) {
   }
 }
 
+#include "diffusion.h"
+
+trace
+void shift_diffusion (scalar fts, scalar f,
+    double cells = 0.1, double tol = 1e-3)
+{
+  foreach()
+    fts[] = (cm[] > 0) ? fts[]/cm[] : 0.;
+  double totold = statsf (fts).sum;
+
+  double delta = L0/(1 << grid->maxdepth);
+  double diff = cells*sq(delta);
+
+  scalar theta[];
+  foreach()
+    theta[] = cm[];
+
+  face vector D[];
+  foreach_face() {
+    D.x[] = diff*fm.x[];
+    if (f[-1] > F_ERR && f[-1] < 1.-F_ERR && fts[] != 0.)
+      D.x[] *= 0.;
+    else if (f[] > F_ERR && f[] < 1.-F_ERR && fts[-1] != 0.)
+      D.x[] *= 0.;
+  }
+
+  double TOLERANCE_BACKUP = TOLERANCE;
+  TOLERANCE = tol;
+  diffusion (fts, 1., D = D, theta = theta);
+  TOLERANCE = TOLERANCE_BACKUP;
+
+  double totnew = statsf (fts).sum;
+  foreach()
+    fts[] *= cm[]*totold/totnew;
+}
+
 /**
 ## *copy_bcs()*: Copy the boundary conditions from a target field to a list of fields
 
