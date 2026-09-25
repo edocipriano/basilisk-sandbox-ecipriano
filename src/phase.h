@@ -802,6 +802,41 @@ void phase_add_heat_species_diffusion (Phase * phase, (const) scalar f = unity,
 }
 
 /**
+### *phase_add_compression_work()*: work of the thermodynamic pressure
+
+The temperature equation of a closed system includes the work performed by the
+variation of the thermodynamic pressure:
+$$
+  \rho c_p \dfrac{DT}{Dt} = \nabla\cdot\left(\lambda\nabla T\right) +
+    \beta_T T \dfrac{dP_0}{dt}
+$$
+For an ideal gas $\beta_T T = 1$ and this source term reduces to the
+pressurization rate. Without this contribution the divergence-free constraint of
+a closed system returns a pressurization rate which is wrong by a factor
+$\gamma$.
+
+The rate *dPdt* is an argument, rather than being read from the solver which
+computes it, so that this function does not depend on the low Mach number
+module. The source term is weighted on the volume fraction of the phase,
+consistently with the `theta` coefficient used by `phase_diffusion()`: without
+this weighting the source would be divided by a vanishing volume fraction in the
+interfacial cells, generating unphysical temperature peaks. */
+
+void phase_add_compression_work (Phase * phase, double dPdt,
+    (const) scalar f = unity, double tol = 1e-10)
+{
+  if (!phase->isothermal) {
+    foreach_scalar_in (phase) {
+      foreach() {
+        double ff = phase->inverse ? 1. - f[] : f[];
+        if (ff > tol)
+          STexp[] += betaT[]*T[]*dPdt*cm[]*ff;
+      }
+    }
+  }
+}
+
+/**
 ## Thermodynamic, transport, and kinetics
 
 The following functions allow including the effect of variable material

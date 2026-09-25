@@ -224,9 +224,33 @@ and `advection_div()` instead, accounting for the divergcence source terms. */
 #endif
 
 /**
+## Thermodynamic Pressure
+
+The pressurization rate is computed by `project_lowmach()` during the
+`projection` event, therefore the thermodynamic pressure is integrated in time
+afterwards, at the end of the time step. It stays constant unless the system is
+`closed`. */
+
+event end_timestep (i++) {
+  if (closed)
+    P0 += dP0dt*dt;
+}
+
+/**
 We set the default divergence source term to zero (for the liquid phase) */
 
 event defaults (i = 0) {
+
+  /**
+  The pressurization rate is used explicitly by the source terms of the next
+  time step, therefore it must be reset at the beginning of every simulation.
+  Otherwise, consecutive calls to `run()` (e.g. a convergence study) would start
+  from the rate of the previous simulation. The thermodynamic pressure `P0` is
+  not reset here, because it is initialized by the user or by the phase change
+  model. */
+
+  dP0dt = 0.;
+
   drhodtlist = list_add (drhodtlist, drhodt);
   intexplist = list_add (intexplist, intexp);
 

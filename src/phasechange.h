@@ -128,6 +128,14 @@ event defaults (i = 0) {
   tsl.T = TL0, tsl.P = Pref, tsl.x = xl;
   tsg.T = TG0, tsg.P = Pref, tsg.x = xg;
 
+  /**
+  The thermodynamic pressure of the system starts from the reference pressure.
+  It changes in time only if the system is `closed`. */
+
+#if LOW_MACH
+  P0 = Pref;
+#endif
+
   phase_set_thermo_state (liq, &tsl);
   phase_set_thermo_state (gas, &tsg);
 
@@ -272,6 +280,20 @@ event phase_properties (i++) {
   phase_tracers_to_scalars (liq, f, tol = F_ERR);
   phase_tracers_to_scalars (gas, f, tol = F_ERR);
 
+#if LOW_MACH
+  /**
+  In a closed system the thermodynamic pressure changes in time, and the
+  material properties must be updated using its current value. */
+
+  if (closed)
+    foreach() {
+      foreach_scalar_in (liq)
+        P[] = P0;
+      foreach_scalar_in (gas)
+        P[] = P0;
+    }
+#endif
+
   phase_update_mw_moles (liq, f, tol = P_ERR, extend = true);
   phase_update_mw_moles (gas, f, tol = P_ERR, extend = true);
 
@@ -280,6 +302,28 @@ event phase_properties (i++) {
 
   phase_extend_properties (liq, f, P_ERR);
   phase_extend_properties (gas, f, P_ERR);
+
+#if LOW_MACH
+  /**
+  The work performed by the variation of the thermodynamic pressure is added to
+  the temperature equation, see `phase_add_compression_work()`. The rate of the
+  current time step is known only after the projection, therefore we use the one
+  computed by the projection of the previous time step.
+
+  The source is added here, together with the material properties, because
+  `betaT` is evaluated by `phase_update_properties()` using the temperature of
+  this event: the product $\beta_T T$ must be formed from the same
+  thermodynamic state, and it reduces to one for an ideal gas. The source must
+  also be available before the `divergence` event, in order to be included in
+  the material derivative of the temperature computed by
+  `phase_update_divergence()`: without this contribution the closed-system
+  projection underestimates the pressurization rate by a factor $\gamma$. */
+
+  if (closed) {
+    phase_add_compression_work (liq, dP0dt, f, F_ERR);
+    phase_add_compression_work (gas, dP0dt, f, F_ERR);
+  }
+#endif
 
   phase_scalars_to_tracers (liq, f);
   phase_scalars_to_tracers (gas, f);
@@ -304,9 +348,6 @@ event chemistry (i++) {
     double eps = 1e-2;
     phase_chemistry_binning (gas, dt, batch, NEQ, {T,YH2,YO2,YCO},
         (double[]){eps,eps,eps,eps,eps}, verbose = true, f = f, tol = 1-F_ERR);
-
-    //phase_chemistry_binning (gas, dt, batch, NEQ, {T,Y}, (double[]){1e-2,1e-2},
-    //    verbose = true, f = f, tol = 1-F_ERR);
 #else
     phase_chemistry_direct (gas, dt, batch, NEQ, f, tol = 1-F_ERR);
 #endif
@@ -358,23 +399,8 @@ event divergence (i++) {
     phase_tracers_to_scalars (liq, f, tol = F_ERR);
     phase_tracers_to_scalars (gas, f, tol = F_ERR);
 
-    //// [DIFF] Let's perform the velocity correction step
-    //phase_diffusion_velocity (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
-    //phase_diffusion_velocity (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
-
     phase_update_divergence (liq, f, pcm.fick_corrected, pcm.molar_diffusion);
     phase_update_divergence (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
-
-#if 0
-    vector ul = (nv > 1) ? ulist[1] : ulist[0];
-    vector ug = ulist[0];
-
-    face vector ufl = (nv > 1) ? uflist[1] : uflist[0];
-    face vector ufg = uflist[0];
-
-    phase_update_divergence_density (liq, ul, ufl, f);
-    phase_update_divergence_density (gas, ug, ufg, f);
-#endif
 
     scalar divu1 = liq->divu, divu2 = gas->divu;
     foreach()
@@ -507,11 +533,23 @@ event tracer_diffusion (i++) {
 event properties (i++) {
   scalar rhol = liq->rho, rhog = gas->rho;
   scalar mul = liq->mu, mug = gas->mu;
+#if LOW_MACH
+  scalar chiTl = liq->chiT, chiTg = gas->chiT;
+#endif
   foreach() {
     rho1v[] = rhol[];
     rho2v[] = rhog[];
     mu1v[] = mul[];
     mu2v[] = mug[];
+
+    /**
+    The isothermal compressibility of the two phases is published into the
+    field used by the closed-system projection. It is a volumetric quantity,
+    therefore the two phases are combined with a volume-weighted average. */
+
+#if LOW_MACH
+    chiT[] = aavg (f[], chiTl[], chiTg[]);
+#endif
   }
 }
 #endif
