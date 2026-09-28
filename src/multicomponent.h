@@ -4,6 +4,7 @@
 Phase * liq_int, * gas_int;
 
 scalar * mEvapList = NULL;
+scalar boil[];
 
 int * LSI = NULL, * GOSI = NULL, NGOS, inertIndex;
 
@@ -31,9 +32,10 @@ void energy_balance (const double * xdata, double * fdata, void * params) {
 
   foreach_point (data->c.x, data->c.y, data->c.z, serial) {
     double TInti = xdata[0];
+    bool success = false;
 
-    double gtrgrad = plic_gradient (point, TG, fg, fsg, TInti, true, NULL);
-    double ltrgrad = plic_gradient (point, TL, fl, fsl, TInti, true, NULL);
+    double gtrgrad = ebmgrad (point, TG, fl, fg, fsl, fsg, true,  TInti, &success);
+    double ltrgrad = ebmgrad (point, TL, fl, fg, fsl, fsg, false, TInti, &success);
 
     scalar lambda1 = liq->lambda, lambda2 = gas->lambda;
 
@@ -75,6 +77,15 @@ double antoine_default (double T, double P, int i) {
 }
 
 double (* antoine) (double, double, int) = &antoine_default;
+
+// Mark transition to boiling
+bool boiling_transition = true;
+double Tboil = 337.8;
+
+double boiling_fraction (double YInt) {
+  double sharpness = 30., center = 0.75;
+  return 1./(1. + exp (-sharpness*(YInt - center)));
+}
 
 event defaults (i = 0) {
   liq_int = new_phase_minimal ("LInt", NLS, false, liq_species);
@@ -170,6 +181,10 @@ event phasechange (i++) {
   face vector fsl[], fsg[];
   face_fraction (fl, fsl);
   face_fraction (fg, fsg);
+
+  // All species driven by default
+  foreach()
+    boil[] = nodata;
 
   // Calculate interfacial temperature
   scalar TLInt = liq_int->T, TGInt = gas_int->T;
@@ -280,13 +295,13 @@ event phasechange (i++) {
           scalar XG = gas->XList[i];
           scalar XGInt = gas_int->XList[i];
           scalar MWGInt = gas_int->MW;
-          gtrgrad = plic_gradient (point, XG, fg, fsg, XGInt[], true, NULL);
+          gtrgrad = ebmgrad (point, XG, fl, fg, fsl, fsg, true, XGInt[], false);
           gtrgrad *= (MWGInt[] > 0) ? gas_int->MWs[i]/MWGInt[] : 0.;
         }
         else {
           scalar YGInt = gas_int->YList[i];
           scalar YG = gas->YList[i];
-          gtrgrad = plic_gradient (point, YG, fg, fsg, YGInt[], true, NULL);
+          gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
         }
         jGtot += -rhoG[]*DG[]*gtrgrad;
       }
@@ -302,17 +317,35 @@ event phasechange (i++) {
         scalar XG = gas->XList[LSI[i]];
         scalar MWGInt = gas_int->MW;
 
-        gtrgrad = plic_gradient (point, XG, fg, fsg, XGInt[], true, NULL);
+        gtrgrad = ebmgrad (point, XG, fl, fg, fsl, fsg, true, XGInt[], false);
         gtrgrad *= (MWGInt[] > 0) ? gas_int->MWs[LSI[i]]/MWGInt[] : 0.;
       }
       else {
         scalar YG = gas->YList[LSI[i]];
-        gtrgrad = plic_gradient (point, YG, fg, fsg, YGInt[], true, NULL);
+        gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
       }
       sum_jG += -rhoG[]*DG[]*gtrgrad - YGInt[]*jGtot;
       sum_YGInt += YGInt[];
     }
-    mEvapTot[] = sum_jG / min (1. - sum_YGInt, 0.99);
+    //mEvapTot[] = sum_jG / min (1. - sum_YGInt, 0.99);
+    if (NLS > 1 && boiling_transition)
+      mEvapTot[] = sum_jG / min (1. - sum_YGInt, 0.99);
+    else {
+      double frac = clamp (boiling_fraction (sum_YGInt), 0., 1.);
+      double mspecies = sum_jG / min (1. - sum_YGInt, 0.99);
+
+      bool success = false;
+      scalar TL = liq->T, TG = gas->T;
+      double gtrgrad = ebmgrad (point, TG, fl, fg, fsl, fsg, true,  Tboil, &success);
+      double ltrgrad = ebmgrad (point, TL, fl, fg, fsl, fsg, false, Tboil, &success);
+      scalar lambda1 = liq->lambda, lambda2 = gas->lambda;
+      scalar dhev = liq->dhevList[0];
+
+      boil[] = frac;
+      double mboiling = (dhev[] > 0.) ?
+        (lambda1[]*ltrgrad + lambda2[]*gtrgrad)/dhev[] : 0.;
+      mEvapTot[] = frac*mboiling + (1. - frac)*mspecies;
+    }
 
     for (int i = 0; i < NLS; i++) {
       scalar mEvap = mEvapList[LSI[i]];
@@ -324,14 +357,16 @@ event phasechange (i++) {
         scalar XG = gas->XList[LSI[i]];
         scalar MWGInt = gas_int->MW;
 
-        gtrgrad = plic_gradient (point, XG, fg, fsg, XGInt[], true, NULL);
+        gtrgrad = ebmgrad (point, XG, fl, fg, fsl, fsg, true, XGInt[], false);
         gtrgrad *= (MWGInt[] > 0) ? gas_int->MWs[LSI[i]]/MWGInt[] : 0.;
       }
       else {
         scalar YG = gas->YList[LSI[i]];
-        gtrgrad = plic_gradient (point, YG, fg, fsg, YGInt[], true, NULL);
+        gtrgrad = ebmgrad (point, YG, fl, fg, fsl, fsg, true, YGInt[], false);
       }
       mEvap[] = mEvapTot[]*YGInt[] - rhoG[]*DG[]*gtrgrad - YGInt[]*jGtot;
+      if (NLS == 1.&& boiling_transition)
+        mEvap[] = mEvapTot[];
     }
   }
 
@@ -361,7 +396,7 @@ event phasechange (i++) {
 #endif
 
       double * unk = (double *)arrUnk->p;
-      TLInt[] = unk[0];
+      TLInt[] = boil[]*Tboil + (1. - boil[])*unk[0];
       TGInt[] = TLInt[];
       array_free (arrUnk);
     }
@@ -395,8 +430,8 @@ event phasechange (i++) {
     }
 
     scalar TL = liq->T, TG = gas->T;
-    double ltrgrad = plic_gradient (point, TL, fl, fsl, TLInt[], true, NULL);
-    double gtrgrad = plic_gradient (point, TG, fg, fsg, TGInt[], true, NULL);
+    double ltrgrad = ebmgrad (point, TL, fl, fg, fsl, fsg, false, TLInt[], false);
+    double gtrgrad = ebmgrad (point, TG, fl, fg, fsl, fsg, true, TGInt[], false);
 
     scalar slT = liq->STexp, sgT = gas->STexp;
     scalar lambdal = liq->lambda, lambdag = gas->lambda;

@@ -229,6 +229,7 @@ int maxlevel, minlevel = 2;
 double D0, R0, R, M0, DD02 = 1., tad = 0.;
 bool restored = false;
 scalar qspark[];
+double xc = 0.;
 
 /**
 If there is conjugate heat transfer, we include a function that dissipates solid
@@ -314,7 +315,7 @@ int main (int argc, char ** argv) {
 #if CHT
   TS0 = min (TL0, TG0);
   solid_properties (QUARTZ);
-  energy_sources = radiation_fiber;
+  //energy_sources = radiation_fiber;
 #endif
 
   /**
@@ -386,7 +387,9 @@ event init (i = 0) {
   if (!restore (file = "restart")) {
 #if TREE
 # if CHT
-    refine (circle (x, y, 4.*D0) > 0. && (y <= 3.*Y0) && level < maxlevel);
+    //refine (circle (x, y, 4.*D0) > 0. && (y <= 3.*Y0) && level < maxlevel);
+    refine (circle (x, y, 4.*D0) > 0. && level < maxlevel);
+    refine ((x >= 0.) && (y <= 3.*Y0) && level < maxlevel);
 # else
     refine (circle (x, y, 4.*D0) > 0. && level < maxlevel);
 # endif // CHT
@@ -490,8 +493,13 @@ event init (i = 0) {
     solid (cw, fw, (x >= 0.) && y <= 2.*Y0);
     scalar TL = liq->T, TG = gas->T;
     TS[bottom] = dirichlet (TSB[]);
-    TL[bottom] = (x >= 0.) ? dirichlet (TLB[]) : neumann (0.);
-    TG[bottom] = (x >= 0.) ? dirichlet (TGB[]) : neumann (0.);
+    //TL[bottom] = (x >= xc && (f[] < F_ERR || f[] > 1.-F_ERR)) ? dirichlet (TLB[]) : neumann (0.);
+    //TG[bottom] = (x >= xc && (f[] < F_ERR || f[] > 1.-F_ERR)) ? dirichlet (TGB[]) : neumann (0.);
+    TL[bottom] = (x >= xc) ? dirichlet (TLB[]) : neumann (0.);
+    TG[bottom] = (x >= xc) ? dirichlet (TGB[]) : neumann (0.);
+
+    //TL[bottom] = (x < 0.) ? neumann (0.) : (f[] > F_ERR && f[] < 1.-F_ERR) ? neumann (0.) : dirichlet (TLB[]);
+    //TG[bottom] = (x < 0.) ? neumann (0.) : (f[] > F_ERR && f[] < 1.-F_ERR) ? neumann (0.) : dirichlet (TGB[]);
   }
 #endif
 }
@@ -509,9 +517,13 @@ event defaults (i = 0) {
   u.t[top] = neumann (0.);
   p[top] = dirichlet (0.);
 
-  u.n[right] = neumann (0.);
+  u.n[right] = (uf.x[] > 0) ? neumann (0.) : dirichlet (0.);
   u.t[right] = neumann (0.);
   p[right] = dirichlet (0.);
+
+  //u.n[right] = (uf.x[] > 0) ? neumann (0.) : dirichlet (0.);
+  //u.t[right] = (uf.x[] > 0) ? neumann (0.) : dirichlet (0.);
+  //p[right] = (uf.x[] > 0) ? dirichlet (0.) : neumann (0.);
 
   if (setup == gravity) {
     u.n[left] = neumann (0.);
@@ -538,8 +550,13 @@ event adapt (i++) {
   double Ttol = inputdata.Ttol;
   double Utol = inputdata.Utol;
 
+#if CHT
+  adapt_wavelet_leave_interface ({Y,T,u.x,u.y}, {f,cw},
+      (double[]){Ytol,Ttol,Utol,Utol}, maxlevel, minlevel, 1);
+#else
   adapt_wavelet_leave_interface ({Y,T,u.x,u.y}, {f},
       (double[]){Ytol,Ttol,Utol,Utol}, maxlevel, minlevel, 1);
+#endif
 
   if (setup == gravity)
     unrefine (x >= (0.45*L0));
@@ -553,6 +570,16 @@ event stability (i++) {
     CFL = CFL_MAX;
 }
 #endif
+
+event centroid (i++) {
+  double xb = 0., sb = 0.;
+  foreach (reduction(+:xb) reduction(+:sb)) {
+    double dv = f[]*dv();
+    xb += x*dv;
+    sb += dv;
+  }
+  xc = xb/sb;
+}
 
 /**
 ## Logger
