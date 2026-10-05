@@ -63,14 +63,20 @@ properties; if it is left to zero everywhere, the net expansion is redistributed
 uniformly over the domain, which is the behaviour of an incompressible closed
 system.
 
-The thermodynamic pressure `P0` is integrated in time at the end of every time
-step, and it should be initialized by the user (or by the phase change model) to
-the initial pressure of the system. The pressurization rate is computed by
-`project_lowmach()`, therefore it is not available when the velocity jump
-formulation is used. */
+If the container exchanges mass through boundaries which are not balanced by an
+outlet condition (e.g. an inflow of liquid in a tank whose other boundaries are
+walls), the integral of the divergence is equal to the net volumetric flow rate
+leaving the domain $\dot{Q} =
+\int_{\partial\Omega}\mathbf{u}\cdot\mathbf{n}\,dS$:
+$$
+  \dfrac{dP_0}{dt} = \dfrac{\int_\Omega S\,dV - \dot{Q}}{\int_\Omega \chi_T\,dV}
+$$
+The flow rate $\dot{Q}$ is set by the user through the variable `closed_flux`,
+which is positive for a net outflow and negative for a net inflow. It is zero by
+default, which corresponds to a closed box. */
 
 scalar chiT[];
-double P0 = 0., dP0dt = 0., _P0 = 0.;
+double P0 = 0., dP0dt = 0., _P0 = 0., closed_flux = 0.;
 
 /**
 ## Projection Function
@@ -121,7 +127,7 @@ mgstats project_lowmach (face vector uf, scalar p,
     system and not of the single velocity field. */
 
     if (inv == 0)
-      dP0dt = (chisum > 0.) ? -srcsum/chisum : 0.;
+      dP0dt = (chisum > 0.) ? -(srcsum + closed_flux)/chisum : 0.;
   }
 
   /**
