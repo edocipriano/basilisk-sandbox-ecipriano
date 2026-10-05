@@ -6,7 +6,7 @@ extern scalar * mEvapList;
 
 int NLS = 0, NGS = 0;
 double lambda1 = 1., lambda2 = 1., dhev = 1., cp1 = 1., cp2 = 1.;
-double TG0 = 300., TL0 = 300., TIntVal = 300., Pref = 101325.;
+double TG0 = 300., TL0 = 300., TIntVal = 300.;
 double Dmix1 = 0., Dmix2 = 1., YIntVal = 0., YG0 = 0., YL0 = 1.;
 double MW1 = 1., MW2 = 1.;
 
@@ -125,16 +125,8 @@ event defaults (i = 0) {
     xg[0] = YG0, xg[1] = 1. - YG0;
 
   ThermoState tsl, tsg;
-  tsl.T = TL0, tsl.P = Pref, tsl.x = xl;
-  tsg.T = TG0, tsg.P = Pref, tsg.x = xg;
-
-  /**
-  The thermodynamic pressure of the system starts from the reference pressure.
-  It changes in time only if the system is `closed`. */
-
-#if LOW_MACH
-  P0 = Pref;
-#endif
+  tsl.T = TL0, tsl.P = P0, tsl.x = xl;
+  tsg.T = TG0, tsg.P = P0, tsg.x = xg;
 
   phase_set_thermo_state (liq, &tsl);
   phase_set_thermo_state (gas, &tsg);

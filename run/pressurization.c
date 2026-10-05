@@ -95,7 +95,7 @@ int main (void) {
   cp1 = 4184., cp2 = 1004.5;
   dhev = 0.;
 
-  Pref = 101325.;
+  P0 = 101325.;
   TG0 = 300., TL0 = 300.;
 
   /**
@@ -141,8 +141,8 @@ event init (i = 0) {
   fraction (f, level0*L0 - y);
 
   ThermoState tsl, tsg;
-  tsl.T = TL0, tsl.P = Pref, tsl.x = (double[]){1.};
-  tsg.T = TG0, tsg.P = Pref, tsg.x = (double[]){1.};
+  tsl.T = TL0, tsl.P = P0, tsl.x = (double[]){1.};
+  tsg.T = TG0, tsg.P = P0, tsg.x = (double[]){1.};
 
   phase_set_thermo_state (liq, &tsl);
   phase_set_thermo_state (gas, &tsg);
@@ -183,6 +183,10 @@ event chemistry (i++) {
     STexpG[] += q0*cm[]*(1. - f[]);
 }
 
+event pressurization (i++) {
+  P0 += dt*dP0dt;
+}
+
 /**
 ## Post-Processing
 
@@ -201,7 +205,7 @@ event output_data (i++) {
   sprintf (name, "OutputData-%d", maxlevel);
   static FILE * fp = fopen (name, "w");
 
-  P0exact = Pref + (gamma0 - 1.)*q0*t;
+  P0exact = 101325. + (gamma0 - 1.)*q0*t;
   Tg0exact = TG0 + gamma0*q0*t/(rhog0*cp2);
 
   double umax = 0.;

@@ -303,7 +303,7 @@ int main (int argc, char ** argv) {
   /**
   We set the initial thermodynamic state of the two-phase system (SI units). */
 
-  Pref = inputdata.P0*101325.;
+  P0 = inputdata.P0*101325.;
   TG0 = inputdata.TG0;
   TL0 = inputdata.TL0;
 
@@ -418,8 +418,8 @@ event init (i = 0) {
   initial thermo state */
 
   ThermoState tsl, tsg;
-  tsl.T = TL0, tsl.P = Pref, tsl.x = NULL;
-  tsg.T = TG0, tsg.P = Pref, tsg.x = NULL;
+  tsl.T = TL0, tsl.P = P0, tsl.x = NULL;
+  tsg.T = TG0, tsg.P = P0, tsg.x = NULL;
 
   phase_set_thermo_state (liq, &tsl, force = !restored);
   phase_set_thermo_state (gas, &tsg, force = !restored);

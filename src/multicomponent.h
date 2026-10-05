@@ -223,7 +223,7 @@ event phasechange (i++) {
       scalar XLInt = liq_int->XList[i];
       scalar XGInt = gas_int->XList[LSI[i]];
 
-      XGInt[] = min (antoine (TLInt[], Pref, i), 0.98)*XLInt[];
+      XGInt[] = min (antoine (TLInt[], P0, i), 0.98)*XLInt[];
     }
 
     // Calculate the molecular weight of the gas-only species mixture

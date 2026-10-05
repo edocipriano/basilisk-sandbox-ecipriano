@@ -17,7 +17,8 @@ $$
 \nabla\cdot\mathbf{u} =
   {\color{blue} \dot{m} \left(\dfrac{1}{\rho_g}
   - \dfrac{1}{\rho_l}\right)\delta_\Gamma
-  -\color{blue} \dfrac{1}{\rho}\dfrac{D\rho}{Dt}}
+  -\color{blue} \dfrac{1}{\rho}\dfrac{D\rho}{Dt}
+  -\chi_T \dfrac{dP_0}{dt}}
 $$
 with the deformation tensor 
 $\mathbf{D}=[\nabla\mathbf{u} + (\nabla\mathbf{u})^T]/2$.
@@ -69,7 +70,7 @@ the initial pressure of the system. The pressurization rate is computed by
 formulation is used. */
 
 scalar chiT[];
-double P0 = 0., dP0dt = 0.;
+double P0 = 0., dP0dt = 0., _P0 = 0.;
 
 /**
 ## Projection Function
@@ -224,32 +225,11 @@ and `advection_div()` instead, accounting for the divergcence source terms. */
 #endif
 
 /**
-## Thermodynamic Pressure
-
-The pressurization rate is computed by `project_lowmach()` during the
-`projection` event, therefore the thermodynamic pressure is integrated in time
-afterwards, at the end of the time step. It stays constant unless the system is
-`closed`. */
-
-event end_timestep (i++) {
-  if (closed)
-    P0 += dP0dt*dt;
-}
-
-/**
 We set the default divergence source term to zero (for the liquid phase) */
 
 event defaults (i = 0) {
-
-  /**
-  The pressurization rate is used explicitly by the source terms of the next
-  time step, therefore it must be reset at the beginning of every simulation.
-  Otherwise, consecutive calls to `run()` (e.g. a convergence study) would start
-  from the rate of the previous simulation. The thermodynamic pressure `P0` is
-  not reset here, because it is initialized by the user or by the phase change
-  model. */
-
   dP0dt = 0.;
+  _P0 = P0;
 
   drhodtlist = list_add (drhodtlist, drhodt);
   intexplist = list_add (intexplist, intexp);
@@ -278,6 +258,8 @@ event defaults (i = 0) {
 }
 
 event cleanup (t = end) {
+  P0 = _P0;
+
   for (int i = 1; i < nv; i++) {
     scalar drhodt = drhodtlist[i];
     scalar intexp = intexplist[i];

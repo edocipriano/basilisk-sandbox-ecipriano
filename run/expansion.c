@@ -111,7 +111,7 @@ int main (void) {
   cp1 = 2244.92, cp2 = 1041.52;
   dhev = 364482;
 
-  Pref = PRESSURE*101325.;
+  P0 = PRESSURE*101325.;
   TG0 = TEMPERATURE, TL0 = 300, TIntVal = TG0;
 
   /**
@@ -165,8 +165,8 @@ event init (i = 0) {
     mLiq0 += rhol[]*f[]*dv();
 
   ThermoState tsl, tsg;
-  tsl.T = TL0, tsl.P = Pref, tsl.x = (double[]){1.};
-  tsg.T = TG0, tsg.P = Pref, tsg.x = (double[]){0.,1.};
+  tsl.T = TL0, tsl.P = P0, tsl.x = (double[]){1.};
+  tsg.T = TG0, tsg.P = P0, tsg.x = (double[]){0.,1.};
 
   phase_set_thermo_state (liq, &tsl);
   phase_set_thermo_state (gas, &tsg);
@@ -183,12 +183,12 @@ event init (i = 0) {
 
   ThermoState ts0;
   ts0.T = TL0;
-  ts0.P = Pref;
+  ts0.P = P0;
   ts0.x = (double[]){1.};
 
   ThermoState tsf;
   tsf.T = TG0;
-  tsf.P = Pref;
+  tsf.P = P0;
   tsf.x = (double[]){1.};
 
   rho0 = tp1.rhov (&ts0);

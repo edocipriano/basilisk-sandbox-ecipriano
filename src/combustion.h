@@ -12,7 +12,7 @@ scalar rhov[];
 
 int NS = 0;
 double rhoval = 1., muval = 0., lambdaval = 1., cpval = 1., Dmixval = 1.;
-double T0 = 300., YG0 = 1., Pref = 101325., MWval = 1.;
+double T0 = 300., YG0 = 1., MWval = 1.;
 
 Phase * gas;
 char ** gas_species = NULL;
@@ -63,15 +63,7 @@ event defaults (i = 0) {
     xg[0] = YG0, xg[1] = 1. - YG0;
 
   ThermoState tsg;
-  tsg.T = T0, tsg.P = Pref, tsg.x = xg;
-
-  /**
-  The thermodynamic pressure of the system starts from the reference pressure.
-  It changes in time only if the system is `closed`. */
-
-#if LOW_MACH
-  P0 = Pref;
-#endif
+  tsg.T = T0, tsg.P = P0, tsg.x = xg;
 
   phase_set_thermo_state (gas, &tsg);
 
