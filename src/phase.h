@@ -1125,7 +1125,12 @@ void phase_update_divergence (Phase * phase,
 #endif
     /**
     We calculate the divergence of the phase, just in the region occupied by the
-    phase, defined by the volume fraction `f`. */
+    phase, defined by the volume fraction `f`. The Lagrangian derivatives
+    `DTDt` and `DYDt` are already volume-averaged: the source terms are weighted
+    by the volume fraction of the phase (consistently with the `theta`
+    coefficient of `phase_diffusion()`), and the diffusive fluxes by the face
+    fractions `fs`. Therefore, they must not be multiplied again by the volume
+    fraction of the phase. */
 
     foreach() {
       divu[] = 0.;
@@ -1138,9 +1143,6 @@ void phase_update_divergence (Phase * phase,
       foreach_species_in (phase)
         divuspecies += (rho[] > 0.) ? betaY[]/rho[]*DYDt[] : 0.;
       divu[] += divuspecies;
-
-      // Volume-averaged divergence
-      divu[] *= ff[];
 
       // Adjust sign for internal convention
       divu[] *= -1;
@@ -1299,14 +1301,14 @@ void phase_chemistry_direct (Phase * phase, double dt,
         // Resolve the ODE system
         stiff_ode_solver (batch, NEQ, dt, y0, &data);
 
-        // Recover the results of the ODE system
+        // Recover the results of the ODE system (volume-averaged sources)
         foreach_species_in (phase) {
           Y[] = y0[i];
-          DYDt[] += s0[i]*cm[];
+          DYDt[] += s0[i]*cm[]*ff;
         }
         if (!phase->isothermal) {
           T[] = y0[phase->n];
-          DTDt[] += s0[phase->n]*cm[];
+          DTDt[] += s0[phase->n]*cm[]*ff;
         }
       }
     }
@@ -1375,15 +1377,16 @@ void phase_chemistry_binning (Phase * phase, double dt,
   }
   binning_remap (table, fields, phase->rho, phase->cp);
 
-  // Recover the source term for the divergence
+  // Recover the source term for the divergence (volume-averaged)
   foreach_scalar_in (phase) {
     foreach() {
+      double ff = phase->inverse ? 1. - f[] : f[];
       foreach_species_in (phase) {
         scalar Y0 = Y0List[i];
-        DYDt[] += (rho[] > 0) ? (Y[] - Y0[])/dt/rho[]*cm[] : 0.;
+        DYDt[] += (rho[] > 0) ? (Y[] - Y0[])/dt/rho[]*cm[]*ff : 0.;
       }
       if (!phase->isothermal)
-        DTDt[] += (rho[]*cp[] > 0) ? (T[] - T0[])/dt/rho[]/cp[]*cm[] : 0.;
+        DTDt[] += (rho[]*cp[] > 0) ? (T[] - T0[])/dt/rho[]/cp[]*cm[]*ff : 0.;
     }
   }
 
