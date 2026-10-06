@@ -114,11 +114,18 @@ mgstats project_lowmach (face vector uf, scalar p,
   scalar intexp = intexplist[inv];
   scalar drhodt = drhodtlist[inv];
 
+  /**
+  The divergence source terms are already multiplied by the metric `cm` (as
+  `div[]`), therefore they are integrated over the cell volume without metric,
+  while `chiT` is a local property, and it must be multiplied by `cm` to be
+  consistent with `div[]`. This makes no difference for Cartesian domains
+  without embedded boundaries, where $cm = 1$. */
+
   double volume = 0., srcsum = 0., chisum = 0.;
   if (closed) {
     foreach (reduction(+:volume) reduction(+:srcsum) reduction(+:chisum)) {
       volume += dv();
-      srcsum += (intexp[] + drhodt[])*dv();
+      srcsum += (intexp[] + drhodt[])*dv()/(cm[] + SEPS);
       chisum += chiT[]*dv();
     }
     /**
@@ -137,7 +144,7 @@ mgstats project_lowmach (face vector uf, scalar p,
   foreach() {
     div[] += (intexp[] + drhodt[])/dt;
     if (closed)
-      div[] += ((chisum > 0.) ? chiT[]*dP0dt : -srcsum/volume)/dt;
+      div[] += cm[]*((chisum > 0.) ? chiT[]*dP0dt : -srcsum/volume)/dt;
   }
   inv++;
   inv = (inv == nv) ? 0 : inv;
