@@ -26,7 +26,18 @@ test of the compressibility-weighted projection: if the volume variation was
 redistributed uniformly over the domain, the incompressible liquid would be
 forced to expand, generating a spurious velocity field.
 
-![Evolution of the gas phase temperature](pressurization/movie.mp4)
+The same configuration is also run with an embedded boundary (`-DSOLID=1`,
+[pressurization-embed.c](pressurization-embed.c)), where the tank is a circle
+inscribed in the box. The analytic solution does not depend on the shape of the
+tank, therefore this second case verifies that the pressurization rate and the
+compressibility-weighted projection are consistent with the metric of the
+embedded boundaries: the volume of the cut cells must be accounted for exactly
+once in the integrals which give $dP_0/dt$, and the cells which do not contain
+any fluid must not receive a volume source.
+
+![Evolution of the gas phase temperature (square box)](pressurization/movie.mp4)
+
+![Evolution of the gas phase temperature (embedded boundary)](pressurization-embed/movie.mp4)
 */
 
 /**
@@ -38,6 +49,10 @@ module. The phase change is switched off using the fixed flux model with a null
 vaporization rate, in order to focus exclusively on the pressurization.
 */
 
+#include "grid/multigrid.h"
+#if SOLID
+# include "embed.h"
+#endif
 #include "navier-stokes/low-mach.h"
 #define P_ERR 1.e-6
 #include "two-phase-varprop.h"
@@ -74,7 +89,8 @@ double gasprop_density_idealgas (void * p) {
 
 No boundary condition is imposed: the default symmetry conditions of Basilisk
 make the box closed and adiabatic, which is exactly the configuration we want to
-reproduce. */
+reproduce. The same holds for the embedded boundary, which is impermeable and,
+since the conductivity is null, adiabatic. */
 
 int main (void) {
 
@@ -135,9 +151,17 @@ event stop (t = tend);
 
 /**
 We initialize a flat interface which splits the domain into a liquid layer and a
-gas ullage. */
+gas ullage. In the embedded case, the tank is a circle of radius $0.45L_0$
+centered in the box: the interface crosses the center of the circle, and the
+two phases fill the same volume. */
+
+#define circle(x,y,R) (sq(R) - sq(x - 0.5*L0) - sq(y - 0.5*L0))
 
 event init (i = 0) {
+#if EMBED
+  solid (cs, fs, circle (x, y, 0.45*L0));
+  fractions_cleanup (cs, fs);
+#endif
   fraction (f, level0*L0 - y);
 
   ThermoState tsl, tsg;
@@ -242,38 +266,58 @@ We write the animation with the evolution of the gas phase temperature. */
 
 event movie (t += 0.002; t <= 0.1) {
   if (maxlevel == 6) {
-    scalar TG = gas->T;
-    scalar Tplot[];
-    foreach()
-      Tplot[] = TG[]*(1. - f[]) + TL0*f[];
-
+#if EMBED
     clear();
     box();
     view (tx = -0.5, ty = -0.5);
     draw_vof ("f", lw = 2.);
-    squares ("Tplot", min = TG0, max = TG0 + 15., linear = true);
+    draw_vof ("cs", "fs", filled = -1, fc = {1.,1.,1.});
+    draw_vof ("cs", "fs", lw = 4.);
+    squares ("T", min = TG0, max = TG0 + 15);
     save ("movie.mp4");
+#else
+    clear();
+    box();
+    view (tx = -0.5, ty = -0.5);
+    draw_vof ("f", lw = 2.);
+    squares ("T", min = TG0, max = TG0 + 15., linear = true);
+    save ("movie.mp4");
+#endif
   }
 }
 
 /**
 ## Results
 
+In all the following figures, the left panel refers to the square box, while the
+right panel refers to the circular tank obtained with the embedded boundary.
+
 The thermodynamic pressure follows the analytic constant-volume heating
-solution.
+solution, independently of the grid resolution and of the shape of the tank.
 
 ~~~gnuplot Evolution of the thermodynamic pressure
 reset
+set term @SVG size 900,450
+set multiplot layout 1,2
 set grid
 set key top left
 set xlabel "t [s]"
 set ylabel "P_0 [Pa]"
 set size square
 
+set title "Square box"
 plot "OutputData-5" u 1:3 every 5 w p ps 0.9 pt 6 lc rgb "black" t "Analytic", \
      "OutputData-4" u 1:2 w l lw 2 lc 1 t "LEVEL 4", \
      "OutputData-5" u 1:2 w l lw 2 lc 2 t "LEVEL 5", \
      "OutputData-6" u 1:2 w l lw 2 dt 2 lc 3 t "LEVEL 6"
+
+set title "Embedded boundary"
+plot "../pressurization-embed/OutputData-5" u 1:3 every 5 w p ps 0.9 pt 6 \
+       lc rgb "black" t "Analytic", \
+     "../pressurization-embed/OutputData-4" u 1:2 w l lw 2 lc 1 t "LEVEL 4", \
+     "../pressurization-embed/OutputData-5" u 1:2 w l lw 2 lc 2 t "LEVEL 5", \
+     "../pressurization-embed/OutputData-6" u 1:2 w l lw 2 dt 2 lc 3 t "LEVEL 6"
+unset multiplot
 ~~~
 
 The temperature of the ullage follows the analytic solution, which includes the
@@ -281,60 +325,62 @@ compression work performed by the increasing thermodynamic pressure.
 
 ~~~gnuplot Evolution of the ullage temperature
 reset
+set term @SVG size 900,450
+set multiplot layout 1,2
 set grid
 set key top left
 set xlabel "t [s]"
 set ylabel "T_g [K]"
 set size square
 
+set title "Square box"
 plot "OutputData-5" u 1:8 every 5 w p ps 0.9 pt 6 lc rgb "black" t "Analytic", \
      "OutputData-4" u 1:7 w l lw 2 lc 1 t "LEVEL 4", \
      "OutputData-5" u 1:7 w l lw 2 lc 2 t "LEVEL 5", \
      "OutputData-6" u 1:7 w l lw 2 dt 2 lc 3 t "LEVEL 6"
+
+set title "Embedded boundary"
+plot "../pressurization-embed/OutputData-5" u 1:8 every 5 w p ps 0.9 pt 6 \
+       lc rgb "black" t "Analytic", \
+     "../pressurization-embed/OutputData-4" u 1:7 w l lw 2 lc 1 t "LEVEL 4", \
+     "../pressurization-embed/OutputData-5" u 1:7 w l lw 2 lc 2 t "LEVEL 5", \
+     "../pressurization-embed/OutputData-6" u 1:7 w l lw 2 dt 2 lc 3 t "LEVEL 6"
+unset multiplot
 ~~~
 
 Since the expansion of the ullage is exactly balanced by the compression due to
 the pressure rise, the velocity field remains at the machine zero for the first
-time steps, and it keeps a residual value which is due to the explicit coupling
-between the pressurization rate and the compression work. If the volume
-variation was redistributed uniformly over the domain, instead of being weighted
-on the local compressibility, the incompressible liquid would be forced to
-expand and the spurious velocity would be about one order of magnitude larger,
-without any pressurization of the tank.
+time steps. The round-off errors are then amplified in time, and the velocity
+saturates at about $10^{-4}$--$10^{-3}$ m/s, without affecting the evolution of
+the pressure and of the temperature of the ullage. The embedded boundary gives
+spurious velocities of the same order of magnitude as the square box. If the
+volume variation was redistributed uniformly over the domain, instead of being
+weighted on the local compressibility, the incompressible liquid would be forced
+to expand and the spurious velocity would be about one order of magnitude
+larger, without any pressurization of the tank.
 
 ~~~gnuplot Spurious velocity field
 reset
+set term @SVG size 900,450
+set multiplot layout 1,2
 set grid
-set key top left
 set xlabel "t [s]"
 set ylabel "max |u| [m/s]"
 set logscale y
 set format y "10^{%T}"
+set yrange [1e-20:1e-1]
 set size square
 set key bottom right
 
+set title "Square box"
 plot "OutputData-4" u 1:9 w l lw 2 lc 1 t "LEVEL 4", \
      "OutputData-5" u 1:9 w l lw 2 lc 2 t "LEVEL 5", \
      "OutputData-6" u 1:9 w l lw 2 dt 2 lc 3 t "LEVEL 6"
-~~~
 
-The pressurization rate matches the analytic value $(\gamma-1)\dot{q}$. The
-explicit coupling between the rate and the compression work produces a startup
-transient, which decays geometrically by a factor $(\gamma-1)/\gamma$ per time
-step.
-
-~~~gnuplot Convergence of the pressurization rate
-reset
-set grid
-set key bottom right
-set xlabel "time step"
-set ylabel "dP_0/dt / (γ-1)q̇ [-]"
-set yrange [0:1.2]
-set size square
-
-plot "OutputData-4" u 0:($5/$6) w l lw 2 lc 1 t "LEVEL 4", \
-     "OutputData-5" u 0:($5/$6) w l lw 2 lc 2 t "LEVEL 5", \
-     "OutputData-6" u 0:($5/$6) w l lw 2 dt 2 lc 3 t "LEVEL 6", \
-     1 w l lc rgb "black" dt 3 notitle
+set title "Embedded boundary"
+plot "../pressurization-embed/OutputData-4" u 1:9 w l lw 2 lc 1 t "LEVEL 4", \
+     "../pressurization-embed/OutputData-5" u 1:9 w l lw 2 lc 2 t "LEVEL 5", \
+     "../pressurization-embed/OutputData-6" u 1:9 w l lw 2 dt 2 lc 3 t "LEVEL 6"
+unset multiplot
 ~~~
 */

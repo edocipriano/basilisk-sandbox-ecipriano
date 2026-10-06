@@ -40,3 +40,11 @@ normalgravity.tst: CFLAGS += -DJUMP=0 -DMOVIE_EVERY=0.002 -DTEMPERATURE=773 \
 	-DPRESSURE=10 -DKINFOLDER=normalgravity.yaml -DGRAVITY=-9.81
 
 burningdroplet.tst: CFLAGS += -DKINFOLDER=burningdroplet.yaml -DMOVIE_EVERY=0.0001
+
+pressurization-embed.c: pressurization.c
+	ln -s pressurization.c pressurization-embed.c
+pressurization-embed.s: CFLAGS += -DSOLID=1
+pressurization-embed.tst: CFLAGS += -DSOLID=1
+
+pressurization.tst: pressurization-embed.tst
+
