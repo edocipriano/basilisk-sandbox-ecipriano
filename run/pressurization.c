@@ -70,7 +70,7 @@ The molecular weight of the gas phase, the volumetric heat source applied to the
 ullage, and the initial liquid level. */
 
 int maxlevel, minlevel = 2;
-double q0 = 1.e5, level0 = 0.5, tend = 0.1;
+double q0 = 1.e5, level0 = 0.5;
 double gamma0, rhog0, P0exact, Tg0exact;
 
 #define MWG 29.
@@ -143,11 +143,6 @@ int main (void) {
     run();
   }
 }
-
-/**
-The simulation is stopped at `tend`. */
-
-event stop (t = tend);
 
 /**
 We initialize a flat interface which splits the domain into a liquid layer and a
@@ -268,7 +263,6 @@ event movie (t += 0.002; t <= 0.1) {
   if (maxlevel == 6) {
 #if EMBED
     clear();
-    box();
     view (tx = -0.5, ty = -0.5);
     draw_vof ("f", lw = 2.);
     draw_vof ("cs", "fs", filled = -1, fc = {1.,1.,1.});
@@ -277,10 +271,10 @@ event movie (t += 0.002; t <= 0.1) {
     save ("movie.mp4");
 #else
     clear();
-    box();
     view (tx = -0.5, ty = -0.5);
     draw_vof ("f", lw = 2.);
     squares ("T", min = TG0, max = TG0 + 15., linear = true);
+    box (notics = true, lw = 4.);
     save ("movie.mp4");
 #endif
   }
