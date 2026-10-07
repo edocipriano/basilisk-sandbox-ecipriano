@@ -48,3 +48,10 @@ pressurization-embed.tst: CFLAGS += -DSOLID=1
 
 pressurization.tst: pressurization-embed.tst
 
+heatflux-embed.c: heatflux.c
+	ln -s heatflux.c heatflux-embed.c
+heatflux-embed.s: CFLAGS += -DSOLID=1
+heatflux-embed.tst: CFLAGS += -DSOLID=1
+
+heatflux.tst: heatflux-embed.tst
+
