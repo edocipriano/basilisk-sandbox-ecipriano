@@ -8,7 +8,7 @@ improving re-usability, and limiting code duplication. */
 
 #include "variable-properties.h"
 #include "common-evaporation.h"
-#include "diffusion.h"
+#include "diffusion-flux.h"
 
 #define UNDEFINED -1
 #ifndef F_ERR
@@ -58,6 +58,10 @@ typedef struct {
   scalar * betaYList;
   scalar DTDt;
   scalar * DYDtList;
+#if EMBED
+  // Embedded boundaries
+  scalar wetting;
+#endif
 } Phase;
 
 /**
@@ -228,6 +232,9 @@ Phase * new_phase_empty (char * name = "", bool inverse = false) {
   phase->betaT.i = -1;
   phase->chiT.i = -1;
   phase->DTDt.i = -1;
+#if EMBED
+  phase->wetting.i = -1;
+#endif
 
   phase->YList = NULL;
   phase->XList = NULL;
@@ -367,6 +374,21 @@ Phase * new_phase (char * name = "", size_t ns = 0, bool inverse = false,
   // Create the initial thermo state
   phase->ts0 = new_thermo_state (phase->n);
 
+#if EMBED
+  /**
+  The temperature and the mass fractions of the phase share the correction of
+  the flux through the embedded boundaries due to the wetting (see
+  `phase_embed_flux()`). */
+
+  new_field_type (scalar, wetting, phase, true);
+  scalar wetting = phase->wetting, Tw = phase->T;
+  foreach()
+    wetting[] = 1.;
+  Tw.wetting = wetting;
+  for (scalar Yw in phase->YList)
+    Yw.wetting = wetting;
+#endif
+
 #if TREE
   scalar rhov = phase->rho;
   rhov.refine = density_refine;
@@ -393,6 +415,12 @@ void delete_phase (Phase * phase) {
   if (phase->dhevList) delete (phase->dhevList), free (phase->dhevList);
   if (phase->betaYList) delete (phase->betaYList), free (phase->betaYList);
   if (phase->DYDtList) delete (phase->DYDtList), free (phase->DYDtList);
+#if EMBED
+  if (phase->wetting.i >= 0) {
+    scalar wetting = phase->wetting;
+    delete ({wetting});
+  }
+#endif
 
   if (phase->species)
     foreach_species_in (phase)
@@ -636,7 +664,65 @@ void phase_reset_sources (Phase * phase) {
 }
 
 /**
-### *phase_diffusion()*: resolve diffusion of species and temperature */
+### *phase_embed_flux()*: flux through the embedded boundaries
+
+This function has the same interface as `embed_flux()` (see
+[embed.h](/src/embed.h)), and it computes the flux through the fragment of
+embedded boundary contained in the cell, given the boundary condition of the
+scalar *s* on the embedded boundary, e.g. `T[embed] = neumann (q/lambda)` or
+`T[embed] = dirichlet (Tw)`. The flux of `embed_flux()` is multiplied by the
+wetting correction associated with *s* (the `wetting` attribute, see
+[common-evaporation.h](common-evaporation.h)): in the cut cells crossed by the
+interface, the flux is therefore split between the phases according to the
+portion of the fragment wetted by each phase, instead of the face fractions of
+each phase. The fields without a wetting correction receive the flux of
+`embed_flux()`. Differently from `embed_flux()`, the default (symmetry)
+condition returns a null flux.
+
+The function is passed to `diffusion()` (argument `flux`, see
+[diffusion-flux.h](diffusion-flux.h)) by *phase_diffusion()*: the flux remains
+part of the operator of the multigrid solver, which calls it on every level as
+it does with `embed_flux()`, therefore the boundary conditions are treated
+implicitly. It is also used by *phase_update_divergence()* to include the same
+flux in the velocity divergence. Since it is general for any scalar, it could
+replace `embed_flux()` as the default flux of the embedded boundaries. */
+
+#if EMBED
+double phase_embed_flux (Point point, scalar s, face vector mu, double * val)
+{
+  *val = 0.;
+  if (s.boundary[embed] == symmetry)
+    return 0.;
+  double e = embed_flux (point, s, mu, val);
+  if (s.wetting.i) {
+    scalar wetting = s.wetting;
+    *val *= wetting[];
+    e *= wetting[];
+  }
+  return e;
+}
+#endif
+
+/**
+### *phase_diffusion()*: resolve diffusion of species and temperature
+
+With embedded boundaries, the flux through the boundary is computed by
+*phase_embed_flux()*, using the wetting correction obtained from the volume
+fraction and from the face fractions of the phase used by the diffusion
+coefficients.
+
+The tolerances of the multigrid solver for the temperature and for the mass
+fractions are *TOLERANCE_TEMPERATURE* and *TOLERANCE_SPECIES* (if null, the
+default *TOLERANCE* is used). They are tolerances on the residual of the
+Poisson--Helmholtz problem (see [diffusion-flux.h](diffusion-flux.h)), which
+has the units of $\theta f/\Delta t$, with $\theta$ the coefficient of the time
+derivative (`thetaT` and `thetaY` below): a maximum change $\delta f$ of the
+field during one timestep corresponds to a tolerance
+$\delta f\,\theta/\Delta t$. The same tolerance is used for all the phases,
+therefore it should be set from the phase with the smallest $\theta$. */
+
+double TOLERANCE_TEMPERATURE = 0. [*];
+double TOLERANCE_SPECIES = 0. [*];
 
 void phase_diffusion (Phase * phase, (const) scalar f = unity,
     bool varcoeff = false)
@@ -647,6 +733,13 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
 
   face vector fs[];
   face_fraction (ff, fs); // fixme: can't use f in this function
+
+  double (* flux) (Point, scalar, vector, double *) = NULL;
+#if EMBED
+  flux = phase_embed_flux;
+  if (phase->wetting.i >= 0)
+    embed_fraction (phase->wetting, ff, fs);
+#endif
 
   foreach_scalar_in (phase) {
     if (!phase->isothermal) {
@@ -669,7 +762,8 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
           STimp[] = (rho[]*cp[] > 0.) ? STimp[]/(rho[]*cp[]) : STimp[];
         }
 
-      diffusion (T, dt, D=lambdaf, r=STexp, beta=STimp, theta=thetaT);
+      diffusion (T, dt, D=lambdaf, r=STexp, beta=STimp, theta=thetaT,
+          tolerance = TOLERANCE_TEMPERATURE, flux = flux);
     }
 
     if (!phase->isomassfrac) {
@@ -692,7 +786,8 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
             SYimp[] = (rho[] > 0.) ? SYimp[]/rho[] : SYimp[];
           }
 
-        diffusion (Y, dt, D=Df, r=SYexp, beta=SYimp, theta=thetaY);
+        diffusion (Y, dt, D=Df, r=SYexp, beta=SYimp, theta=thetaY,
+            tolerance = TOLERANCE_SPECIES, flux = flux);
       }
 
     }
@@ -1044,6 +1139,11 @@ void phase_update_divergence (Phase * phase,
   face vector fs[];
   face_fraction (ff, fs); // fixme: can't use f in this function
 
+#if EMBED
+  if (phase->wetting.i >= 0)
+    embed_fraction (phase->wetting, ff, fs);
+#endif
+
   foreach_scalar_in (phase) {
 
     /**
@@ -1059,6 +1159,27 @@ void phase_update_divergence (Phase * phase,
         DTDt[] += (lambdagrad.x[1] - lambdagrad.x[])/Delta;
       DTDt[] += STexp[] + STimp[]*T[];
     }
+
+    /**
+    The heat flux through the embedded boundaries is not included in the face
+    fluxes. We add it using `phase_embed_flux()`, with the same coefficient and
+    the same wetting correction used by `phase_diffusion()`, and with the sign
+    of the residual of [poisson.h](/src/poisson.h): without this contribution,
+    the heat supplied by the walls would change the temperature, but not the
+    velocity divergence and the thermodynamic pressure. */
+
+#if EMBED
+    if (T.boundary[embed] != symmetry) {
+      face vector lambdaf[];
+      foreach_face()
+        lambdaf.x[] = face_value (lambda, 0)*fm.x[]*fs.x[];
+
+      foreach (nowarning) {
+        double c, e = phase_embed_flux (point, T, lambdaf, &c);
+        DTDt[] += e*T[] - c;
+      }
+    }
+#endif
 
     /**
     We calculate the Lagrangian derivative of the chemical species mass fractions.
@@ -1077,6 +1198,23 @@ void phase_update_divergence (Phase * phase,
           DYDt[] += (rhoDmixY.x[1] - rhoDmixY.x[])/Delta;
         DYDt[] += (SYexp[] + SYimp[]*Y[]); // fixme: I was using the YGInt
       }
+
+      /**
+      As for the temperature, we add the flux of the chemical species through
+      the embedded boundaries. */
+
+#if EMBED
+      if (Y.boundary[embed] != symmetry) {
+        face vector rhoDf[];
+        foreach_face()
+          rhoDf.x[] = face_value (rho, 0)*face_value (D, 0)*fm.x[]*fs.x[];
+
+        foreach (nowarning) {
+          double c, e = phase_embed_flux (point, Y, rhoDf, &c);
+          DYDt[] += e*Y[] - c;
+        }
+      }
+#endif
     }
 
     /**
