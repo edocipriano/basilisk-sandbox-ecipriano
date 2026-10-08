@@ -87,6 +87,36 @@ vaporization rate, in order to focus exclusively on the pressurization.
 #include "view.h"
 
 /**
+### Boundary Conditions
+
+The walls of the tank are impermeable and no-slip. In the circular tank, both
+components of the velocity vanish on the embedded boundary. In the square box,
+the walls are the boundaries of the domain, where we set to zero the tangential
+component of the velocity and the normal component of the face velocity `uf`.
+Without these conditions, the Poisson equation of the pressure `pf`, which
+projects the face velocity, does not converge during the first time steps.
+
+The heat flux is imposed in the `init` event, where the temperature fields of
+the two phases are available: on the boundaries of the domain for the square
+box, and on the embedded boundary for the circular tank. In the latter case,
+the boundaries of the domain lie outside of the tank. */
+
+#if EMBED
+u.n[embed] = dirichlet (0.);
+u.t[embed] = dirichlet (0.);
+#else
+u.t[right] = dirichlet (0.);
+u.t[left] = dirichlet (0.);
+u.t[top] = dirichlet (0.);
+u.t[bottom] = dirichlet (0.);
+
+uf.n[right] = dirichlet (0.);
+uf.n[left] = dirichlet (0.);
+uf.n[top] = dirichlet (0.);
+uf.n[bottom] = dirichlet (0.);
+#endif
+
+/**
 ### Model Data
 
 The molecular weight of the gas phase, the heat flux supplied by the walls, the
@@ -107,14 +137,6 @@ double gasprop_density_idealgas (void * p) {
   ThermoState * ts = p;
   return ts->P*MWG/(R_GAS*1.e3*ts->T);
 }
-
-/**
-### Boundary Conditions
-
-The heat flux is imposed in the `init` event, where the temperature fields of
-the two phases are available: on the boundaries of the domain for the square
-box, and on the embedded boundary for the circular tank. In the latter case,
-the boundaries of the domain lie outside of the tank. */
 
 int main (void) {
 
@@ -350,9 +372,11 @@ The thermodynamic pressure increases linearly in time, following the analytic
 solution in both tanks. The heat supplied by the walls is first stored in a
 thin thermal boundary layer, and it is then distributed over the whole ullage
 by conduction, but the pressurization rate does not depend on the temperature
-distribution: after a short transient of about 1 ms, due to the compression
-work which is computed using the pressurization rate of the previous time
-step, it remains constant.
+distribution, and it remains constant after a short transient. The compression
+work is computed using the pressurization rate of the previous time step,
+therefore the error of the rate is multiplied by
+$(\gamma - 1)/\gamma \approx 0.29$ at each time step: it falls below $10^{-5}$
+after about 3 ms on all grids.
 
 ~~~gnuplot Evolution of the thermodynamic pressure
 reset
@@ -384,25 +408,38 @@ unset multiplot
 ~~~
 
 In the square box, the relative error of the pressurization rate at
-$t = 1$ s is $2 \cdot 10^{-5}$ on level 4, and about $4 \cdot 10^{-5}$ on
-levels 5 to 8. It does not decrease with the grid resolution, and it grows
-slowly in time: it is not a discretization error. The discrete pressurization
-rate is equal to $(\gamma - 1)Q_g/V_g$, evaluated with the heat which enters
-the ullage through the boundaries of the domain, up to $10^{-8}$, and the
-error comes from the analytic solution, which assumes a flat interface. The gas
-expands next to the walls and it is compressed in the core of the ullage, and
-the pressure of this flow deforms the interface, which is not kept flat by
-gravity or by surface tension. At $t = 1$ s the interface is about
-$0.4~\mu$m lower next to the side walls and $0.2~\mu$m higher at the center
-of the box, on all grids, while the volume of the ullage does not change. The
-length of the walls wetted by the gas increases by $0.8~\mu$m, which is
-$4 \cdot 10^{-5}$ of $L_0 + 2H_g$, and so does the heat supplied to the
-ullage. The deformation is the same with no-slip walls, while it decreases if
-the viscosity of the liquid, which opposes the displacement of the interface,
-is increased.
+$t = 1$ s is $2.0 \cdot 10^{-5}$, $3.7 \cdot 10^{-5}$, $3.4 \cdot 10^{-5}$,
+$3.1 \cdot 10^{-5}$ and $2.9 \cdot 10^{-5}$ on levels 4 to 8 (the values
+written in `OutputData` are rounded to six digits, which corresponds to
+$6 \cdot 10^{-6}$ on this error). From level 5 the error decreases by 6 to 10%
+at each level, and it does not come from the pressurization model: after the
+initial transient, the discrete pressurization rate is equal to
+$(\gamma - 1)Q_g/V_g$, evaluated with the heat which enters the ullage through
+the boundaries of the domain, up to $3 \cdot 10^{-6}$, and the volume of the
+ullage is conserved up to $10^{-7}$. The error comes from the heat $Q_g$,
+because the contact line moves down along the side walls. Most of this
+displacement takes place during the initial transient, when the velocity is
+largest, and it is not recovered later, since the interface is not kept flat
+by gravity or surface tension. At $t = 1$ s, the
+liquid level in the cells next to the side walls is 0.37, 0.34, 0.31 and
+$0.28~\mu$m lower on levels 5 to 8, i.e. less than 1% of a cell, while the
+interface is higher at the center of the box. The length of the walls wetted by
+the gas grows by twice this value, which is $3.7$ to $2.8 \cdot 10^{-5}$ of
+$L_0 + 2H_g$: this is the error of the pressurization rate.
+
+The walls are no-slip, therefore the contact line cannot move in the
+continuous problem, and this displacement is a numerical error, which vanishes
+slowly with both the grid size and the time step. The time step is limited by
+`DT` $= 10^{-3}$ s on all grids, therefore refining the grid alone does not
+reduce the error: on level 6, halving the time step twice reduces it to
+$2.5 \cdot 10^{-5}$ and $2.0 \cdot 10^{-5}$. With a viscosity of the liquid
+1000 times larger, the displacement of the interface far from the walls
+decreases with first order (from $0.21$ to $0.03~\mu$m at the center of the
+box on levels 4 to 7), while the contact line moves down by 0.28, 0.22, 0.17
+and $0.14~\mu$m, and the error is between $3.3$ and $1.6 \cdot 10^{-5}$.
 
 In the circular tank, the relative error is $4.0 \cdot 10^{-3}$,
-$1.1 \cdot 10^{-3}$, $3.2 \cdot 10^{-4}$, $1.2 \cdot 10^{-4}$ and
+$1.1 \cdot 10^{-3}$, $3.0 \cdot 10^{-4}$, $1.1 \cdot 10^{-4}$ and
 $5.1 \cdot 10^{-5}$ on levels 4 to 8. The pressurization rate is equal to
 $(\gamma - 1)Q_g/V_g$ evaluated with the discrete heat input of the gas phase,
 which is split exactly between the phases on the discrete geometry by
@@ -410,8 +447,8 @@ which is split exactly between the phases on the discrete geometry by
 tank given by the embedded boundary: the length of the wall wetted by the gas
 and the volume of the ullage are smaller than the analytic ones by
 $2.1 \cdot 10^{-3}$ and $6.0 \cdot 10^{-3}$ on level 4, and both converge with
-second order. On the finest grids the error approaches the one of the square
-box, since the interface is deformed in the same way.
+second order. On the finest grids, the error approaches the one of the square
+box.
 
 With the default flux of the embedded boundaries, `embed_flux()`, the heat flux
 of the cut cells crossed by the interface is split using the average face
@@ -455,7 +492,8 @@ unset multiplot
 
 The interpolated order of convergence of the circular tank is shown in the
 following figure, while the error of the square box is not interpolated, since
-it does not depend on the grid. The convergence of the circular tank is of
+it decreases only slowly with the grid size, as discussed above. The
+convergence of the circular tank is of
 second order on the coarse grids, and it slows down on the finest grids, where
 the error approaches the one of the square box.
 
@@ -513,7 +551,8 @@ plot "errors" u 1:2 pt 6 lc 1 title "Square box", \
 The mass of the ullage is conserved: although the gas density changes locally
 with the temperature, the variation of the total mass decreases slowly in time,
 and it remains smaller than $1.3 \cdot 10^{-6}$ in the square box and
-$6 \cdot 10^{-6}$ in the circular tank.
+$6 \cdot 10^{-6}$ in the circular tank. In the square box, this variation is of
+first order in time: it halves when the time step is halved.
 
 ~~~gnuplot Relative variation of the mass of the ullage
 reset
@@ -553,10 +592,12 @@ interface. In the core, as long as the thermal boundary layer is thin,
 $u_r = -a r/2$, while $u_r = 0$ on the wall. On level 6, the volume average of
 the radial component
 $\langle \mathbf{u}\cdot\hat{\mathbf{r}}\rangle/\langle|\mathbf{u}|\rangle$
-is between $-0.8$ and $-0.94$ for $0.005 \le t \le 0.1$ s, and at $t = 0.05$ s
-the radial velocity at $r = R/2$ is $-1.36 \cdot 10^{-4}$ m/s, while $-aR/4 =
--1.41 \cdot 10^{-4}$ m/s. The liquid, which is incompressible, remains almost at
-rest ($|\mathbf{u}| < 3 \cdot 10^{-5}$ m/s).
+is between $-0.95$ and $-0.99$ for $0.005 \le t \le 0.1$ s, and at
+$t = 0.01$ s, when the thickness of the thermal boundary layer is about
+0.5 mm, the radial velocity at $r = R/2$ is $-1.50 \cdot 10^{-4}$ m/s, while
+$-aR/4 = -1.41 \cdot 10^{-4}$ m/s. The liquid, which is incompressible,
+remains almost at rest ($|\mathbf{u}| < 4 \cdot 10^{-5}$ m/s during the first
+time steps, and $|\mathbf{u}| < 1.6 \cdot 10^{-5}$ m/s after 5 ms).
 
 In both tanks, the velocity is largest at the beginning of the simulation, when
 the thermal boundary layer is thin, and it decreases exponentially as the
@@ -565,9 +606,9 @@ relaxation time is $R^2/(\alpha j_1'^2) \approx 0.06$ s, where $\alpha$ is the
 thermal diffusivity of the gas and $j_1' \approx 3.83$ is the first zero of the
 derivative of the Bessel function $J_0$; the ullage of the square box is
 larger, and the relaxation is slower. The maximum velocity then has a minimum,
-at $t \approx 0.48$ s in the square box and at $t \approx 0.29$ s in the
+at $t \approx 0.47$ s in the square box and at $t \approx 0.28$ s in the
 circular tank, where the direction of the flow is reversed, and it reaches a
-plateau of about $4 \cdot 10^{-6}$ and $2.2 \cdot 10^{-6}$ m/s respectively,
+plateau of about $4.6 \cdot 10^{-6}$ and $2 \cdot 10^{-6}$ m/s respectively,
 which is the same on all grids. For an ideal gas
 $\nabla\cdot\mathbf{u} = -D\ln\rho/Dt = DT/Dt/T - d\ln P_0/dt$. In the
 quasi-steady state the temperature of all the fluid elements increases at the
