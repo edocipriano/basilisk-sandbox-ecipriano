@@ -279,8 +279,9 @@ event pressurization (i++) {
 ### Output Files
 
 We write the time, the numerical and analytic thermodynamic pressure and
-pressurization rate, the relative variation of the mass of the ullage, and the
-maximum velocity. The temperature of the gas phase is stored as a tracer. */
+pressurization rate, the relative variation of the mass of the ullage, the
+maximum velocity, and the volume-averaged temperature of the ullage. The
+temperature of the gas phase is stored as a tracer. */
 
 event output_data (i++) {
   char name[80];
@@ -301,16 +302,20 @@ event output_data (i++) {
 #endif
 
   scalar TG = gas->T;
-  double mg = 0., umax = 0.;
-  foreach (reduction(+:mg) reduction(max:umax)) {
+  double mg = 0., umax = 0., vg = 0., tg = 0.;
+  foreach (reduction(+:mg) reduction(max:umax) reduction(+:vg)
+      reduction(+:tg)) {
     double fg = 1. - f[];
-    if (fg > F_ERR)
+    if (fg > F_ERR) {
       mg += P0*MWG/(R_GAS*1.e3*TG[]/fg)*fg*dv();
+      vg += fg*dv();
+      tg += TG[]*dv();
+    }
     umax = max (umax, norm (u));
   }
 
-  fprintf (fp, "%g %g %g %g %g %g %g\n", t, P0, 101325. + dP0dtexact*t,
-      dP0dt, dP0dtexact, (mg - mg0)/mg0, umax),
+  fprintf (fp, "%g %g %g %g %g %g %g %g\n", t, P0, 101325. + dP0dtexact*t,
+      dP0dt, dP0dtexact, (mg - mg0)/mg0, umax, tg/vg),
     fflush (fp);
 }
 
@@ -378,6 +383,37 @@ plot "../pressurization-embed/OutputData-5" u 1:3 every 5 w p pt 6 \
 unset multiplot
 ~~~
 
+Since the mass and the volume of the ullage do not change, the gas is heated
+along the isochore $P_0 = \rho_g^0 R T_g$ (with $R$ the specific gas
+constant), as in the analytic benchmark of the HASTA project.
+
+~~~gnuplot P-T diagram of the ullage (volumetric source)
+reset
+set term @SVG size 900,450
+set multiplot layout 1,2
+set grid
+set key bottom right
+set xlabel "T_g [K]"
+set ylabel "P_0 [Pa]"
+set size square
+isochore(T) = 101325.*T/300.
+
+set title "Square box"
+plot "../pressurization/OutputData-6" u 8:(isochore($8)) \
+       w l lw 2 lc rgb "black" dt 2 \
+       t "Ideal gas {/Symbol r} = {/Symbol r}_g^0", \
+     for [l=4:6] "../pressurization/OutputData-".l u 8:2 \
+       every 8 w p pt 2*l-6 lc l-3 t "LEVEL ".l
+
+set title "Embedded boundary"
+plot "../pressurization-embed/OutputData-6" u 8:(isochore($8)) \
+       w l lw 2 lc rgb "black" dt 2 \
+       t "Ideal gas {/Symbol r} = {/Symbol r}_g^0", \
+     for [l=4:6] "../pressurization-embed/OutputData-".l u 8:2 \
+       every 8 w p pt 2*l-6 lc l-3 t "LEVEL ".l
+unset multiplot
+~~~
+
 The spurious velocity grows from round-off and saturates without affecting the
 pressure of the ullage.
 
@@ -434,6 +470,40 @@ unset multiplot
 
 The error of the circular tank is due to the polygonal approximation of the
 tank given by the embedded boundary.
+
+With the wall heat flux, the temperature of the ullage is not uniform and the
+volume-averaged temperature lies slightly to the right of the isochore (the
+pressure is about $10^{-4}$ below it at the end of the simulation, on all the
+grids). The mass-averaged temperature, which for an ideal gas at uniform
+pressure is the harmonic mean over the volume, lies exactly on the isochore as
+long as the mass of the ullage is conserved.
+
+~~~gnuplot P-T diagram of the ullage (wall heat flux)
+reset
+set term @SVG size 900,450
+set multiplot layout 1,2
+set grid
+set key bottom right
+set xlabel "T_g [K]"
+set ylabel "P_0 [Pa]"
+set size square
+isochore(T) = 101325.*T/300.
+
+set title "Square box"
+plot "../pressurization-heatflux/OutputData-6" u 8:(isochore($8)) \
+       w l lw 2 lc rgb "black" dt 2 \
+       t "Ideal gas {/Symbol r} = {/Symbol r}_g^0", \
+     for [l=4:6] "../pressurization-heatflux/OutputData-".l u 8:2 \
+       every 50 w p pt 2*l-6 lc l-3 t "LEVEL ".l
+
+set title "Embedded boundary"
+plot "../pressurization-heatflux-embed/OutputData-6" u 8:(isochore($8)) \
+       w l lw 2 lc rgb "black" dt 2 \
+       t "Ideal gas {/Symbol r} = {/Symbol r}_g^0", \
+     for [l=4:6] "../pressurization-heatflux-embed/OutputData-".l u 8:2 \
+       every 50 w p pt 2*l-6 lc l-3 t "LEVEL ".l
+unset multiplot
+~~~
 
 ~~~gnuplot Convergence of the pressurization rate (embedded boundary)
 reset
