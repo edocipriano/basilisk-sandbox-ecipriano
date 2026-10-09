@@ -41,17 +41,22 @@ normalgravity.tst: CFLAGS += -DJUMP=0 -DMOVIE_EVERY=0.002 -DTEMPERATURE=773 \
 
 burningdroplet.tst: CFLAGS += -DKINFOLDER=burningdroplet.yaml -DMOVIE_EVERY=0.0001
 
+# Low-mach with pressurization
 pressurization-embed.c: pressurization.c
 	ln -s pressurization.c pressurization-embed.c
 pressurization-embed.s: CFLAGS += -DSOLID=1
 pressurization-embed.tst: CFLAGS += -DSOLID=1
 
-pressurization.tst: pressurization-embed.tst
+pressurization-heatflux.c: pressurization.c
+	ln -s pressurization.c pressurization-heatflux.c
+pressurization-heatflux.s: CFLAGS += -DHEATFLUX=1
+pressurization-heatflux.tst: CFLAGS += -DHEATFLUX=1
 
-heatflux-embed.c: heatflux.c
-	ln -s heatflux.c heatflux-embed.c
-heatflux-embed.s: CFLAGS += -DSOLID=1
-heatflux-embed.tst: CFLAGS += -DSOLID=1
+pressurization-heatflux-embed.c: pressurization.c
+	ln -s pressurization.c pressurization-heatflux-embed.c
+pressurization-heatflux-embed.s: CFLAGS += -DHEATFLUX=1 -DSOLID=1
+pressurization-heatflux-embed.tst: CFLAGS += -DHEATFLUX=1 -DSOLID=1
 
-heatflux.tst: heatflux-embed.tst
+pressurization.tst: pressurization-embed.tst pressurization-heatflux.tst \
+	pressurization-heatflux-embed.tst
 
