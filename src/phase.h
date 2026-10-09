@@ -1002,6 +1002,9 @@ void phase_update_properties (Phase * phase, const ThermoProps * tp,
   double * arrcps  = (double *)malloc (phase->n*sizeof (double));
   foreach(serial) {
     double ff = phase->inverse ? 1. - f[] : f[];
+#if EMBED
+    if (!cs[]) ff = 0.;
+#endif
     if (ff > tol) {
       ThermoState ts;
       foreach_scalar_in (phase) {
@@ -1062,6 +1065,9 @@ void phase_extend_properties (Phase * phase,
   foreach_scalar_in (phase) {
     foreach(serial) {
       double ff = phase->inverse ? 1. - f[] : f[];
+#if EMBED
+      if (!cs[]) ff = 0.;
+#endif
       if (ff <= tol) {
         double ext_rho = 0.;
         double ext_mu = 0.;
@@ -1082,6 +1088,9 @@ void phase_extend_properties (Phase * phase,
         int counter = 0;
         foreach_neighbor(1) {
           double ffnei = phase->inverse ? 1. - f[] : f[];
+#if EMBED
+          if (!cs[]) ffnei = 0.;
+#endif
           if (ffnei > tol) {
             counter++;
             increment_property (ext_rho, rho);
