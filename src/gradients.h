@@ -215,7 +215,8 @@ double plic_flux (Point point, scalar s, face vector D, double * val) {
   double coef = 0.;
   double grad = dirichlet_gradient (point, s, cs1, fs1, m, p, bc, &coef,
       vof_gradients, NULL);
-  grad = (grad == nodata || coef != 0.) ? 0. : grad;
+  if (grad == nodata)
+    grad = 0., coef = 0.;
 
   double Da = 0., fa = 0.;
   foreach_dimension() {
@@ -226,8 +227,8 @@ double plic_flux (Point point, scalar s, face vector D, double * val) {
   // No faces in the phase (e.g. coarse multigrid levels): no flux
   if (fa < 1e-10)
     return 0.;
-  *val = - Da/(fa + 1e-30)*grad*area/Delta;
-  return 0.;
+  *val = - Da/fa*grad*area/Delta;
+  return - Da/fa*coef*area/Delta;
 }
 #endif
 
