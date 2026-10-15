@@ -45,6 +45,7 @@ event phasechange (i++) {
     mEvap[] += (deltahev[] > 0.) ? lambdag[]*gtrgrad/deltahev[] : 0.;
   }
 
+#if !IMPLICIT
   foreach_interfacial_plic (f, F_ERR) {
     scalar TL = liq->T, TG = gas->T;
     bool vof = vof_gradients;
@@ -57,6 +58,7 @@ event phasechange (i++) {
     slT[] += lambdal[]*ltrgrad*dirac;
     sgT[] += lambdag[]*gtrgrad*dirac;
   }
+#endif
 
   phase_scalars_to_tracers (liq, f);
   phase_scalars_to_tracers (gas, f);
