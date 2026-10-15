@@ -160,6 +160,78 @@ double plic_gradient (Point point, scalar s, scalar cs, face vector fs,
 }
 
 /**
+## plic_flux(): implicit interface contribution
+
+With `IMPLICIT`, the interfacial flux is included in the diffusion equation
+through the `flux` argument of [diffusion()](/src/diffusion.h), similarly to
+embedded boundaries. The volume and face fractions of the phase are stored in
+`cs1` and `fs1` (see `phase_diffusion()`), and the interface value is imposed
+using the `interface` boundary, e.g. `T[interface] = dirichlet (TIntVal);`. */
+
+#if IMPLICIT
+bid interface;
+
+scalar cs1[];
+face vector fs1[];
+
+#ifndef vof_gradients
+# define vof_gradients true
+#endif
+
+macro2
+double dirichlet (double expr, Point point = point,
+                  scalar s = _s, bool * data = data)
+{
+  return data ? *((bool *)data) = true, expr : 2.*expr - s[];
+}
+
+macro2
+double dirichlet_homogeneous (double expr, Point point = point,
+                              scalar s = _s, bool * data = data)
+{
+  return data ? *((bool *)data) = true, 0 : - s[];
+}
+
+double plic_flux (Point point, scalar s, face vector D, double * val) {
+  double tol = 1e-3;
+
+  *val = 0.;
+  if (cs1[] < tol || cs1[] > 1. - tol)
+    return 0.;
+
+  bool dirichlet = false;
+  double bc = s.boundary[interface] (point, point, s, &dirichlet);
+  if (!dirichlet)
+    return 0.;
+
+  coord m = interface_normal (point, cs1), p;
+  double alpha = plane_alpha (cs1[], m);
+  double area = plane_area_center (m, alpha, &p);
+#if AXI
+  area *= (y + p.y*Delta);
+#endif
+
+  normalize (&m);
+  double coef = 0.;
+  double grad = dirichlet_gradient (point, s, cs1, fs1, m, p, bc, &coef,
+      vof_gradients, NULL);
+  grad = (grad == nodata || coef != 0.) ? 0. : grad;
+
+  double Da = 0., fa = 0.;
+  foreach_dimension() {
+    Da += D.x[] + D.x[1];
+    fa += fm.x[]*fs1.x[] + fm.x[1]*fs1.x[1];
+  }
+
+  // No faces in the phase (e.g. coarse multigrid levels): no flux
+  if (fa < 1e-10)
+    return 0.;
+  *val = - Da/(fa + 1e-30)*grad*area/Delta;
+  return 0.;
+}
+#endif
+
+/**
 ## References
 
 ~~~bib

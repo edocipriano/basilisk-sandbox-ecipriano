@@ -469,11 +469,21 @@ event tracer_diffusion (i++) {
   phase_diffusion_velocity (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
 
 #if TWO_PHASE_VARPROP
+# if IMPLICIT
+  phase_diffusion (gas, f, varcoeff = true, flux = plic_flux);
+  phase_diffusion (liq, f, varcoeff = true, flux = plic_flux);
+# else
   phase_diffusion (gas, f, varcoeff = true);
   phase_diffusion (liq, f, varcoeff = true);
+# endif
 #else
+# if IMPLICIT
+  phase_diffusion (gas, f, varcoeff = false, flux = plic_flux);
+  phase_diffusion (liq, f, varcoeff = false, flux = plic_flux);
+# else
   phase_diffusion (gas, f, varcoeff = false);
   phase_diffusion (liq, f, varcoeff = false);
+# endif
 #endif
 
   if (pcm.normalize) {

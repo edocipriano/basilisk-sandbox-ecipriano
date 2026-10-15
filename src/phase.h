@@ -9,6 +9,9 @@ improving re-usability, and limiting code duplication. */
 #include "variable-properties.h"
 #include "common-evaporation.h"
 #include "diffusion.h"
+#if IMPLICIT
+# include "gradients.h"
+#endif
 
 #define UNDEFINED -1
 #ifndef F_ERR
@@ -634,7 +637,8 @@ void phase_reset_sources (Phase * phase) {
 ### *phase_diffusion()*: resolve diffusion of species and temperature */
 
 void phase_diffusion (Phase * phase, (const) scalar f = unity,
-    bool varcoeff = false)
+    bool varcoeff = false,
+    double (* flux) (Point, scalar, vector, double *) = NULL)
 {
   scalar ff[];
   if (!is_constant (f))
@@ -645,6 +649,21 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
 
   face vector fs[];
   face_fraction (ff, fs); // fixme: can't use f in this function
+
+#if IMPLICIT
+  // Copy attributes and fractions of the phase for plic_flux()
+  if (flux) {
+    scalar_clone (cs1, ff);
+    foreach()
+      cs1[] = ff[];
+    foreach_face()
+      fs1.x[] = fs.x[];
+# if TREE
+    set_prolongation (cs1, fraction_refine);
+    restriction ((scalar *){cs1, fs1});
+# endif
+  }
+#endif
 
   foreach_scalar_in (phase) {
     if (!phase->isothermal) {
@@ -667,7 +686,7 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
           STimp[] = (rho[]*cp[] > 0.) ? STimp[]/(rho[]*cp[]) : STimp[];
         }
 
-      diffusion (T, dt, D=lambdaf, r=STexp, beta=STimp, theta=thetaT);
+      diffusion (T, dt, D=lambdaf, r=STexp, beta=STimp, theta=thetaT, flux=flux);
     }
 
     if (!phase->isomassfrac) {
@@ -690,7 +709,7 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
             SYimp[] = (rho[] > 0.) ? SYimp[]/rho[] : SYimp[];
           }
 
-        diffusion (Y, dt, D=Df, r=SYexp, beta=SYimp, theta=thetaY);
+        diffusion (Y, dt, D=Df, r=SYexp, beta=SYimp, theta=thetaY, flux=flux);
       }
 
     }
