@@ -50,6 +50,17 @@ static inline double dirichlet_gradient_x (Point point, scalar s,
       if (fs.x[i + (i < 0),j] && fs.y[i,j] && fs.y[i,j+1] &&
           cs[i,j-1] && cs[i,j] && cs[i,j+1])
         v[l] = quadratic (y1, (s[i,j-1]), (s[i,j]), (s[i,j+1]));
+
+      /**
+      If one side of the quadratic stencil is not in the phase (e.g.
+      in the contact line cell, where the stencil touches the dry
+      wall), we use linear interpolation with the points on the side
+      of the probe. */
+
+      else if (fs.x[i + (i < 0),j] && cs[i,j] &&
+               (y1 >= 0. ? fs.y[i,j+1] && cs[i,j+1] : fs.y[i,j] && cs[i,j-1]))
+        v[l] = y1 >= 0. ? s[i,j] + y1*(s[i,j+1] - s[i,j]) :
+                          s[i,j] - y1*(s[i,j-1] - s[i,j]);
 #else // dimension == 3
       double z = p.z + d[l]*n.z;
       int k = z > 0.5 ? 1 : z < -0.5 ? -1 : 0;
@@ -139,9 +150,7 @@ interface (`bc`). */
 double plic_gradient (Point point, scalar s, scalar cs, face vector fs,
     double bc, bool vof = true, dstats * stat = NULL)
 {
-  coord m = vof ?
-    interface_normal (point, cs) :
-    facet_normal (point, cs, fs), p;
+  coord m = interface_normal (point, cs), p;
   double alpha = plane_alpha (cs[], m);
   plane_area_center (m, alpha, &p);
   normalize (&m);

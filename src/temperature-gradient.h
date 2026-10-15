@@ -8,7 +8,11 @@ event phasechange (i++) {
   phase_tracers_to_scalars (liq, f, tol = F_ERR);
   phase_tracers_to_scalars (gas, f, tol = F_ERR);
 
+  // Copy attributes and boundary conditions from `f`
   scalar fl[], fg[];
+  scalar_clone (fl, f);
+  scalar_clone (fg, f);
+
   foreach() {
     fl[] = f[];
     fg[] = 1. - f[];
@@ -17,6 +21,7 @@ event phasechange (i++) {
     fg[] *= cs[];
 #endif
   }
+  fg.inverse = true;
 
   face vector fsl[], fsg[];
   face_fraction (fl, fsl);

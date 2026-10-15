@@ -161,6 +161,7 @@ static void conjugate (void) {
       fl[] = cw[];
       fg[] = 1. - cw[];
     }
+    fg.inverse = true;
 
     face vector fsl[], fsg[];
     face_fraction (fl, fsl);
