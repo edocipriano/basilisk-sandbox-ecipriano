@@ -637,6 +637,9 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
     bool varcoeff = false)
 {
   scalar ff[];
+  if (!is_constant (f))
+    scalar_clone (ff, f);
+  ff.inverse = phase->inverse;
   foreach()
     ff[] = phase->inverse ? 1. - f[] : f[];
 
@@ -994,6 +997,9 @@ void phase_update_divergence (Phase * phase,
     bool fick_corrected = true, bool molar_diffusion = true)
 {
   scalar ff[];
+  if (!is_constant (f))
+    scalar_clone (ff, f);
+  ff.inverse = phase->inverse;
   foreach()
     ff[] = phase->inverse ? 1. - f[] : f[];
 
@@ -1149,6 +1155,9 @@ void phase_diffusion_velocity (Phase * phase, (const) scalar f = unity,
 {
   if (!phase->isomassfrac) {
     scalar ff[];
+    if (!is_constant (f))
+      scalar_clone (ff, f);
+    ff.inverse = phase->inverse;
     foreach()
       ff[] = phase->inverse ? 1. - f[] : f[];
 
