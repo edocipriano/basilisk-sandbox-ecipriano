@@ -240,11 +240,13 @@ event init (i = 0) {
 #endif
 
   /**
-  We store the initial mass of the ullage. */
+  We store the initial mass of the ullage, computed with the virtual volumes
+  of the cells (see [low-mach.h](../src/navier-stokes/low-mach.h)), which are
+  consistent with the conservation properties of the solver. */
 
   mg0 = 0.;
   foreach (reduction(+:mg0))
-    mg0 += tp2.rhov (&tsg)*(1. - f[])*dv();
+    mg0 += tp2.rhov (&tsg)*(1. - f[])*dvv();
 }
 
 /**
@@ -259,7 +261,7 @@ of the gas phase. */
 event chemistry (i++) {
   scalar STexpG = gas->STexp;
   foreach()
-    STexpG[] += q0*cm[]*(1. - f[]);
+    STexpG[] += q0*cmv()*(1. - f[]);
 }
 #endif
 
@@ -281,7 +283,9 @@ event pressurization (i++) {
 We write the time, the numerical and analytic thermodynamic pressure and
 pressurization rate, the relative variation of the mass of the ullage, the
 maximum velocity, and the volume-averaged temperature of the ullage. The
-temperature of the gas phase is stored as a tracer. */
+temperature of the gas phase is stored as a tracer. The mass and the volume of
+the ullage are computed with the virtual metrics, consistently with the
+solver. */
 
 event output_data (i++) {
   char name[80];
@@ -307,9 +311,10 @@ event output_data (i++) {
       reduction(+:tg)) {
     double fg = 1. - f[];
     if (fg > F_ERR) {
-      mg += P0*MWG/(R_GAS*1.e3*TG[]/fg)*fg*dv();
-      vg += fg*dv();
-      tg += TG[]*dv();
+      double rhog = P0*MWG/(R_GAS*1.e3*TG[]/fg);
+      mg += rhog*fg*dvv();
+      vg += fg*dvv();
+      tg += TG[]*dvv();
     }
     umax = max (umax, norm (u));
   }
@@ -460,7 +465,7 @@ plot "../pressurization-heatflux/OutputData-5" u 1:5 w l lw 2 \
        w l lw 2 lc l-3 t "LEVEL ".l
 
 set title "Embedded boundary"
-set yrange [17000:18500]
+set yrange [13000:18500]
 plot "../pressurization-heatflux-embed/OutputData-5" u 1:5 w l lw 2 \
        lc rgb "black" t "Analytic", \
      for [l=4:6] "../pressurization-heatflux-embed/OutputData-".l u 1:4 \
@@ -518,7 +523,7 @@ unset print
 set xlabel "Resolution"
 set ylabel "Relative Error"
 set xr[2**3:2**7]
-set yr[1e-5:1e-1]
+set yr[1e-2:1]
 set key bottom left
 set size square
 set grid
