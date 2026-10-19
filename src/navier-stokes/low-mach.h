@@ -79,6 +79,28 @@ scalar chiT[];
 double P0 = 0., dP0dt = 0., _P0 = 0., closed_flux = 0.;
 
 /**
+## Virtual metrics
+
+When we use embed, we transport the VOF interface and relative tracers ignoring
+the presence of the solid phase (except for the full-solid cells). This
+simplifies the VOF transport scheme and avoids small-cells issues. It is
+conservative, as long as we ignore the solid interfacial cells when we compute
+the conservation. To be consistent with Basilisk, it is useful to transport the
+`Phase` quantities in a similar way. Therefore, we define *virtual* metrics,
+which allow the classic syntax to be preserved, but adjusting the value of the
+metrics. This works also when EMBED and AXI are combined. */
+
+#ifndef cmv
+# if EMBED
+#   define cmv() (cs[] > 0. ? cm[]/cs[] : 0.)
+#   define dvv() (cs[] > 0. ? dv()/cs[] : 0.)
+# else
+#   define cmv() (cm[])
+#   define dvv() (dv())
+# endif // EMBED
+#endif // cmv
+
+/**
 ## Projection Function
 
 We define the function that performs the projection step with the volume
@@ -124,9 +146,9 @@ mgstats project_lowmach (face vector uf, scalar p,
   double volume = 0., srcsum = 0., chisum = 0.;
   if (closed) {
     foreach (reduction(+:volume) reduction(+:srcsum) reduction(+:chisum)) {
-      volume += dv();
+      volume += dvv();
       srcsum += (intexp[] + drhodt[])*dv()/(cm[] + SEPS);
-      chisum += chiT[]*dv();
+      chisum += chiT[]*dvv();
     }
     /**
     The pressurization rate is computed just once, using the fields of the
@@ -144,7 +166,7 @@ mgstats project_lowmach (face vector uf, scalar p,
   foreach() {
     div[] += (intexp[] + drhodt[])/dt;
     if (closed)
-      div[] += cm[]*((chisum > 0.) ? chiT[]*dP0dt : -srcsum/volume)/dt;
+      div[] += cmv()*((chisum > 0.) ? chiT[]*dP0dt : -srcsum/volume)/dt;
   }
   inv++;
   inv = (inv == nv) ? 0 : inv;

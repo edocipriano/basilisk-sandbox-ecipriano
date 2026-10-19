@@ -16,6 +16,15 @@ improving re-usability, and limiting code duplication. */
 #endif
 
 /**
+## Virtual metrics
+
+We initialize the virtual metrics to the real ones. */
+
+#ifndef cmv
+# define cmv() (cm[])
+#endif
+
+/**
 ## Phase structure
 
 The following structure contains the attributes of the phase
@@ -745,8 +754,8 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
     if (!phase->isothermal) {
       scalar thetaT[];
       foreach()
-        thetaT[] = varcoeff ? max (cm[]*ff[]*rho[]*cp[], F_ERR)
-                            : max (cm[]*ff[], F_ERR);
+        thetaT[] = varcoeff ? max (cmv()*ff[]*rho[]*cp[], F_ERR)
+                            : max (cmv()*ff[], F_ERR);
 
       face vector lambdaf[];
       foreach_face() {
@@ -770,8 +779,8 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
       foreach_species_in (phase) {
         scalar thetaY[];
         foreach()
-          thetaY[] = varcoeff ? max (cm[]*ff[]*rho[], F_ERR)
-                              : max (cm[]*ff[], F_ERR);
+          thetaY[] = varcoeff ? max (cmv()*ff[]*rho[], F_ERR)
+                              : max (cmv()*ff[], F_ERR);
 
         face vector Df[];
         foreach_face() {
@@ -888,7 +897,7 @@ void phase_add_heat_species_diffusion (Phase * phase, (const) scalar f = unity,
           }
         }
         double ff = phase->inverse ? 1. - f[] : f[];
-        STexp[] -= mde*cm[]*(ff == 1);  // fixme: use interfacial gradients if
+        STexp[] -= mde*cmv()*(ff == 1);  // fixme: use interfacial gradients if
                                         // you want to apply it to interfacial
                                         // cells
       }
@@ -925,7 +934,7 @@ void phase_add_compression_work (Phase * phase, double dPdt,
       foreach() {
         double ff = phase->inverse ? 1. - f[] : f[];
         if (ff > tol)
-          STexp[] += betaT[]*T[]*dPdt*cm[]*ff;
+          STexp[] += betaT[]*T[]*dPdt*cmv()*ff;
       }
     }
   }
@@ -1320,7 +1329,7 @@ void phase_update_divergence_density (Phase * phase, vector u,
         divu[] += u.x[]*grho.x[];
 
       double ff = phase->inverse ? 1. - f[] : f[];
-      divu[] *= (rho[] > 0.) ? cm[]/rho[]*ff : 0.;
+      divu[] *= (rho[] > 0.) ? cmv()/rho[]*ff : 0.;
     }
   }
 }
@@ -1451,11 +1460,11 @@ void phase_chemistry_direct (Phase * phase, double dt,
         // Recover the results of the ODE system (volume-averaged sources)
         foreach_species_in (phase) {
           Y[] = y0[i];
-          DYDt[] += s0[i]*cm[]*ff;
+          DYDt[] += s0[i]*cmv()*ff;
         }
         if (!phase->isothermal) {
           T[] = y0[phase->n];
-          DTDt[] += s0[phase->n]*cm[]*ff;
+          DTDt[] += s0[phase->n]*cmv()*ff;
         }
       }
     }
@@ -1530,10 +1539,10 @@ void phase_chemistry_binning (Phase * phase, double dt,
       double ff = phase->inverse ? 1. - f[] : f[];
       foreach_species_in (phase) {
         scalar Y0 = Y0List[i];
-        DYDt[] += (rho[] > 0) ? (Y[] - Y0[])/dt/rho[]*cm[]*ff : 0.;
+        DYDt[] += (rho[] > 0) ? (Y[] - Y0[])/dt/rho[]*cmv()*ff : 0.;
       }
       if (!phase->isothermal)
-        DTDt[] += (rho[]*cp[] > 0) ? (T[] - T0[])/dt/rho[]/cp[]*cm[]*ff : 0.;
+        DTDt[] += (rho[]*cp[] > 0) ? (T[] - T0[])/dt/rho[]/cp[]*cmv()*ff : 0.;
     }
   }
 
