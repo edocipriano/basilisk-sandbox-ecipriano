@@ -148,13 +148,11 @@ event init (i = 0) {
   The boundary conditions for temperature are set here because the phase model
   initializes those in the `defaults` event. Both the solid and the fluid
   temperature boundary conditions are set to the temperature of the solid
-  boundary and the temperatures of the fluid boundaries, respectively. Those
-  values are computed in [conjugate.h](../src/conjugate.h). */
+  boundary and the temperatures of the fluid boundaries, respectively. The
+  conditions on the solid-fluid boundary are set by
+  [conjugate.h](../src/conjugate.h). */
 
-  scalar TL = liq->T, TG = gas->T;
-  TS[left] = dirichlet (TSB[]);
-  TL[left] = dirichlet (TLB[]);
-  TG[left] = dirichlet (TGB[]);
+  scalar TL = liq->T;
 
   TL[right] = dirichlet (TL0);
 }

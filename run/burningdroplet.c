@@ -42,6 +42,7 @@ droplet diameter.
 # include "opensmoke/flame.h"
 #endif
 #if CHT
+# define CONJUGATE_BOTTOM 1
 # include "conjugate.h"
 #endif
 #include "defaultvars.h"
@@ -488,10 +489,6 @@ event init (i = 0) {
 #if CHT
   {
     solid (cw, fw, (x >= 0.) && y <= 2.*Y0);
-    scalar TL = liq->T, TG = gas->T;
-    TS[bottom] = dirichlet (TSB[]);
-    TL[bottom] = (x >= 0.) ? dirichlet (TLB[]) : neumann (0.);
-    TG[bottom] = (x >= 0.) ? dirichlet (TGB[]) : neumann (0.);
   }
 #endif
 }

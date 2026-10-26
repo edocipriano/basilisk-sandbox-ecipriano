@@ -29,14 +29,19 @@ terms can be introduced by directly modifying the field `QSexp` introduced at
 the next section.  Finally, decide the shape of the solid by setting the volume
 and surface fractions `cw` and `fw`, this can be done using the `solid()`
 function but consider that the solid-fluid boundary must coicinde with one of the
-domain boundaries. The following lines assume that the fluid-solid boundary is
-the left one.
+domain boundaries. The solid-fluid boundary is the left one by default, or the
+bottom one with `CONJUGATE_BOTTOM`. The boundary conditions of the phase
+temperatures on the solid-fluid boundary are set by this module. No boundary
+condition is needed on `TS` (the default symmetry condition is used, the heat
+exchanged with the fluid is a source term).
+
+The properties of the solid are stored in the fields `rhos`, `cps`, and
+`lambdas`, initialized with the uniform values `rho3`, `cp3`, and `lambda3`.
+They can be modified in the simulation file to describe non-uniform solids
+(e.g. a thin heater film on the substrate).
 
 ~~~literatec
 #include "conjugate.h"
-
-T[left] = dirichlet (TSB[]);
-TS[left] = dirichlet (TFB[]);
 
 int main() {
   ...
@@ -66,21 +71,24 @@ scalar cw[];
 face vector fw[];
 
 /**
-The solid temperature `TS` is resolved in this file with boundary conditions
-provided by the user. The fields `TSB` and `TFB` are the temperature boundary
-fields on the solid, and on the fluid side, respectively. The heat source/sink
-terms can be introduced using the field `QSexp`. If there is no thermal heat
-transfer resistance, the temperature is continuous at the solid-fluid
-boundaries. */
+The solid temperature `TS` is resolved in this file. The heat source/sink terms
+can be introduced using the field `QSexp` [W/m$^3$]. The field `qw` stores the
+heat flux [W/m$^2$] from the solid to the fluid through the wall face of the
+cells adjacent to the solid-fluid boundary (zero elsewhere). */
 
-scalar TS[], TSB[], TFB[], TLB[], TGB[], QSexp[];
+scalar TS[], QSexp[], qw[];
 
 /**
 ### Physical properties
 
-We define the density, heat capacity, and thermal conductivity of the solid. The
-thermal power of the Joule effect can be set using the respective variable,
-initialized as null. The initial solid temperature is set through `TS0`. */
+We define the density, heat capacity, and thermal conductivity of the solid.
+The fields are initialized with the uniform values `rho3`, `cp3`, and
+`lambda3`, which are also used as reference values to scale the solid heat
+equation. The thermal power of the Joule effect can be set using the respective
+variable, initialized as null. The initial solid temperature is set through
+`TS0`. */
+
+scalar rhos[], cps[], lambdas[];
 
 double rho3 = 1., cp3 = 1., lambda3 = 1., qjoule = 0., TS0 = 300.;
 
@@ -94,14 +102,35 @@ properties, while the latter is a case-dependent factor. */
 double RInt = 0., acc = 1.;
 
 /**
+### Solid-fluid boundary
+
+The normal direction `cwn` of the solid-fluid boundary, and the condition
+identifying the cells adjacent to it. */
+
+#ifndef CONJUGATE_BOTTOM
+# define CONJUGATE_BOTTOM 0
+#endif
+
+#if CONJUGATE_BOTTOM
+# define cwn y
+# define conjugate_wall_cell() (y - Y0 < Delta)
+#else
+# define cwn x
+# define conjugate_wall_cell() (x - X0 < Delta)
+#endif
+
+/**
 ## Initialization
 
 We specify an initial solid temperature and the function used to refine or
 coarsen the solid temperature and the solid volume fraction. */
 
 event defaults (i = 0) {
-  foreach()
+  foreach() {
     TS[] = TS0;
+    qw[] = 0.;
+    rhos[] = rho3, cps[] = cp3, lambdas[] = lambda3;
+  }
 #if TREE
   cw.refine = fraction_refine;
   set_prolongation (cw, fraction_refine);
@@ -123,38 +152,128 @@ event reset_sources (i++) {
 /**
 ## Solid-Fluid coupling
 
-Before solving the diffusion equations on the solid and on the fluid domains, we
-compute the temperatures at both sides of the interface from the energy balance.
-These temperatures are imposed as Dirichlet boundary conditions. */
+The phase temperatures and the solid temperature are solved sequentially: first
+the fluid, using the solid temperature of the previous time step, then the
+solid, which receives the heat flux absorbed by the fluid. The heat flux
+leaving the solid is equal to the one entering the fluid, therefore the energy
+is conserved at the solid-fluid boundary.
+
+### Fluid side
+
+The boundary temperature of each phase is computed from the balance of the
+heat fluxes, considering the half-cell resistance $R_f = \Delta/(2\lambda)$ of
+the fluid cell, and the external resistance $R_{ext}$ (the contact resistance
+plus the half-cell resistance of the solid):
+$$
+T_B = \dfrac{R_f T_S + R_{ext} T}{R_f + R_{ext}}
+\qquad
+R_{ext} = acc\,R_{Int} + \dfrac{\Delta}{2\lambda_s}
+$$
+This is a Robin condition, $T_B + \lambda R_{ext}\,\partial_n T = T_S$, imposed
+using [navier()](/src/grid/cartesian-common.h#navier). It is implicit with
+respect to the phase temperature $T$, while the solid temperature $T_S$ is the
+one of the previous time step. Where the wall face is not in contact with the
+solid ($f_w = 0$) the boundary is adiabatic. */
+
+static double conjugate_rext (Point point) {
+  return acc*RInt + Delta/(2.*lambdas[]);
+}
+
+double conjugate_length (Phase * phase, Point point = point) {
+  scalar lambda = phase->lambda;
+  return lambda[]*conjugate_rext (point);
+}
+
+event init (i = 0) {
+  scalar TL = liq->T, TG = gas->T;
+#if CONJUGATE_BOTTOM
+  TL[bottom] = fw.y[] > 0. ? navier (TS[], conjugate_length (liq)) : neumann (0.);
+  TG[bottom] = fw.y[] > 0. ? navier (TS[], conjugate_length (gas)) : neumann (0.);
+#else
+  TL[left] = fw.x[] > 0. ? navier (TS[], conjugate_length (liq)) : neumann (0.);
+  TG[left] = fw.x[] > 0. ? navier (TS[], conjugate_length (gas)) : neumann (0.);
+#endif
+}
+
+/**
+The wall metric `fw` is updated before the solution of the phase temperatures.
+The fields used by the boundary conditions (including the conductivities of the
+phases) are restricted, since the conditions are applied also on the coarse
+levels of the multigrid solver. Otherwise the coarse levels would see a null
+Robin length (i.e. a Dirichlet condition) and the solver could diverge. */
+
+event tracer_diffusion (i++) {
+  face_fraction (cw, fw);
+  scalar lambdal = liq->lambda, lambdag = gas->lambda;
+  restriction ((scalar *){TS,lambdas,fw,lambdal,lambdag});
+}
+
+/**
+### Wall heat flux
+
+After the solution of the phase temperatures, we compute the heat flux absorbed
+by each phase through the wall face, using the same face fractions of
+[phase_diffusion()](phase.h#phase_diffusion) and the same boundary condition:
+$$
+q_w = \sum_{k = l,g} f_{s,k}\dfrac{T_S - T_k}{R_{f,k} + R_{ext}}
+$$
+This is done in the `properties` event, before the phase temperatures are
+modified by other modules. */
+
+static void conjugate_face_fraction (Phase * phase, face vector fs) {
+  scalar ff[];
+  scalar_clone (ff, f);
+  ff.inverse = phase->inverse;
+  foreach()
+    ff[] = phase->inverse ? 1. - f[] : f[];
+  face_fraction (ff, fs);
+}
+
+static double conjugate_phase_flux (Phase * phase, face vector fs,
+    Point point)
+{
+  scalar T = phase->T, lambda = phase->lambda;
+  double ff = phase->inverse ? 1. - f[] : f[];
+  if (ff <= 0. || phase->isothermal)
+    return 0.;
+  double Rf = Delta/(2.*lambda[]);
+  return fs.cwn[]*(TS[] - T[]/ff)/(Rf + conjugate_rext (point));
+}
+
+event properties (i++) {
+  face vector fsl[], fsg[];
+  conjugate_face_fraction (liq, fsl);
+  conjugate_face_fraction (gas, fsg);
+  foreach() {
+    qw[] = 0.;
+    if (conjugate_wall_cell() && fw.cwn[] > 0.)
+      qw[] = conjugate_phase_flux (liq, fsl, point) +
+        conjugate_phase_flux (gas, fsg, point);
+  }
+}
+
+/**
+The temperatures at the solid and at the fluid side of the wall face, which
+differ because of the contact resistance, can be computed for post-processing
+from the wall heat flux. */
+
+double conjugate_wall_solid (Point point) {
+  return TS[] - qw[]*Delta/(2.*lambdas[]);
+}
+
+double conjugate_wall_fluid (Point point) {
+  return conjugate_wall_solid (point) - acc*RInt*qw[];
+}
+
+/**
+### Dirichlet condition on the solid boundary
+
+We use the interface gradients calculation in order to impose Dirichlet BCs on
+the solid heater. */
 
 double conjugate_dirichlet = 0.;
 
 static void conjugate (void) {
-  scalar TL = liq->T, TG = gas->T;
-  scalar lambdal = liq->lambda, lambdag = gas->lambda;
-  foreach() {
-    double RL = Delta/(2.*lambdal[] + 1e-10);
-    double RG = Delta/(2.*lambdag[] + 1e-10);
-    double RS = Delta/(2.*lambda3 + 1e-10);
-
-    double lambdaf = f[]*lambda1 + (1. - f[])*lambda2;
-    double RF = Delta/(2.*lambdaf);
-
-    double TLL = (f[] > 1e-10) ? TL[]/f[] : 0.;
-    double TGG = (1. - f[] > 1e-10) ? TG[]/(1. - f[]) : 0.;
-
-    T[] = TL[] + TG[];
-
-    TSB[] = ((acc*RInt + RF)*TS[] + RS*T[])/(acc*RInt + RS + RF);
-    TLB[] = ((acc*RInt + RS)*TLL + RL*TS[])/(acc*RInt + RS + RL);
-    TGB[] = ((acc*RInt + RS)*TGG + RG*TS[])/(acc*RInt + RS + RG);
-    TFB[] = ((acc*RInt + RS)*T[] + RF*TS[])/(acc*RInt + RS + RF);
-  }
-
-  /**
-  We use the interface gradients calculation in order to impose Dirichlet BCs on
-  the solid heater. */
-
   if (conjugate_dirichlet) {
     scalar fl[], fg[];
     foreach() {
@@ -197,19 +316,17 @@ void no_sources (scalar i, scalar e) {
 void (* energy_sources) (scalar i, scalar e) = no_sources;
 
 /**
-The thermal conductivity may vary significantly with the solid temperature.
-Therefore, we define a function which, by default, returns the constant
-conductivity value, but it can be [overloaded](/src/ast/macro.h#overloading) in
-the simulation file. */
+The solid temperature is solved at the end of the time step, after the phase
+temperatures. The heat flux $q_w$ leaving the solid through the wall face is a
+sink term in the cells adjacent to the solid-fluid boundary, with the face
+metric used by the fluid. The conductivity on the faces is the harmonic mean of
+the cell values (layered solids). The equation is divided by the reference
+value `rho3*cp3`. Otherwise, the residual would be of order
+$\rho_s c_{p,s} T/\Delta t$, and the multigrid solver might not reach
+`TOLERANCE` because of round-off errors. */
 
-macro double lambda_solid (double T) {
-  NOT_UNUSED(T);
-  return lambda3;
-}
-
-event tracer_diffusion (i++) {
+event end_timestep (i++) {
   conjugate();
-  face_fraction (cw, fw);
 
   scalar cmm[];
   foreach()
@@ -227,19 +344,29 @@ event tracer_diffusion (i++) {
     fmm.x[] = fm.x[]*fw.x[];
 #endif
 
+  double rhocp0 = rho3*cp3;
+
   scalar theta[];
   foreach()
-    theta[] = max (cmm[]*rho3*cp3, 1e-10);
+    theta[] = max (cmm[]*rhos[]*cps[]/rhocp0, 1e-10);
 
   face vector D[];
   foreach_face() {
-    double TSf = face_value (TS, 0);
-    D.x[] = fmm.x[]*lambda_solid (TSf);
+    double lambdaf = 2.*lambdas[]*lambdas[-1]/(lambdas[] + lambdas[-1] + 1e-30);
+    D.x[] = fmm.x[]*lambdaf/rhocp0;
   }
 
   energy_sources (zeroc, QSexp);
 
-  diffusion (TS, dt, D = D, theta = theta, r = QSexp);
+  scalar r[];
+  foreach() {
+    r[] = QSexp[];
+    if (conjugate_wall_cell())
+      r[] -= qw[]*fm.cwn[]/Delta;
+    r[] /= rhocp0;
+  }
+
+  diffusion (TS, dt, D = D, theta = theta, r = r);
 }
 
 /**
@@ -266,4 +393,3 @@ void solid_properties (enum solid_props s) {
       break;
   }
 }
-
