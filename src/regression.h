@@ -144,8 +144,23 @@ void vof_expl_sources (
     double dt               // Time step
 )
 {
+  scalar df[];
   foreach_interfacial_plic (f, F_ERR)
-    f[] += (rho[] > 0.) ? dt*mEvapTot[]/rho[]*area/Delta : 0.;
+    df[] = (rho[] > 0.) ? dt*mEvapTot[]/rho[]*dirac/cm[] : 0.;
+
+  foreach_interfacial (f, F_ERR) {
+    double f0 = f[];
+    f[] = clamp (f[] + df[], 0., 1.);
+
+    /**
+    The tracers of $f$ are volume-averaged (i.e. $f\phi$ and $(1 - f)\phi$),
+    therefore we rescale them with the new volume of their phase: the interface
+    motion does not modify the intensive values $\phi$, which are updated with
+    the boundary conditions of the diffusion step. */
+
+    for (scalar t in f.tracers)
+      t[] *= t.inverse ? (1. - f[])/(1. - f0) : f[]/f0;
+  }
 }
 
 /**
@@ -162,12 +177,29 @@ void vof_plane_shifting (
     double dt               // Time step
 )
 {
+  /**
+  The new volume fraction is computed before updating $f$, otherwise the
+  PLIC reconstruction would use already updated neighbors. */
+
+  scalar fnew[];
   foreach_interfacial_plic (f, F_ERR) {
     double delta_alpha = 0.;
     double magn = sqrt (sq (m.x) + sq (m.y) + sq (m.z));
     delta_alpha = (rho[] > 0.) ? dt*mEvapTot[]*magn/rho[]/Delta : 0.;
     double ff = plane_volume (m, alpha + delta_alpha);
-    f[] = (ff > F_ERR && ff < 1.-F_ERR) ? ff : (ff <= F_ERR) ? 0. : 1.;
+    fnew[] = (ff > F_ERR && ff < 1.-F_ERR) ? ff : (ff <= F_ERR) ? 0. : 1.;
+  }
+
+  foreach_interfacial (f, F_ERR) {
+    double f0 = f[];
+    f[] = fnew[];
+
+    /**
+    The tracers are rescaled with the new volume of their phase, as in
+    *vof_expl_sources()*. */
+
+    for (scalar t in f.tracers)
+      t[] *= t.inverse ? (1. - f[])/(1. - f0) : f[]/f0;
   }
 }
 
