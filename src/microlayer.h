@@ -157,10 +157,10 @@ mlstats microlayer_stats (scalar f, double theta) {
       double dirac = area/Delta*cm[];
 #endif
       if (region[] == IS_MICROLAYER)
-        fluxml += mEvapTot[]*dirac*dv();
+        fluxml += mEvapTot[]*dirac*pow (Delta, dimension);
 
       if (region[] == IS_BULK)
-        fluxbulk += mEvapTot[]*dirac*dv();
+        fluxbulk += mEvapTot[]*dirac*pow (Delta, dimension);
     }
   }
   ml.fluxml = fluxml;
