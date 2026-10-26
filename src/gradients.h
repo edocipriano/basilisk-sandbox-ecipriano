@@ -156,7 +156,7 @@ double plic_gradient (Point point, scalar s, scalar cs, face vector fs,
   normalize (&m);
   double coef = 0.;
   double grad = dirichlet_gradient (point, s, cs, fs, m, p, bc, &coef, vof, stat);
-  return (grad == nodata || coef != 0.) ? 0. : grad;
+  return (grad == nodata) ? 0. : grad + coef*s[];
 }
 
 /**
@@ -193,7 +193,7 @@ double dirichlet_homogeneous (double expr, Point point = point,
 }
 
 double plic_flux (Point point, scalar s, face vector D, double * val) {
-  double tol = 1e-3;
+  double tol = F_ERR;
 
   *val = 0.;
   if (cs1[] < tol || cs1[] > 1. - tol)
