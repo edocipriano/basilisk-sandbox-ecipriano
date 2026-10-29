@@ -7,10 +7,9 @@ The test assesses the interface gradients computed when the film is not
 resolved by the grid: the liquid side of the stencil reaches the wall
 directly.
 
-For small Jakob numbers ($c_{p,l}\Delta T/\Delta h_{ev} \approx 2\times
-10^{-2}$) the temperature profile in the film is linear. A thermal resistance
-$R_c$ (interfacial, with accommodation coefficient $\omega$) is in series with
-the film, and the heat flux at the interface is:
+For small Jakob numbers the temperature profile in the film is linear. A thermal
+resistance $R_c$ (interfacial, with accommodation coefficient $\omega$) is in
+series with the film, and the heat flux at the interface is:
 $$
   q = \dfrac{T_w - T_s}{R_c + h/\lambda_l}
 $$
@@ -27,7 +26,7 @@ Three ways of computing the liquid heat flux $q$ (and $\dot{m} = -q/\Delta
 h_{ev}$) are compared, one after the other:
 
 1. *ghost*: default [plic_gradient()](/src/gradients.h), the probe reaches the
-ghost cell beyond the wall (one point gradient);
+ghost cell beyond the wall (one point gradient along the probe);
 2. *degenerate*: the wall face is closed to the probe ($f_s = 0$), the gradient
 falls back to the degenerate case (cell and interface values);
 3. *SGS*: sub-grid model with a linear profile in the film, $q = (T_w -
@@ -173,10 +172,12 @@ double qexact (double t) {
 
 We write on the log (tagged by the case) the film thickness (liquid volume over the wall length) and the
 interface heat flux $q = -\Delta h_{ev}\dot{m}$ (the evaporation rate is
-negative by convention), averaged over the interfacial cells. The output is
-frequent to capture the last instants before dry-out. */
+negative by convention), averaged over the interfacial cells. A line is
+written only when $h$ changes by 1\% of $h_0$, or $q$ by 2\%, or every 0.25 s:
+the output is dense only close to dry-out. The start-up transient ($t <
+5$ ms) is skipped. */
 
-event output (t += 0.005) {
+event output (i++) {
   double h = statsf (f).sum/L0;
   double q = 0.; int n = 0;
   foreach (reduction(+:q) reduction(+:n))
@@ -184,12 +185,19 @@ event output (t += 0.005) {
       q -= dhev*mEvapTot[], n++;
   q /= max (n, 1);
 
-  fprintf (stderr, "case %d %g %g %g %g %g\n",
-      CASE, t, h, hexact (t), q, qexact (t));
+  static double tl = HUGE, hl, ql;
+  if (t < 0.005)
+    return 0;
+  if (t < tl || t - tl >= 0.25 || t >= TEND || fabs (q - ql) > 0.02*fabs (ql) ||
+      fabs (h - hl) > 0.01*H0*L0/(1 << MAXLEVEL)) {
+    fprintf (stderr, "case %d %.4g %.4g %.4g %.4g %.4g\n",
+        CASE, t, h, hexact (t), q, qexact (t));
+    tl = t, hl = h, ql = q;
+  }
 }
 
 event logger (t += 1) {
-  fprintf (stderr, "%d %.3f %.6g\n", i, t, statsf (f).sum);
+  fprintf (stderr, "%d %.3f %.4g\n", i, t, statsf (f).sum);
 }
 
 /**
@@ -209,14 +217,14 @@ set ylabel "h [m]"
 set key right top
 set size square
 set grid
-plot '<grep "case 0" log' every 50 u 3:5 w p lt 1 t "Exact", \
+plot '<grep "case 0" log' every 2 u 3:5 w p lt 1 t "Exact", \
      for [k=0:2] sprintf ('<grep "case %d" log', k) u 3:4 w l lt k+2 t word(cases,k+1)
 ~~~
 
 ~~~gnuplot Interface heat flux
 set ylabel "q [W/m^2]"
 set key left top
-plot '<grep "case 0" log' every 50 u 3:7 w p lt 1 t "Exact", \
+plot '<grep "case 0" log' every 2 u 3:7 w p lt 1 t "Exact", \
      for [k=0:2] sprintf ('<grep "case %d" log', k) u 3:6 w l lt k+2 t word(cases,k+1)
 ~~~
 
