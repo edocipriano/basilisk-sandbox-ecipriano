@@ -277,10 +277,6 @@ void copy_bcs (scalar * dest, scalar orig) {
 }
 
 #if TREE
-attribute {
-  scalar rho;
-}
-
 void density_refine (Point point, scalar rhov) {
   refine_bilinear (point, rhov);
   double rhou = 0.;
@@ -299,14 +295,45 @@ void density_restriction (Point point, scalar rhov) {
   //restriction_volume_average (point, rhov);
 }
 
-void restriction_mass_average (Point point, scalar s) {
-  scalar rhov = s.rho;
-  double sum = 0., mass = 0.;
-  foreach_child() {
-    sum += cm[]*rhov[]*s[];
-    mass += cm[]*rhov[];
+void restriction_scalar_stepwise (Point point, scalar s) {
+  scalar c = s.c;
+  foreach_blockf (s) {
+    double num = 0., den = 0.;
+    foreach_child() {
+      double w = cm[]*(s.inverse ? 1. - c[] : c[]);
+      num += s[]*w;
+      den += w;
+    }
+    s[] = (den > 0.) ? num/den : 0.;
   }
-  s[] = sum/(mass + 1e-30);
+}
+
+foreach_dimension()
+static double stepwise_gradient_x (Point point, scalar c, scalar t)
+{
+  double cl = c[-1], cr = c[1];
+  if (t.inverse)
+    cl = 1. - cl, cr = 1. - cr;
+  if (cl > 0. && cr > 0.)
+    return (t[1] - t[-1])/(2.*Delta);
+  else if (cr > 0.)
+    return (t[1] - t[])/Delta;
+  else if (cl > 0.)
+    return (t[] - t[-1])/Delta;
+  return 0.;
+}
+
+void prolongation_scalar_stepwise (Point point, scalar s) {
+  scalar f = s.c;
+  coord g;
+  foreach_dimension()
+    g.x = Delta*stepwise_gradient_x (point, f, s);
+  double sc = s[], cmc = 4.*cm[];
+  foreach_child() {
+    s[] = sc;
+    if (cmc > 0.)
+      foreach_dimension()
+        s[] += child.x*g.x*cm[-child.x]/cmc;
+  }
 }
 #endif
-

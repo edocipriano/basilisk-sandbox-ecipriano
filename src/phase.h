@@ -660,7 +660,7 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
       fs1.x[] = fs.x[];
 # if TREE
     set_prolongation (cs1, fraction_refine);
-    restriction ((scalar *){cs1, fs1});
+    restriction ((scalar *){cs1,fs1,fm});
 # endif
   }
 #endif
@@ -719,6 +719,47 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
 }
 
 /**
+### *phase_tracers_operators()*: set Multigrid/Trees operators to tracers
+
+By default, the tracers inherit the operators defined in [vof.h](src/vof.h).
+However, when we go from the extensive (tracer) form to the intensive (scalar)
+one, we have to modify the way the restriction and prolongation operators work.
+After, the default VOF tracers operators are restored. This is needed mostly for
+the multigrid diffusion solver.
+*/
+
+#if TREE
+static void phase_tracers_operators (Phase * phase) {
+  foreach_scalar_in (phase) {
+    set_restriction (T, restriction_volume_average);
+    T.refine = vof_concentration_refine;
+    set_prolongation (T, vof_concentration_refine);
+    foreach_species_in (phase) {
+      set_restriction (Y, restriction_volume_average);
+      Y.refine = vof_concentration_refine;
+      set_prolongation (Y, vof_concentration_refine);
+    }
+  }
+}
+
+/**
+### *phase_scalars_operators()*: set Multigrid/Trees operators to scalars */
+
+static void phase_scalars_operators (Phase * phase) {
+  foreach_scalar_in (phase) {
+    set_restriction (T, restriction_scalar_stepwise);
+    T.refine = prolongation_scalar_stepwise;
+    set_prolongation (T, prolongation_scalar_stepwise);
+    foreach_species_in (phase) {
+      set_restriction (Y, restriction_scalar_stepwise);
+      Y.refine = prolongation_scalar_stepwise;
+      set_prolongation (Y, prolongation_scalar_stepwise);
+    }
+  }
+}
+#endif
+
+/**
 ### *phase_tracers_to_scalars()*: multiply each scalar by a volume fraction */
 
 void phase_tracers_to_scalars (Phase * phase, scalar f, double tol = 1e-10) {
@@ -732,6 +773,9 @@ void phase_tracers_to_scalars (Phase * phase, scalar f, double tol = 1e-10) {
           Y[] = (ff > tol) ? Y[]/ff : 0.;
     }
   }
+#if TREE
+  phase_scalars_operators (phase);
+#endif
 }
 
 /**
@@ -748,6 +792,9 @@ void phase_scalars_to_tracers (Phase * phase, scalar f) {
           Y[] *= ff;
     }
   }
+#if TREE
+  phase_tracers_operators (phase);
+#endif
 }
 
 /**
