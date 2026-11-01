@@ -243,7 +243,7 @@ void radiation_fiber (scalar i, scalar e) {
   foreach()
     if (f[] == 0.)
       e[] -= 4.*sigma_stefan_boltzmann*emissivity/dfiber*
-        (pow (TS[], 4.) - pow (TS0, 4.))*cm[]*cw[];
+        (pow (TS[], 4.) - pow (TS0, 4.));
 }
 #endif
 

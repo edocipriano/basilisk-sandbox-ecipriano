@@ -76,7 +76,7 @@ We define a function that adds sources to the solid temperature equation. */
 
 void joule_effect (scalar i, scalar e) {
   foreach_boundary (left)
-    e[] += 1e+4/Delta*cm[];
+    e[] += 1e+4/Delta;
   boundary ({i,e});
 }
 

@@ -8,32 +8,41 @@ same grid as the fluid, and the boundary conditions on the solid-fluid interface
 are computed and set in order to achieve the heat exchange between the different
 phases.
 
+The module imposes Robin boundary conditions on the fluid temperatures, also
+accounting for an interfacial heat transfer resistance. The fluid temperatures
+are resolved first, and the heat flux at the fluid-solid boundaries is stored
+and introduced in the solid temperature solution (a sort of Robin-Neumann
+condition). Energy is conserved, although the coupling is explicit (i.e. the
+fluid is resolved with the previous time solid temperature).
+
 The main advantage of this method is its simplicity, and the fact that it can
 exploit the default ghost cells method to impose the boundary conditions.
-Therefore, it does not require dealing with interfacial gradients as tipically
-done with the embedded boundaries. However, the cost is the use of simple
-geometries, and the introduction of additional cells into the solution of the
-fluid phase. Conversely from methods using a master-slave coupling approach,
-this approach automatically guarantees MPI parallelization, and it does not
-introduce the overhead due to the interpolation of values from another domain,
-potentially in another processor. In many systems (e.g., droplet combustion or
-nucleate boiling problems) the solid heater is simple and can be effectively
-described by this approach.
+Eventually, it will be extended to embedded boundaries by introducing Robin BCs
+and interfacial gradients in solid interfacial cells.
+
+However, the cost is the use of simple geometries, and the introduction of
+additional cells into the solution of the fluid phase. Conversely from methods
+using a master-slave coupling approach, this approach automatically guarantees
+MPI parallelization, and it does not introduce the overhead due to the
+interpolation of values from another domain, potentially in another processor.
+In many systems (e.g., droplet combustion or nucleate boiling problems) the
+solid heater is simple and can be effectively described by this approach.
 
 ## Usage
 
 Include this module after the Navier--Stokes and two-phase solver, there is not
 strict rule about it. Set the global variables which store the solid material
-properties.  Set additional heat sources such as the joule effect. Other source
-terms can be introduced by directly modifying the field `QSexp` introduced at
-the next section.  Finally, decide the shape of the solid by setting the volume
-and surface fractions `cw` and `fw`, this can be done using the `solid()`
-function but consider that the solid-fluid boundary must coicinde with one of the
-domain boundaries. The solid-fluid boundary is the left one by default, or the
-bottom one with `CONJUGATE_BOTTOM`. The boundary conditions of the phase
-temperatures on the solid-fluid boundary are set by this module. No boundary
-condition is needed on `TS` (the default symmetry condition is used, the heat
-exchanged with the fluid is a source term).
+properties. Additional heat sources (e.g. the Joule effect) can be set through
+the function pointer `energy_sources`, which adds explicit source terms to the
+field `QSexp` introduced at the next section (per unit volume of solid, without
+metric factors). Finally, decide the shape of the
+solid by setting the volume and surface fractions `cw` and `fw`, this can be
+done using the `solid()` function but consider that the solid-fluid boundary
+must coincide with one of the domain boundaries. The solid-fluid boundary is the
+left one by default, or the bottom one with `CONJUGATE_BOTTOM`. The boundary
+conditions of the phase temperatures on the solid-fluid boundary are set by this
+module. No boundary condition is needed on `TS` (the default symmetry condition
+is used, the heat exchanged with the fluid is a source term).
 
 The properties of the solid are stored in the fields `rhos`, `cps`, and
 `lambdas`, initialized with the uniform values `rho3`, `cp3`, and `lambda3`.
@@ -43,10 +52,15 @@ They can be modified in the simulation file to describe non-uniform solids
 ~~~literatec
 #include "conjugate.h"
 
+void joule (scalar i, scalar e) {
+  foreach()
+    e[] += 500.;
+}
+
 int main() {
   ...
   rho3 = 8000., cp3 = 1080., lambda3 = 0.2;
-  qjoule = 1e4;
+  energy_sources = joule; // optional
   ...
 }
 
@@ -72,7 +86,9 @@ face vector fw[];
 
 /**
 The solid temperature `TS` is resolved in this file. The heat source/sink terms
-can be introduced using the field `QSexp` [W/m$^3$]. The field `qw` stores the
+can be introduced using the field `QSexp` [W/m$^3$], per unit volume of solid
+and without metric factors, which are applied when solving the heat equation
+(see below). The field `qw` stores the
 heat flux [W/m$^2$] from the solid to the fluid through the wall face of the
 cells adjacent to the solid-fluid boundary (zero elsewhere). */
 
@@ -84,13 +100,11 @@ scalar TS[], QSexp[], qw[];
 We define the density, heat capacity, and thermal conductivity of the solid.
 The fields are initialized with the uniform values `rho3`, `cp3`, and
 `lambda3`, which are also used as reference values to scale the solid heat
-equation. The thermal power of the Joule effect can be set using the respective
-variable, initialized as null. The initial solid temperature is set through
-`TS0`. */
+equation. The initial solid temperature is set through `TS0`. */
 
 scalar rhos[], cps[], lambdas[];
 
-double rho3 = 1., cp3 = 1., lambda3 = 1., qjoule = 0., TS0 = 300.;
+double rho3 = 1., cp3 = 1., lambda3 = 1., TS0 = 300.;
 
 /**
 ### Heat transfer resistance
@@ -104,8 +118,8 @@ double RInt = 0., acc = 1.;
 /**
 ### Solid-fluid boundary
 
-The normal direction `cwn` of the solid-fluid boundary, and the condition
-identifying the cells adjacent to it. */
+The normal direction `cwn` of the solid-fluid boundary, and the function
+`is_wall()` identifying the cells adjacent to it. */
 
 #ifndef CONJUGATE_BOTTOM
 # define CONJUGATE_BOTTOM 0
@@ -113,10 +127,14 @@ identifying the cells adjacent to it. */
 
 #if CONJUGATE_BOTTOM
 # define cwn y
-# define conjugate_wall_cell() (y - Y0 < Delta)
+static inline int is_wall (Point point) {
+  return y - Y0 < Delta;
+}
 #else
 # define cwn x
-# define conjugate_wall_cell() (x - X0 < Delta)
+static inline int is_wall (Point point) {
+  return x - X0 < Delta;
+}
 #endif
 
 /**
@@ -217,8 +235,8 @@ by each phase through the wall face, using the same face fractions of
 $$
 q_w = \sum_{k = l,g} f_{s,k}\dfrac{T_S - T_k}{R_{f,k} + R_{ext}}
 $$
-This is done in the `properties` event, before the phase temperatures are
-modified by other modules. */
+This is done by `conjugate_wall_flux()` in the `end_timestep` event, just
+before the solution of the solid temperature. */
 
 static void conjugate_face_fraction (Phase * phase, face vector fs) {
   scalar ff[];
@@ -240,13 +258,13 @@ static double conjugate_phase_flux (Phase * phase, face vector fs,
   return fs.cwn[]*(TS[] - T[]/ff)/(Rf + conjugate_rext (point));
 }
 
-event properties (i++) {
+static void conjugate_wall_flux (void) {
   face vector fsl[], fsg[];
   conjugate_face_fraction (liq, fsl);
   conjugate_face_fraction (gas, fsg);
   foreach() {
     qw[] = 0.;
-    if (conjugate_wall_cell() && fw.cwn[] > 0.)
+    if (is_wall (point) && fw.cwn[] > 0.)
       qw[] = conjugate_phase_flux (liq, fsl, point) +
         conjugate_phase_flux (gas, fsg, point);
   }
@@ -269,7 +287,9 @@ double conjugate_wall_fluid (Point point) {
 ### Dirichlet condition on the solid boundary
 
 We use the interface gradients calculation in order to impose Dirichlet BCs on
-the solid heater. */
+the solid heater The
+interfacial flux is divided by `cw`, since `dirac` is already referred to the
+whole cell volume and the sources are multiplied by `cmm` $\propto$ `cw`. */
 
 double conjugate_dirichlet = 0.;
 
@@ -290,7 +310,7 @@ static void conjugate (void) {
     foreach_interfacial_plic (cw, F_ERR) {
       double bc = conjugate_dirichlet;
       double intgrad = plic_gradient (point, TS, fl, fsl, bc, true, NULL);
-      QSexp[] += lambda3*intgrad*dirac;
+      QSexp[] += lambdas[]*intgrad*dirac/cw[];
     }
   }
 }
@@ -305,9 +325,15 @@ $$
 \nabla\cdot\left(\lambda_s\nabla T_s\right) + \dot{Q}_s
 $$
 
-considering metric factors and heat source/sink terms. Explicit (`e`) and
-implicit (`i`) source terms to the solid diffusion equation can be added
-exploiting the function pointer `energy_sources` defined below. */
+considering metric factors and heat source/sink terms. Source terms to the
+solid diffusion equation can be added exploiting the function pointer
+`energy_sources` defined below. Only the explicit term (`e`, i.e. `QSexp`) is
+currently used, the implicit one (`i`) is passed as `zeroc`.
+
+The sources are multiplied by the solid metric `cmm`, which includes the volume
+fraction `cw`. Therefore, they must not include `cw` or `cm`: in axial
+symmetry, with the solid at the bottom, the solid is mirrored on the grid and
+its radius $r_s = |2Y_0 - y|$ differs from the domain metric `cm` $= y$. */
 
 void no_sources (scalar i, scalar e) {
   return;
@@ -317,15 +343,19 @@ void (* energy_sources) (scalar i, scalar e) = no_sources;
 
 /**
 The solid temperature is solved at the end of the time step, after the phase
-temperatures. The heat flux $q_w$ leaving the solid through the wall face is a
-sink term in the cells adjacent to the solid-fluid boundary, with the face
-metric used by the fluid. The conductivity on the faces is the harmonic mean of
-the cell values (layered solids). The equation is divided by the reference
-value `rho3*cp3`. Otherwise, the residual would be of order
+temperatures and the computation of $q_w$. The heat flux $q_w$ leaving the solid
+through the wall face is a sink term in the cells adjacent to the solid-fluid
+boundary, with the face metric used by the fluid. The sources `QSexp` are
+multiplied by the solid metric `cmm`, while the wall flux already includes the
+fluid face metric, which coincides with the solid one at the wall
+($r_s = y = Y_0$). The conductivity on the faces is the harmonic mean of the
+cell values (layered solids). The equation is divided by the reference value
+`rho3*cp3`. Otherwise, the residual would be of order
 $\rho_s c_{p,s} T/\Delta t$, and the multigrid solver might not reach
 `TOLERANCE` because of round-off errors. */
 
 event end_timestep (i++) {
+  conjugate_wall_flux();
   conjugate();
 
   scalar cmm[];
@@ -360,8 +390,8 @@ event end_timestep (i++) {
 
   scalar r[];
   foreach() {
-    r[] = QSexp[];
-    if (conjugate_wall_cell())
+    r[] = QSexp[]*cmm[];
+    if (is_wall (point))
       r[] -= qw[]*fm.cwn[]/Delta;
     r[] /= rhocp0;
   }
