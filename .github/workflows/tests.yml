@@ -112,11 +112,17 @@ jobs:
           echo "$HOME/basilisk/src" >> "$GITHUB_PATH"
           echo "BASILISK_INCLUDES=-I$GITHUB_WORKSPACE/src" >> "$GITHUB_ENV"
           echo "BASILISK_LIBS=" >> "$GITHUB_ENV"
-          # Movies are not checked: a dummy ffmpeg discards the frames (a
-          # missing ffmpeg would print a warning in the log and break the
-          # comparison with the .ref file).
+          # Movies are not checked: a dummy ffmpeg discards the frames and
+          # creates an empty output file (its last argument), as expected by
+          # $BASILISK/ppm2mp4 (a missing ffmpeg would print a warning in the
+          # log and break the comparison with the .ref file).
           mkdir -p "$RUNNER_TEMP/bin"
-          printf '#!/bin/sh\ncat > /dev/null\n' > "$RUNNER_TEMP/bin/ffmpeg"
+          cat > "$RUNNER_TEMP/bin/ffmpeg" <<'EOF'
+          #!/bin/sh
+          for a; do out=$a; done
+          case " $* " in *" -i - "*) cat > /dev/null ;; esac
+          : > "$out"
+          EOF
           chmod +x "$RUNNER_TEMP/bin/ffmpeg"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
