@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BASILISK_URL: http://basilisk.fr/basilisk/basilisk.tar.gz
+  BASILISK_URL: https://basilisk.fr/basilisk/basilisk.tar.gz
 
 jobs:
   basilisk:
@@ -42,30 +42,40 @@ jobs:
           echo "cases=$json" >> "$GITHUB_OUTPUT"
           echo "$json"
 
-      - name: Download basilisk
-        id: download
+      # Only the headers are fetched here (basilisk.fr is slow from GitHub):
+      # the tarball is downloaded only when it changed since the cached build.
+      - name: Check basilisk version
+        id: version
         run: |
-          curl -sSfL "$BASILISK_URL" -o basilisk.tar.gz
-          echo "sha=$(sha256sum basilisk.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          stamp=$(curl -sSfIL "$BASILISK_URL" | grep -i '^last-modified:' | tail -1 \
+                  | cut -d' ' -f2- | tr -cd '[:alnum:]')
+          echo "stamp=${stamp:-$(date +%Y%W)}" >> "$GITHUB_OUTPUT"
+          echo "basilisk.tar.gz: ${stamp:-unknown}"
 
       - name: Cache basilisk build
         id: cache
         uses: actions/cache@v4
         with:
           path: basilisk-build.tar
-          key: basilisk-${{ runner.os }}-${{ steps.download.outputs.sha }}
+          key: basilisk-${{ runner.os }}-${{ steps.version.outputs.stamp }}
 
       - name: Build basilisk
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends gawk
+          curl -sSfL "$BASILISK_URL" -o basilisk.tar.gz
           # qcc embeds the BASILISK path: build where the tests will run
           tar xzf basilisk.tar.gz -C "$HOME"
           cd "$HOME/basilisk/src"
           ln -s config.gcc config
           export BASILISK=$PWD PATH=$PATH:$PWD
-          (make -k -j"$(nproc)" || true) && make -j"$(nproc)"
+          # see https://basilisk.fr/src/INSTALL (serial: the build is order-dependent)
+          make -k || true
+          make qcc
+          make -k || true
           ./qcc --version
-          ls gl/libfb_tiny.a gl/libglutils.a
+          ls -l gl/libfb_tiny.a gl/libglutils.a
           tar cf "$GITHUB_WORKSPACE/basilisk-build.tar" -C "$HOME" basilisk
 
       - uses: actions/upload-artifact@v4
@@ -93,7 +103,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends libgsl-dev
+          sudo apt-get install -y -qq --no-install-recommends libgsl-dev gawk
 
       - name: Set up environment
         run: |
