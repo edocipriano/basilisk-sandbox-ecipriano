@@ -25,7 +25,9 @@ expansion-T400.tst: CFLAGS += -DTEMPERATURE=400
 
 expansion.tst: expansion-T375.tst expansion-T400.tst
 
+ifdef CANTERA_LIBRARY_PATH
 CFLAGS += -I$(CANTERA_INCLUDE_PATH) -L$(CANTERA_LIBRARY_PATH) -rpath $(CANTERA_LIBRARY_PATH)
+endif
 
 microgravity.yaml:
 	ln -s normalgravity.yaml microgravity.yaml

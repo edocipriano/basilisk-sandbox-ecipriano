@@ -1,0 +1,128 @@
+# Run the simulations in run/ which have a reference log (run/<case>.ref)
+# against the latest upstream Basilisk, one parallel job per case.
+#
+# Cases which need OpenSMOKE or Cantera are skipped.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BASILISK_URL: http://basilisk.fr/basilisk/basilisk.tar.gz
+
+jobs:
+  basilisk:
+    name: build basilisk
+    runs-on: ubuntu-latest
+    outputs:
+      cases: ${{ steps.cases.outputs.cases }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: List cases
+        id: cases
+        run: |
+          cases=()
+          for ref in run/*.ref; do
+            c=$(basename "$ref" .ref)
+            if grep -qE '^\s*#\s*include\s*[<"](opensmoke|cantera)' "run/$c.c"; then
+              echo "skip $c (OpenSMOKE/Cantera)"
+            else
+              cases+=("$c")
+            fi
+          done
+          json=$(printf '%s\n' "${cases[@]}" | jq -R . | jq -cs .)
+          echo "cases=$json" >> "$GITHUB_OUTPUT"
+          echo "$json"
+
+      - name: Download basilisk
+        id: download
+        run: |
+          curl -sSfL "$BASILISK_URL" -o basilisk.tar.gz
+          echo "sha=$(sha256sum basilisk.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache basilisk build
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: basilisk-build.tar
+          key: basilisk-${{ runner.os }}-${{ steps.download.outputs.sha }}
+
+      - name: Build basilisk
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          # qcc embeds the BASILISK path: build where the tests will run
+          tar xzf basilisk.tar.gz -C "$HOME"
+          cd "$HOME/basilisk/src"
+          ln -s config.gcc config
+          export BASILISK=$PWD PATH=$PATH:$PWD
+          (make -k -j"$(nproc)" || true) && make -j"$(nproc)"
+          ./qcc --version
+          ls gl/libfb_tiny.a gl/libglutils.a
+          tar cf "$GITHUB_WORKSPACE/basilisk-build.tar" -C "$HOME" basilisk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: basilisk
+          path: basilisk-build.tar
+          retention-days: 1
+
+  test:
+    name: ${{ matrix.case }}
+    needs: basilisk
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        case: ${{ fromJSON(needs.basilisk.outputs.cases) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: basilisk
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libgsl-dev
+
+      - name: Set up environment
+        run: |
+          tar xf basilisk-build.tar -C "$HOME"
+          echo "BASILISK=$HOME/basilisk/src" >> "$GITHUB_ENV"
+          echo "$HOME/basilisk/src" >> "$GITHUB_PATH"
+          echo "BASILISK_INCLUDES=-I$GITHUB_WORKSPACE/src" >> "$GITHUB_ENV"
+          echo "BASILISK_LIBS=" >> "$GITHUB_ENV"
+          # Movies are not checked: a dummy ffmpeg discards the frames (a
+          # missing ffmpeg would print a warning in the log and break the
+          # comparison with the .ref file).
+          mkdir -p "$RUNNER_TEMP/bin"
+          printf '#!/bin/sh\ncat > /dev/null\n' > "$RUNNER_TEMP/bin/ffmpeg"
+          chmod +x "$RUNNER_TEMP/bin/ffmpeg"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Run ${{ matrix.case }}
+        working-directory: run
+        run: make -j"$(nproc)" ${{ matrix.case }}.tst
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.case }}
+          path: |
+            run/${{ matrix.case }}*/log
+            run/${{ matrix.case }}*/out
+            run/${{ matrix.case }}*/fail
+            run/${{ matrix.case }}*.log~
+          if-no-files-found: ignore
+          retention-days: 7
