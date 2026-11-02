@@ -1,7 +1,11 @@
 # Run the simulations in run/ which have a reference log (run/<case>.ref)
 # against the latest upstream Basilisk, one parallel job per case.
 #
-# Cases which need OpenSMOKE or Cantera are skipped.
+# Cases which need OpenSMOKE or Cantera are skipped. Cases which already
+# passed with identical inputs (sources, included headers, .ref,
+# Makefile, Basilisk version) are not run again: see
+# .github/scripts/select-cases.sh. Use "Run workflow" with "force" to
+# run everything.
 
 name: tests
 
@@ -9,10 +13,19 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      force:
+        description: Run all the cases, even those which are up to date
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
 
 env:
   BASILISK_URL: https://basilisk.fr/basilisk/basilisk.tar.gz
@@ -25,22 +38,6 @@ jobs:
       cases: ${{ steps.cases.outputs.cases }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: List cases
-        id: cases
-        run: |
-          cases=()
-          for ref in run/*.ref; do
-            c=$(basename "$ref" .ref)
-            if grep -qE '^\s*#\s*include\s*[<"](opensmoke|cantera)' "run/$c.c"; then
-              echo "skip $c (OpenSMOKE/Cantera)"
-            else
-              cases+=("$c")
-            fi
-          done
-          json=$(printf '%s\n' "${cases[@]}" | jq -R . | jq -cs .)
-          echo "cases=$json" >> "$GITHUB_OUTPUT"
-          echo "$json"
 
       # Only the headers are fetched here (basilisk.fr is slow from GitHub):
       # the tarball is downloaded only when it changed since the cached build.
@@ -59,11 +56,14 @@ jobs:
           path: basilisk-build.tar
           key: basilisk-${{ runner.os }}-${{ steps.version.outputs.stamp }}
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libgsl-dev gawk
+
       - name: Build basilisk
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends gawk
           curl -sSfL "$BASILISK_URL" -o basilisk.tar.gz
           # qcc embeds the BASILISK path: build where the tests will run
           tar xzf basilisk.tar.gz -C "$HOME"
@@ -78,7 +78,23 @@ jobs:
           ls -l gl/libfb_tiny.a gl/libglutils.a
           tar cf "$GITHUB_WORKSPACE/basilisk-build.tar" -C "$HOME" basilisk
 
+      - name: Select cases
+        id: cases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          STAMP: ${{ steps.version.outputs.stamp }}
+          FORCE: ${{ inputs.force && '1' || '' }}
+        run: |
+          test -d "$HOME/basilisk" || tar xf basilisk-build.tar -C "$HOME"
+          export BASILISK=$HOME/basilisk/src PATH=$PATH:$HOME/basilisk/src
+          export BASILISK_INCLUDES=-I$GITHUB_WORKSPACE/src BASILISK_LIBS=
+          json=$(bash .github/scripts/select-cases.sh)
+          echo "cases=$json" >> "$GITHUB_OUTPUT"
+          echo "$json"
+
       - uses: actions/upload-artifact@v4
+        if: steps.cases.outputs.cases != '[]'
         with:
           name: basilisk
           path: basilisk-build.tar
@@ -87,12 +103,13 @@ jobs:
   test:
     name: ${{ matrix.case }}
     needs: basilisk
+    if: needs.basilisk.outputs.cases != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        case: ${{ fromJSON(needs.basilisk.outputs.cases) }}
+        include: ${{ fromJSON(needs.basilisk.outputs.cases) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -129,6 +146,28 @@ jobs:
       - name: Run ${{ matrix.case }}
         working-directory: run
         run: make -j"$(nproc)" ${{ matrix.case }}.tst
+
+      - name: Show the diff in the summary
+        if: failure()
+        working-directory: run
+        run: |
+          {
+            echo "### ${{ matrix.case }}"
+            echo '```diff'
+            cat ${{ matrix.case }}*/fail 2> /dev/null | head -300
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Records that this case passed with these inputs (see select-cases.sh)
+      - name: Record pass
+        run: |
+          mkdir -p pass
+          echo "${{ github.sha }}" > pass/${{ matrix.case }}
+
+      - uses: actions/cache/save@v4
+        with:
+          path: pass
+          key: ${{ matrix.key }}
 
       - name: Upload logs
         if: always()
