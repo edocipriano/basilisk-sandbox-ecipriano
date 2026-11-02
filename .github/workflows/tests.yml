@@ -47,6 +47,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       cases: ${{ steps.cases.outputs.cases }}
+      uptodate: ${{ steps.cases.outputs.uptodate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -112,9 +113,9 @@ jobs:
           STAMP: ${{ steps.version.outputs.stamp }}
           FORCE: ${{ inputs.force && '1' || '' }}
         run: |
-          json=$(bash .github/scripts/select-cases.sh)
-          echo "cases=$json" >> "$GITHUB_OUTPUT"
-          echo "$json"
+          bash .github/scripts/select-cases.sh > selection
+          cat selection
+          cat selection >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         if: steps.cases.outputs.cases != '[]'
@@ -122,6 +123,30 @@ jobs:
           name: basilisk
           path: basilisk-build.tar
           retention-days: 1
+
+  # One (quick) job per case which already passed with identical inputs,
+  # so that the status of all the cases is shown for each run.
+  uptodate:
+    name: ${{ matrix.case }} (up to date)
+    needs: basilisk
+    if: needs.basilisk.outputs.uptodate != '[]'
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.basilisk.outputs.uptodate) }}
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: pass
+          key: ${{ matrix.key }}
+
+      - name: Passed with identical inputs
+        run: |
+          if test -f pass/${{ matrix.case }}; then
+            echo "${{ matrix.case }} passed with identical inputs at commit $(cat pass/${{ matrix.case }})"
+          else
+            echo "${{ matrix.case }} passed with identical inputs (${{ matrix.key }}, on another branch)"
+          fi
 
   test:
     name: ${{ matrix.case }}

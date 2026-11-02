@@ -5,27 +5,30 @@
 # compiled <case>.s did not change), a case is skipped if it already
 # passed with exactly the same inputs: the key of a case is a hash of
 # the contents of <case>.c, <case>.ref, all the headers it includes (as
-# listed by 'make <case>.s.d', i.e. 'qcc -MD'), run/Makefile, the
-# workflow and its scripts (which fix the Cantera version) and the
-# Basilisk version. Passed keys are stored as (tiny) GitHub cache
-# entries, so that this works across branches.
+# listed by 'make <case>.s.d', i.e. 'qcc -MD'), run/Makefile, the CI
+# scripts, the Cantera packages, the runner image and the Basilisk
+# version. Passed keys are stored as (tiny) GitHub cache entries, so
+# that this works across branches.
 #
 # Environment: BASILISK, BASILISK_INCLUDES, CANTERA_*, STAMP (Basilisk
-# version), FORCE (non-empty to run everything), GH_TOKEN, GH_REPO.
+# version), CANTERA (conda packages), RUNNER (runner image), FORCE
+# (non-empty to run everything), GH_TOKEN, GH_REPO.
 #
-# Prints the JSON matrix [{"case": ..., "key": ..., "cantera": ...}, ...]
-# on stdout.
+# Prints, for $GITHUB_OUTPUT, the JSON matrices of the cases to run and
+# of those which are up to date:
+#   cases=[{"case": ..., "key": ..., "cantera": ...}, ...]
+#   uptodate=[{"case": ..., "key": ...}, ...]
 
 set -euo pipefail
 cd "$(dirname "$0")/../../run"
 
-common=$( (cat Makefile ../.github/workflows/tests.yml \
-               ../.github/scripts/select-cases.sh ../.github/scripts/setup-env.sh
-            echo "$STAMP") | sha256sum)
+common=$( (cat Makefile ../.github/scripts/select-cases.sh ../.github/scripts/setup-env.sh
+           echo "$STAMP ${CANTERA:-} ${RUNNER:-}") | sha256sum)
 
 passed=$(gh cache list --key pass- --limit 1000 --json key --jq '.[].key' || true)
 
-items=()
+torun=()
+uptodate=()
 for ref in *.ref; do
     c=${ref%.ref}
     cantera=false
@@ -44,10 +47,11 @@ for ref in *.ref; do
     key="pass-$c-$hash"
     if test -z "${FORCE:-}" && grep -qx "$key" <<< "$passed"; then
         echo "up to date: $c ($key)" >&2
+        uptodate+=("{\"case\":\"$c\",\"key\":\"$key\"}")
     else
         echo "to run: $c ($key, $(wc -w <<< "$deps") dependencies, cantera=$cantera)" >&2
-        items+=("{\"case\":\"$c\",\"key\":\"$key\",\"cantera\":$cantera}")
+        torun+=("{\"case\":\"$c\",\"key\":\"$key\",\"cantera\":$cantera}")
     fi
 done
 
-(IFS=,; echo "[${items[*]:-}]")
+(IFS=,; echo "cases=[${torun[*]:-}]"; echo "uptodate=[${uptodate[*]:-}]")
