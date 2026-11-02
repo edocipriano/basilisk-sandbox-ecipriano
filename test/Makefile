@@ -5,6 +5,7 @@ CFLAGS += -O2 \
 	-DMOVIE=1 \
 	-DUSE_GSL=1 \
 	-DMTRACE=2 \
+	-I../src \
 	$(BASILISK_INCLUDES) \
 	$(BASILISK_LIBS)
 

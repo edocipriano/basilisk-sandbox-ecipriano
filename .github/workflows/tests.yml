@@ -1,11 +1,14 @@
 # Run the simulations in run/ which have a reference log (run/<case>.ref)
 # against the latest upstream Basilisk, one parallel job per case.
 #
-# Cases which need OpenSMOKE or Cantera are skipped. Cases which already
-# passed with identical inputs (sources, included headers, .ref,
-# Makefile, Basilisk version) are not run again: see
-# .github/scripts/select-cases.sh. Use "Run workflow" with "force" to
-# run everything.
+# Cases which already passed with identical inputs (sources, included
+# headers, .ref, Makefile, Basilisk and Cantera versions) are not run
+# again: see .github/scripts/select-cases.sh. Use "Run workflow" with
+# "force" to run everything.
+#
+# The variable-properties cases use Cantera (OpenSMOKE is not
+# available), installed from conda-forge with the same version as the
+# local development environment (see CANTERA below).
 
 name: tests
 
@@ -29,11 +32,19 @@ permissions:
 
 env:
   BASILISK_URL: https://basilisk.fr/basilisk/basilisk.tar.gz
+  # Same as the local ct-env (libcantera 3.1.0 build 1, sundials 7.2,
+  # fmt 11.0, yaml-cpp 0.8, OpenBLAS): src/cantera/ uses the Cantera C
+  # API (clib) of this version.
+  CANTERA: >-
+    libcantera-devel=3.1.0=*_1 libcantera=3.1.0=*_1 sundials=7.2 fmt=11.0
+    yaml-cpp=0.8 libblas=*=*openblas
+  # basilisk.fr uses gcc 13, as Ubuntu 24.04
+  RUNNER: ubuntu-24.04
 
 jobs:
   basilisk:
     name: build basilisk
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       cases: ${{ steps.cases.outputs.cases }}
     steps:
@@ -54,12 +65,24 @@ jobs:
         uses: actions/cache@v4
         with:
           path: basilisk-build.tar
-          key: basilisk-${{ runner.os }}-${{ steps.version.outputs.stamp }}
+          key: basilisk-${{ env.RUNNER }}-${{ steps.version.outputs.stamp }}
 
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends libgsl-dev gawk
+
+      # Needed to list the dependencies of the Cantera cases
+      - name: Install Cantera
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: cantera
+          create-args: ${{ env.CANTERA }}
+          condarc: |
+            channels:
+              - conda-forge
+          cache-environment: true
+          init-shell: none
 
       - name: Build basilisk
         if: steps.cache.outputs.cache-hit != 'true'
@@ -78,6 +101,9 @@ jobs:
           ls -l gl/libfb_tiny.a gl/libglutils.a
           tar cf "$GITHUB_WORKSPACE/basilisk-build.tar" -C "$HOME" basilisk
 
+      - name: Set up environment
+        run: bash .github/scripts/setup-env.sh
+
       - name: Select cases
         id: cases
         env:
@@ -86,9 +112,6 @@ jobs:
           STAMP: ${{ steps.version.outputs.stamp }}
           FORCE: ${{ inputs.force && '1' || '' }}
         run: |
-          test -d "$HOME/basilisk" || tar xf basilisk-build.tar -C "$HOME"
-          export BASILISK=$HOME/basilisk/src PATH=$PATH:$HOME/basilisk/src
-          export BASILISK_INCLUDES=-I$GITHUB_WORKSPACE/src BASILISK_LIBS=
           json=$(bash .github/scripts/select-cases.sh)
           echo "cases=$json" >> "$GITHUB_OUTPUT"
           echo "$json"
@@ -104,7 +127,7 @@ jobs:
     name: ${{ matrix.case }}
     needs: basilisk
     if: needs.basilisk.outputs.cases != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -122,26 +145,20 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends libgsl-dev gawk
 
+      - name: Install Cantera
+        if: matrix.cantera
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: cantera
+          create-args: ${{ env.CANTERA }}
+          condarc: |
+            channels:
+              - conda-forge
+          cache-environment: true
+          init-shell: none
+
       - name: Set up environment
-        run: |
-          tar xf basilisk-build.tar -C "$HOME"
-          echo "BASILISK=$HOME/basilisk/src" >> "$GITHUB_ENV"
-          echo "$HOME/basilisk/src" >> "$GITHUB_PATH"
-          echo "BASILISK_INCLUDES=-I$GITHUB_WORKSPACE/src" >> "$GITHUB_ENV"
-          echo "BASILISK_LIBS=" >> "$GITHUB_ENV"
-          # Movies are not checked: a dummy ffmpeg discards the frames and
-          # creates an empty output file (its last argument), as expected by
-          # $BASILISK/ppm2mp4 (a missing ffmpeg would print a warning in the
-          # log and break the comparison with the .ref file).
-          mkdir -p "$RUNNER_TEMP/bin"
-          cat > "$RUNNER_TEMP/bin/ffmpeg" <<'EOF'
-          #!/bin/sh
-          for a; do out=$a; done
-          case " $* " in *" -i - "*) cat > /dev/null ;; esac
-          : > "$out"
-          EOF
-          chmod +x "$RUNNER_TEMP/bin/ffmpeg"
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+        run: bash .github/scripts/setup-env.sh
 
       - name: Run ${{ matrix.case }}
         working-directory: run
