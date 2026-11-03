@@ -1,0 +1,246 @@
+# Run the simulations in run/ which have a reference log (run/<case>.ref)
+# against the latest upstream Basilisk, one parallel job per case.
+#
+# Cases which already passed with identical inputs (sources, included
+# headers, .ref, Makefile, Basilisk and Cantera versions) are not run
+# again: see .github/scripts/select-cases.sh. Use "Run workflow" with
+# "force" to run everything.
+#
+# The variable-properties cases use Cantera (OpenSMOKE is not
+# available), installed from conda-forge with the same version as the
+# local development environment (see CANTERA below).
+
+name: tests
+
+on:
+  # Every push, on any branch (a pull_request trigger would only run the
+  # same cases twice for the branches pushed to this repository)
+  push:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Run all the cases, even those which are up to date
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  BASILISK_URL: https://basilisk.fr/basilisk/basilisk.tar.gz
+  # Same as the local ct-env (libcantera 3.1.0 build 1, sundials 7.2,
+  # fmt 11.0, yaml-cpp 0.8, OpenBLAS): src/cantera/ uses the Cantera C
+  # API (clib) of this version.
+  CANTERA: >-
+    libcantera-devel=3.1.0=*_1 libcantera=3.1.0=*_1 sundials=7.2 fmt=11.0
+    yaml-cpp=0.8 libblas=*=*openblas
+  # basilisk.fr uses gcc 13, as Ubuntu 24.04
+  RUNNER: ubuntu-24.04
+  # OpenBLAS (used by Cantera/sundials for the chemistry) selects its
+  # kernels from the CPU, which changes between runners: fix them, so that
+  # the results do not change from run to run.
+  OPENBLAS_CORETYPE: Haswell
+  OPENBLAS_NUM_THREADS: 1
+  # Cases whose results depend on the CPU of the runner (Intel or AMD),
+  # through the CPU-specific variants of the glibc math functions selected
+  # at runtime: AVX-512, AVX2 and FMA are hidden from glibc so that the
+  # same (generic) variants are used on all runners. This is not part of
+  # the keys of select-cases.sh: use "force" after changing it.
+  CPU_GENERIC: burningdroplet
+  CPU_GENERIC_TUNABLES: glibc.cpu.hwcaps=-AVX512F,-AVX512DQ,-AVX512VL,-AVX2,-FMA
+
+jobs:
+  basilisk:
+    name: build basilisk
+    runs-on: ubuntu-24.04
+    outputs:
+      cases: ${{ steps.cases.outputs.cases }}
+      uptodate: ${{ steps.cases.outputs.uptodate }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Only the headers are fetched here (basilisk.fr is slow from GitHub):
+      # the tarball is downloaded only when it changed since the cached build.
+      - name: Check basilisk version
+        id: version
+        run: |
+          stamp=$(curl -sSfIL "$BASILISK_URL" | grep -i '^last-modified:' | tail -1 \
+                  | cut -d' ' -f2- | tr -cd '[:alnum:]')
+          echo "stamp=${stamp:-$(date +%Y%W)}" >> "$GITHUB_OUTPUT"
+          echo "basilisk.tar.gz: ${stamp:-unknown}"
+
+      - name: Cache basilisk build
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: basilisk-build.tar
+          key: basilisk-${{ env.RUNNER }}-${{ steps.version.outputs.stamp }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libgsl-dev gawk
+
+      # Needed to list the dependencies of the Cantera cases
+      - name: Install Cantera
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: cantera
+          create-args: ${{ env.CANTERA }}
+          condarc: |
+            channels:
+              - conda-forge
+          cache-environment: true
+          init-shell: none
+
+      - name: Build basilisk
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sSfL "$BASILISK_URL" -o basilisk.tar.gz
+          # qcc embeds the BASILISK path: build where the tests will run
+          tar xzf basilisk.tar.gz -C "$HOME"
+          cd "$HOME/basilisk/src"
+          ln -s config.gcc config
+          export BASILISK=$PWD PATH=$PATH:$PWD
+          # see https://basilisk.fr/src/INSTALL (serial: the build is order-dependent)
+          make -k || true
+          make qcc
+          make -k || true
+          ./qcc --version
+          ls -l gl/libfb_tiny.a gl/libglutils.a
+          tar cf "$GITHUB_WORKSPACE/basilisk-build.tar" -C "$HOME" basilisk
+
+      - name: Set up environment
+        run: bash .github/scripts/setup-env.sh
+
+      - name: Select cases
+        id: cases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          STAMP: ${{ steps.version.outputs.stamp }}
+          FORCE: ${{ inputs.force && '1' || '' }}
+        run: |
+          bash .github/scripts/select-cases.sh > selection
+          cat selection
+          cat selection >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.cases.outputs.cases != '[]'
+        with:
+          name: basilisk
+          path: basilisk-build.tar
+          retention-days: 1
+
+  # One (quick) job per case which already passed with identical inputs,
+  # so that the status of all the cases is shown for each run.
+  uptodate:
+    name: ${{ matrix.case }} (up to date)
+    needs: basilisk
+    if: needs.basilisk.outputs.uptodate != '[]'
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.basilisk.outputs.uptodate) }}
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: pass
+          key: ${{ matrix.key }}
+
+      - name: Passed with identical inputs
+        run: |
+          if test -f pass/${{ matrix.case }}; then
+            echo "${{ matrix.case }} passed with identical inputs at commit $(cat pass/${{ matrix.case }})"
+          else
+            echo "${{ matrix.case }} passed with identical inputs (${{ matrix.key }}, on another branch)"
+          fi
+
+  test:
+    name: ${{ matrix.case }}
+    needs: basilisk
+    if: needs.basilisk.outputs.cases != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.basilisk.outputs.cases) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: basilisk
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libgsl-dev gawk
+
+      - name: Install Cantera
+        if: matrix.cantera
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: cantera
+          create-args: ${{ env.CANTERA }}
+          condarc: |
+            channels:
+              - conda-forge
+          cache-environment: true
+          init-shell: none
+
+      - name: Set up environment
+        run: bash .github/scripts/setup-env.sh
+
+      - name: Run ${{ matrix.case }}
+        working-directory: run
+        run: |
+          grep -m1 'model name' /proc/cpuinfo
+          if [[ " $CPU_GENERIC " == *" ${{ matrix.case }} "* ]]; then
+            export GLIBC_TUNABLES=$CPU_GENERIC_TUNABLES
+            echo "GLIBC_TUNABLES=$GLIBC_TUNABLES"
+            /lib64/ld-linux-x86-64.so.2 --list-diagnostics \
+              | grep -E 'cpu_features.usable.*\.(fma|avx2|avx512f)=' || true
+          fi
+          make -j"$(nproc)" ${{ matrix.case }}.tst
+
+      - name: Show the diff in the summary
+        if: failure()
+        working-directory: run
+        run: |
+          {
+            echo "### ${{ matrix.case }}"
+            echo '```diff'
+            cat ${{ matrix.case }}*/fail 2> /dev/null | head -300
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Records that this case passed with these inputs (see select-cases.sh)
+      - name: Record pass
+        run: |
+          mkdir -p pass
+          echo "${{ github.sha }}" > pass/${{ matrix.case }}
+
+      - uses: actions/cache/save@v4
+        with:
+          path: pass
+          key: ${{ matrix.key }}
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.case }}
+          path: |
+            run/${{ matrix.case }}*/log
+            run/${{ matrix.case }}*/out
+            run/${{ matrix.case }}*/fail
+            run/${{ matrix.case }}*.log~
+          if-no-files-found: ignore
+          retention-days: 7
