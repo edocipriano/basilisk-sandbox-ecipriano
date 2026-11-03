@@ -10,6 +10,7 @@ CFLAGS += -O2 \
 	-DTRACE=0 \
 	-DBASILISK_SERVER=1 \
 	-disable-dimensions \
+	-I../src \
 	$(BASILISK_INCLUDES) \
 	$(BASILISK_LIBS)
 
@@ -25,7 +26,9 @@ expansion-T400.tst: CFLAGS += -DTEMPERATURE=400
 
 expansion.tst: expansion-T375.tst expansion-T400.tst
 
-CFLAGS += -I$(CANTERA_INCLUDE_PATH) -L$(CANTERA_LIBRARY_PATH) -rpath $(CANTERA_LIBRARY_PATH)
+ifdef CANTERA_LIBRARY_PATH
+CFLAGS += -I$(CANTERA_INCLUDE_PATH) -L$(CANTERA_LIBRARY_PATH) -Wl,-rpath,$(CANTERA_LIBRARY_PATH)
+endif
 
 microgravity.yaml:
 	ln -s normalgravity.yaml microgravity.yaml
