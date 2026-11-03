@@ -46,6 +46,13 @@ env:
   # the results do not change from run to run.
   OPENBLAS_CORETYPE: Haswell
   OPENBLAS_NUM_THREADS: 1
+  # Cases whose results depend on the CPU of the runner (Intel or AMD),
+  # through the CPU-specific variants of the glibc math functions selected
+  # at runtime: AVX-512, AVX2 and FMA are hidden from glibc so that the
+  # same (generic) variants are used on all runners. This is not part of
+  # the keys of select-cases.sh: use "force" after changing it.
+  CPU_GENERIC: burningdroplet
+  CPU_GENERIC_TUNABLES: glibc.cpu.hwcaps=-AVX512F,-AVX512DQ,-AVX512VL,-AVX2,-FMA
 
 jobs:
   basilisk:
@@ -195,6 +202,12 @@ jobs:
         working-directory: run
         run: |
           grep -m1 'model name' /proc/cpuinfo
+          if [[ " $CPU_GENERIC " == *" ${{ matrix.case }} "* ]]; then
+            export GLIBC_TUNABLES=$CPU_GENERIC_TUNABLES
+            echo "GLIBC_TUNABLES=$GLIBC_TUNABLES"
+            /lib64/ld-linux-x86-64.so.2 --list-diagnostics \
+              | grep -E 'cpu_features.usable.*\.(fma|avx2|avx512f)=' || true
+          fi
           make -j"$(nproc)" ${{ matrix.case }}.tst
 
       - name: Show the diff in the summary
