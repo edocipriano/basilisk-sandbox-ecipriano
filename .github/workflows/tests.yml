@@ -13,8 +13,9 @@
 name: tests
 
 on:
+  # Every push, on any branch (a pull_request trigger would only run the
+  # same cases twice for the branches pushed to this repository)
   push:
-  pull_request:
   workflow_dispatch:
     inputs:
       force:
@@ -40,6 +41,11 @@ env:
     yaml-cpp=0.8 libblas=*=*openblas
   # basilisk.fr uses gcc 13, as Ubuntu 24.04
   RUNNER: ubuntu-24.04
+  # OpenBLAS (used by Cantera/sundials for the chemistry) selects its
+  # kernels from the CPU, which changes between runners: fix them, so that
+  # the results do not change from run to run.
+  OPENBLAS_CORETYPE: Haswell
+  OPENBLAS_NUM_THREADS: 1
 
 jobs:
   basilisk:
@@ -187,7 +193,9 @@ jobs:
 
       - name: Run ${{ matrix.case }}
         working-directory: run
-        run: make -j"$(nproc)" ${{ matrix.case }}.tst
+        run: |
+          grep -m1 'model name' /proc/cpuinfo
+          make -j"$(nproc)" ${{ matrix.case }}.tst
 
       - name: Show the diff in the summary
         if: failure()
