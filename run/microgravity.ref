@@ -1,6 +1,6 @@
 0 0 0.99967
 src/poisson.h:219: warning: convergence for TL not reached after 100 iterations
-  res: 0.00105008 sum: -1.30825e+15 nrelax: 100 tolerance: 0.001
+  res: 0.00110288 sum: -1.30825e+15 nrelax: 100 tolerance: 0.001
 2586 1.6e-05 0.99423
 5223 3.2e-05 0.97035
 7910 4.8e-05 0.93112

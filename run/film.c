@@ -105,7 +105,7 @@ event init (i = 0) {
 ### Gradient stencils
 
 The field *deg* stores how the liquid interface gradient is computed in
-[dirichlet_gradient()](/src/gradients.h) in the interfacial cells (*nodata*
+[vof_dirichlet_gradient()](/src/gradients.h) in the interfacial cells (*nodata*
 elsewhere): 0 degenerate (cell value and interface value), 1 one point in
 the liquid, 2 two points in the liquid (VOF-biased or third order), 3 SGS
 model.
