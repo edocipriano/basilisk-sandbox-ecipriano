@@ -167,13 +167,88 @@ double plic_gradient (Point point, scalar s, scalar cs, face vector fs,
 }
 
 /**
+## plic_navier(): Navier/Robin interface values
+
+This function returns the interface value $s_b$ which satisfies the
+Navier/Robin condition
+$$
+s_b + \lambda \partial_n s|_b = expr
+$$
+with $\mathbf{n}$ pointing out of the region where *cs* = 1 (as for
+the domain boundaries). The gradient computed by *plic_gradient()* is
+linear in the interface value, $\partial_n s|_b = a s_b + b$, so two
+evaluations give $a$ and $b$, and
+$$
+s_b = \frac{expr - \lambda b}{1 + \lambda a}
+$$
+In degenerate cases we use the gradient $-coef\,(s_b - s[])$ of
+[embed_flux()](/src/embed.h#embed_flux). */
+
+double plic_navier (Point point, scalar s, scalar cs, face vector fs,
+    double expr, double lambda, bool vof = true)
+{
+  dstats stat;
+  double b = plic_gradient (point, s, cs, fs, 0., vof, &stat);
+  double a = plic_gradient (point, s, cs, fs, 1., vof, &stat) - b;
+  if (stat.coef)
+    a = - stat.coef, b = stat.coef*s[];
+  return (expr - lambda*b)/(1. + lambda*a);
+}
+
+/**
+## navier(): Navier/Robin condition on embedded boundaries
+
+On embedded boundaries the Navier condition is turned into a Dirichlet
+condition with value given by *plic_navier()*. On the domain
+boundaries we use the default [navier()](/src/grid/cartesian-common.h)
+condition. The same approach is used on VOF interfaces with `IMPLICIT`
+(see *plic_flux()* below). */
+
+#if EMBED
+macro2
+double navier (double expr, double lambda, Point point = point,
+    scalar s = _s, bool * data = data)
+{
+  return data ? embed_area_center (point, &x, &y, &z),
+    *((bool *)data) = true,
+    plic_navier (point, s, cs, fs, expr, lambda, false) :
+    (Delta*expr + s[]*(lambda - Delta/2.))/(lambda + Delta/2.);
+}
+
+macro2
+double navier_homogeneous (double expr, double lambda, Point point = point,
+    scalar s = _s, bool * data = data)
+{
+  return data ? embed_area_center (point, &x, &y, &z),
+    *((bool *)data) = true,
+    plic_navier (point, s, cs, fs, 0., lambda, false) :
+    s[]*(lambda - Delta/2.)/(lambda + Delta/2.);
+}
+#endif
+
+/**
 ## plic_flux(): implicit interface contribution
 
 With `IMPLICIT`, the interfacial flux is included in the diffusion equation
 through the `flux` argument of [diffusion()](/src/diffusion.h), similarly to
 embedded boundaries. The volume and face fractions of the phase are stored in
 `cs1` and `fs1` (see `phase_diffusion()`), and the interface value is imposed
-using the `interface` boundary, e.g. `T[interface] = dirichlet (TIntVal);`. */
+using the `interface` boundary, e.g. `T[interface] = dirichlet (TIntVal);`
+or `T[interface] = navier (TIntVal, lambda);`.
+
+As on embedded boundaries, *navier()* returns the interface value
+$s_b$ given by *plic_navier()*, computed with the same fractions
+(`cs1`, `fs1`) and scheme (`vof_gradients`) used by *plic_flux()*. The
+interface is then treated as Dirichlet with value $s_b$. Since $s_b$
+depends on the current solution, it is updated at each relaxation
+sweep, and at convergence the Robin condition is satisfied. 
+
+fixme: conversely from EMBED's boundary condition macros, we ignore the call to
+`embed_area_center()`. That function modifies the spatial coordinates `x,y,z`,
+which indicate the cell-center coordinates, with the position of the barycenter
+of the embedded fragment. This has an impact only if the arguments of the
+boundary conditions (either `expr` or `lambda`) depend on the space coordinates.
+*/
 
 #if IMPLICIT
 bid interface;
@@ -197,6 +272,24 @@ double dirichlet_homogeneous (double expr, Point point = point,
                               scalar s = _s, bool * data = data)
 {
   return data ? *((bool *)data) = true, 0 : - s[];
+}
+
+macro2
+double navier (double expr, double lambda, Point point = point,
+    scalar s = _s, bool * data = data)
+{
+  return data ? *((bool *)data) = true,
+    plic_navier (point, s, cs1, fs1, expr, lambda, vof_gradients) :
+    (Delta*expr + s[]*(lambda - Delta/2.))/(lambda + Delta/2.);
+}
+
+macro2
+double navier_homogeneous (double expr, double lambda, Point point = point,
+    scalar s = _s, bool * data = data)
+{
+  return data ? *((bool *)data) = true,
+    plic_navier (point, s, cs1, fs1, 0., lambda, vof_gradients) :
+    s[]*(lambda - Delta/2.)/(lambda + Delta/2.);
 }
 
 double plic_flux (Point point, scalar s, face vector D, double * val) {
@@ -236,65 +329,6 @@ double plic_flux (Point point, scalar s, face vector D, double * val) {
     return 0.;
   *val = - Da/fa*grad*area/Delta;
   return - Da/fa*coef*area/Delta;
-}
-#endif
-
-/**
-## plic_navier(): Navier/Robin interface values
-
-This function returns the interface value $s_b$ which satisfies the
-Navier/Robin condition
-$$
-s_b + \lambda \partial_n s|_b = expr
-$$
-with $\mathbf{n}$ pointing out of the region where *cs* = 1 (as for
-the domain boundaries). The gradient computed by *plic_gradient()* is
-linear in the interface value, $\partial_n s|_b = a s_b + b$, so two
-evaluations give $a$ and $b$, and
-$$
-s_b = \frac{expr - \lambda b}{1 + \lambda a}
-$$
-In degenerate cases we use the gradient $-coef\,(s_b - s[])$ of
-[embed_flux()](/src/embed.h#embed_flux). */
-
-double plic_navier (Point point, scalar s, scalar cs, face vector fs,
-    double expr, double lambda, bool vof = true)
-{
-  dstats stat;
-  double b = plic_gradient (point, s, cs, fs, 0., vof, &stat);
-  double a = plic_gradient (point, s, cs, fs, 1., vof, &stat) - b;
-  if (stat.coef)
-    a = - stat.coef, b = stat.coef*s[];
-  return (expr - lambda*b)/(1. + lambda*a);
-}
-
-/**
-## navier(): Navier/Robin condition on embedded boundaries
-
-On embedded boundaries the Navier condition is turned into a Dirichlet
-condition with value given by *plic_navier()*. On the domain
-boundaries we use the default [navier()](/src/grid/cartesian-common.h)
-condition. */
-
-#if EMBED
-macro2
-double navier (double expr, double lambda, Point point = point,
-    scalar s = _s, bool * data = data)
-{
-  return data ? embed_area_center (point, &x, &y, &z),
-    *((bool *)data) = true,
-    plic_navier (point, s, cs, fs, expr, lambda, false) :
-    (Delta*expr + s[]*(lambda - Delta/2.))/(lambda + Delta/2.);
-}
-
-macro2
-double navier_homogeneous (double expr, double lambda, Point point = point,
-    scalar s = _s, bool * data = data)
-{
-  return data ? embed_area_center (point, &x, &y, &z),
-    *((bool *)data) = true,
-    plic_navier (point, s, cs, fs, 0., lambda, false) :
-    s[]*(lambda - Delta/2.)/(lambda + Delta/2.);
 }
 #endif
 
