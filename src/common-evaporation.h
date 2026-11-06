@@ -229,6 +229,13 @@ trace
 void shift_diffusion (scalar fts, scalar f,
     double cells = 0.1, double tol = 1e-3)
 {
+  double smax = 0.;
+  foreach (reduction(max:smax))
+    if (fabs (fts[]) > smax)
+      smax = fabs (fts[]);
+  if (smax == 0.)
+    return;
+
   foreach()
     fts[] = (cm[] > 0) ? fts[]/cm[] : 0.;
   double totold = statsf (fts).sum;
@@ -250,13 +257,16 @@ void shift_diffusion (scalar fts, scalar f,
   }
 
   double TOLERANCE_BACKUP = TOLERANCE;
-  TOLERANCE = tol;
+  TOLERANCE = tol*smax;
   diffusion (fts, 1., D = D, theta = theta);
   TOLERANCE = TOLERANCE_BACKUP;
 
+  foreach()
+    if (fabs (fts[]*cm[]) < tol*smax)
+      fts[] = 0.;
   double totnew = statsf (fts).sum;
   foreach()
-    fts[] *= cm[]*totold/totnew;
+    fts[] *= totnew ? cm[]*totold/totnew : 0.;
 }
 
 /**
