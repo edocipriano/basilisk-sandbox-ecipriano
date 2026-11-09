@@ -491,10 +491,16 @@ event tracer_diffusion (i++) {
     T[] += gas->isothermal ? (1. - f[])*TG[] : TG[];
   }
 
-  // fixme: make it general choosing the right gas species
+  /**
+  The one-field mass fraction sums the species of both phases with the same
+  index, which are the transferring species if they come first in both
+  lists. Only the first *min (NLS, NGS)* species exist in both phases.
+  fixme: match the species by name. */
+
+  int nmin = min (liq->n, gas->n);
   foreach() {
     double Ysum = 0.;
-    foreach_species_in (liq) {
+    for (int i = 0; i < nmin; i++) {
       scalar YL = liq->YList[i], YG = gas->YList[i];
       Ysum += liq->isomassfrac ? f[]*YL[] : YL[];
       Ysum += gas->isomassfrac ? (1. - f[])*YG[] : YG[];
