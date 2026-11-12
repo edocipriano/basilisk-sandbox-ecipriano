@@ -255,7 +255,7 @@ void species_jump_condition (Phase * d, Phase * c, Phase * d_int,
     for (int i = 0; i < NDS; i++) {
       scalar XDInt = d_int->XList[i];
       scalar XCInt = c_int->XList[DSI[i]];
-      XCInt[] = min (antoine (TInt[], Pref, i), 0.98)*XDInt[];
+      XCInt[] = min (antoine (TInt[], P0, i), 0.98)*XDInt[];
     }
 
     // Molecular weight of the inert species mixture

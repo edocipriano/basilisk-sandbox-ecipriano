@@ -84,6 +84,7 @@ $$
 = \textcolor{blue}{-\dfrac{1}{\rho_k}\dfrac{D\rho_k}{Dt}}
 = \textcolor{blue}{\beta_{T,k}\dfrac{DT_k}{Dt}
 + \sum_{i=1}^{NS} \beta_{\omega_{i,k}}\dfrac{D\omega_{i,k}}{Dt}}
+\textcolor{purple}{- \chi_{T,k} \dfrac{dP_0}{dt}}
 $$
 
 $$
@@ -103,6 +104,7 @@ $$
 \rho_k Cp_k\dfrac{DT_k}{Dt}
 = \nabla\cdot\left(\lambda\nabla T_k\right)
 \textcolor{blue}{- \left(\sum_{i=1}^{NS}Cp_{i,k}\mathbf{j}_{i,k}\right)\cdot\nabla T_k}
+\textcolor{purple}{+ \beta_{T,k} T_k \dfrac{dP_0}{dt} }
 \textcolor{red}{- \sum_{i=1}^{NS} h_{i,k}\dot{\Omega}_{i,k}
 - \nabla\cdot\mathbf{q}_{rad}}
 $$
@@ -111,8 +113,18 @@ $$
 \textcolor{blue}{\phi_k = f(T_k, P_k, \omega_{i,k})}
 $$
 
-where blue terms account for the low-Mach number variable material properties
-while red terms include chemical reactions and radiation. The variable $\phi_k$
+$$
+\textcolor{purple} {
+\dfrac{dP_0}{dt} = \dfrac{\int_\Omega \left(\beta_T\dfrac{DT}{Dt} + \sum_{i=1}^{NS}
+  \beta_{\omega_i}\dfrac{D\omega_i}{Dt}\right)dV
+  - \dot{Q}}{\int_\Omega \chi_T\,dV}
+}
+$$
+
+where blue terms account for the low-Mach number variable material properties,
+purple terms for the pressurization of closed systems, with $\dot{Q}$ the net
+volumetric outflow (see [low-mach](low-mach)), while red terms include chemical
+reactions and radiation. The variable $\phi_k$
 is a generic phase property (i.e. density, viscosity, diffusivity, ecc.),
 computed as a function of the thermodynamic state, defined by temperature,
 pressure, and mass fractions.
@@ -189,7 +201,9 @@ centered solver.
 to include volumetric sources, either continuous `drhodt`, or localized at the
 interface `intexp`. The solver itself does not determine how the flow
 divergence is computed; this depends on the specific scalar fields
-(temperature, pressure, mass fractions) and the problem setup.
+(temperature, pressure, mass fractions) and the problem setup. In closed systems
+it also computes the pressurization rate `dP0dt`, using the isothermal
+compressibility `chiT`.
 
 * [navier-stokes/velocity-jump.h](../src/navier-stokes/velocity-jump.h):
 Implements a Ghost Fluid Method (GFM)-style approach. Instead of localized
@@ -447,10 +461,13 @@ int main() {
   lambda1 = 0.1121, lambda2 = 0.04428;
   cp1 = 2505., cp2 = 1053.;
   dhev = 3.23e5;
-  Pref = 2860000.;
+  P0 = 2860000.;
   ...
 }
 ~~~
+
+The thermodynamic pressure `P0` is declared by
+[low-mach.h](../src/navier-stokes/low-mach.h) and it is null by default.
 
 For multicomponent phases, you may need to set an initial composition vector.
 The initial state of the phases can be imposed by setting the thermodynamic
@@ -499,6 +516,31 @@ event init (i = 0) {
 
 This does not apply for velocity boundary conditions, which can be set in the
 global scope.
+
+With [embed.h](/src/embed.h), the conditions on the embedded boundary are set in
+the same way, e.g. `TG[embed] = neumann (qw/lambda2)`. At the contact line, the
+flux through the boundary is split between the phases according to the wetted
+portion of the boundary (`phase_embed_flux()` in [phase.h](../src/phase.h)).
+
+#### Closed Systems
+
+In a closed domain the thermodynamic pressure changes in time. The projection
+computes `dP0dt`, while `P0` is updated by the simulation, see
+[pressurization.c](../run/pressurization.c):
+
+~~~literatec
+int main() {
+  ...
+  P0 = 101325.;
+  closed = true;
+  closed_flux = 0.; // net volumetric outflow (e.g. inflow in piston.c)
+  ...
+}
+
+event pressurization (i++) {
+  P0 += dt*dP0dt;
+}
+~~~
 
 #### Default Vaporization Rate
 
@@ -673,7 +715,8 @@ models. Feel free to add new ideas below.
 for plane shifting and explicit sources.
 1. The velocity field that transports the interface might be independent from
 those in `uflist`.
-1. Compatibility with [embed.h](/src/embed.h).
+1. Complete the compatibility with [embed.h](/src/embed.h) (e.g. `advection_div()`
+in [low-mach.h](../src/navier-stokes/low-mach.h)).
 1. Automatic transition from diffusion-driven to temperature-driven phase change -
 this is not so difficult for pure liquids, but it is really challenging for
 multicomponent systems.
