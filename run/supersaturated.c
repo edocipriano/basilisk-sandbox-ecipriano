@@ -4,9 +4,10 @@
 A spherical gas bubble is suspended in a liquid supersaturated with the
 dissolved gas. The gas diffuses towards the interface and the bubble grows.
 The setup is the one of [Gennari et al., 2022](#gennari2022), Sec. 4.4.1. The
-bubble is pure gas, therefore it is the *carrier* of the phase change, while
-the liquid is the *receiver*, made of the dissolved gas and of water, the
-inert species (see [evaporation.h](../src/evaporation.h)).
+bubble is pure gas and it is the *dispersed* phase, while the liquid is the
+*continuous* phase, made of the dissolved gas and of water, the inert species
+(see [evaporation.h](../src/evaporation.h)). The gas moves from the continuous
+to the dispersed phase.
 
 This is the mass transfer version of the [Scriven problem](scrivenproblem.c),
 where a vapor bubble grows in a superheated liquid: the supersaturation of the

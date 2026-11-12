@@ -26,45 +26,50 @@ $$
 $$
 where the hat denotes interface values, and $\mathbf{n}_\Gamma$ is the
 interface normal pointing towards the liquid. The equilibrium is written here
-for evaporation; in general, it relates the receiver to the carrier mole
+for evaporation; in general, it relates the continuous to the dispersed mole
 fractions (see below). The solution gives the vaporization rate
 $\dot{m}_i$ of each species, the interface mass fractions
 $\hat\omega_{i,l}$ and $\hat\omega_{i,g}$, and the interface temperature
 $\hat{T}$, which provide the source terms of the species and temperature
 equations solved by [phasechange.h](phasechange.h).
 
-## Carrier and receiver
+## Dispersed and continuous phases
 
 The two phases play different roles in the phase change:
 
-* the *carrier* contains only species that cross the interface;
-* the *receiver* contains the same species, plus *inert* species that never
-  cross the interface.
+* the *dispersed* phase contains only species that cross the interface;
+* the *continuous* phase contains the same species, plus *inert* species that
+  never cross the interface.
 
-In droplet evaporation, the liquid fuel is the carrier, and the gas (fuel
-vapor plus air, the inert) is the receiver. In bubble dissolution, or bubble
-growth during electrolysis, the gas is the carrier, and the liquid (dissolved
-gas plus water, the inert) is the receiver. The mass flux goes from the
-carrier to the receiver: it is negative if species move the other way, as in
-a growing bubble.
+In droplet evaporation, the liquid fuel droplet is the dispersed phase, and the
+gas (fuel vapor plus air, the inert) is the continuous phase. In bubble
+dissolution, or bubble growth during electrolysis, the gas bubble is the
+dispersed phase, and the liquid (dissolved gas plus water, the inert) is the
+continuous phase. The names do not imply a direction: the mass flux is
+computed from the dispersed to the continuous phase, and it is negative if
+species move the other way, as in a growing bubble.
 
-The carrier is therefore the phase with fewer species (the liquid if `NLS`
-and `NGS` are equal), and each carrier species must also be a receiver
-species. The following variables describe the two sets of species:
+The dispersed phase is identified as the phase with fewer species (the liquid
+if `NLS` and `NGS` are equal), not from the topology of the interface: in
+planar or stratified configurations (e.g. the Stefan problem), it is simply
+the phase without inert species. Each dispersed species must also be a
+continuous species. The following variables describe the two sets of species:
 
-* *NCS*: number of carrier species (all the species of the carrier phase);
-* *NRS*: number of receiver species;
-* *NIS*: number of inert species, *NRS - NCS*;
-* *CSI*: carrier species indices, i.e. the receiver index of each carrier
-  species;
-* *ISI*: inert species indices, i.e. the receiver index of each inert species.
+* *NDS*: number of dispersed species (all the species of the dispersed phase);
+* *NCS*: number of continuous species;
+* *NIS*: number of inert species, *NCS - NDS*;
+* *DSI*: dispersed species indices, i.e. the continuous index of each
+  dispersed species;
+* *ISI*: inert species indices, i.e. the continuous index of each inert
+  species.
 
-The roles are chosen once, in *liquid_carrier*. The species part of the jump
-condition is computed by *species_jump_condition()*, which takes the carrier
-and the receiver as arguments: it is called with the liquid as the carrier for
-evaporation, and with the gas as the carrier for bubble dissolution.
+The roles are chosen once, in *liquid_dispersed*. The species part of the jump
+condition is computed by *species_jump_condition()*, which takes the dispersed
+and the continuous phases as arguments: it is called with the liquid as the
+dispersed phase for evaporation, and with the gas as the dispersed phase for
+bubble dissolution.
 
-The vaporization rates `mEvapList` are indexed like the receiver species. The
+The vaporization rates `mEvapList` are indexed like the continuous species. The
 sign convention is the one in [phasechange.h](phasechange.h): `mEvapTot` and
 `mEvapList` are positive when the liquid loses mass. */
 
@@ -76,9 +81,9 @@ Phase * liq_int, * gas_int;
 
 scalar * mEvapList = NULL;
 
-bool liquid_carrier = true;
-int NCS = 0, NRS = 0, NIS = 0;
-int * CSI = NULL, * ISI = NULL;
+bool liquid_dispersed = true;
+int NDS = 0, NCS = 0, NIS = 0;
+int * DSI = NULL, * ISI = NULL;
 
 double * YIntVals;
 
@@ -86,7 +91,7 @@ double * YIntVals;
 ## Interface energy balance */
 
 typedef struct {
-  Phase * liq, * gas, * carrier;
+  Phase * liq, * gas, * dispersed;
   scalar fl, fg;
   face vector fsl, fsg;
   coord c;
@@ -99,7 +104,7 @@ double divq_rad_int (double TInti, double Tbulk = 300., double alphacorr = 0) {
 void energy_balance (const double * xdata, double * fdata, void * params) {
   EnergyBalanceData * data = params;
 
-  Phase * liq = data->liq, * gas = data->gas, * c = data->carrier;
+  Phase * liq = data->liq, * gas = data->gas, * d = data->dispersed;
   scalar fl = data->fl, fg = data->fg;
   face vector fsl = data->fsl, fsg = data->fsg;
 
@@ -114,9 +119,9 @@ void energy_balance (const double * xdata, double * fdata, void * params) {
     scalar lambda1 = liq->lambda, lambda2 = gas->lambda;
 
     double vapheat = 0.;
-    for (size_t i = 0; i < c->n; i++) {
-      scalar mEvap = mEvapList[CSI[i]];
-      scalar dhev = c->dhevList[i];
+    for (size_t i = 0; i < d->n; i++) {
+      scalar mEvap = mEvapList[DSI[i]];
+      scalar dhev = d->dhevList[i];
       vapheat -= mEvap[]*dhev[];
     }
 
@@ -139,20 +144,21 @@ int energy_balance_gsl (const gsl_vector * x, void * params, gsl_vector * f) {
 /**
 ## Interface equilibrium
 
-The function *antoine()* returns the equilibrium constant of the i-th carrier
-species, i.e. the ratio between its receiver-side and carrier-side interface
-mole fractions. For evaporation it is Raoult's law, $p^{sat}_i(T)/P$; for
-bubble dissolution it is Henry's law, $P/H_i(T)$. The default implementation
-uses the *antoine* attribute of the carrier mass fraction, if set. */
+The function *antoine()* returns the equilibrium constant of the i-th
+dispersed species, i.e. the ratio between its continuous-side and
+dispersed-side interface mole fractions. For evaporation it is Raoult's law,
+$p^{sat}_i(T)/P$; for bubble dissolution it is Henry's law, $P/H_i(T)$. The
+default implementation uses the *antoine* attribute of the dispersed mass
+fraction, if set. */
 
 double antoine_default (double T, double P, int i) {
   if (YIntVal)
     return YIntVal;
   else {
-    Phase * c = liquid_carrier ? liq : gas;
-    scalar YC = c->YList[i];
-    if (YC.antoine)
-      return YC.antoine (T, P);
+    Phase * d = liquid_dispersed ? liq : gas;
+    scalar YD = d->YList[i];
+    if (YD.antoine)
+      return YD.antoine (T, P);
     else
       return YIntVals[i];
   }
@@ -163,21 +169,21 @@ double (* antoine) (double, double, int) = &antoine_default;
 /**
 ## Species jump condition
 
-Normal gradient, at the interface, of the receiver species *k*, from mass or
+Normal gradient, at the interface, of the continuous species *k*, from mass or
 mole fractions. */
 
-double receiver_gradient (Point point, Phase * r, Phase * r_int, int k,
-    scalar fr, face vector fsr)
+double continuous_gradient (Point point, Phase * c, Phase * c_int, int k,
+    scalar fc, face vector fsc)
 {
   double grad = 0.;
   if (pcm.molar_diffusion) {
-    scalar X = r->XList[k], XInt = r_int->XList[k], MWInt = r_int->MW;
-    grad = plic_gradient (point, X, fr, fsr, XInt[], true, NULL);
-    grad *= (MWInt[] > 0) ? r_int->MWs[k]/MWInt[] : 0.;
+    scalar X = c->XList[k], XInt = c_int->XList[k], MWInt = c_int->MW;
+    grad = plic_gradient (point, X, fc, fsc, XInt[], true, NULL);
+    grad *= (MWInt[] > 0) ? c_int->MWs[k]/MWInt[] : 0.;
   }
   else {
-    scalar Y = r->YList[k], YInt = r_int->YList[k];
-    grad = plic_gradient (point, Y, fr, fsr, YInt[], true, NULL);
+    scalar Y = c->YList[k], YInt = c_int->YList[k];
+    grad = plic_gradient (point, Y, fc, fsc, YInt[], true, NULL);
   }
   return grad;
 }
@@ -185,162 +191,163 @@ double receiver_gradient (Point point, Phase * r, Phase * r_int, int k,
 /**
 
 The function below solves the species part of the jump condition, from the
-carrier *c* to the receiver *r*, with the decoupled procedure of [Cipriano et
-al., 2023](#cipriano2023), Sec. 3.5: the carrier is assumed to evolve more
-slowly than the receiver (e.g. the liquid during evaporation), so its interface
-values are taken from the surrounding cells, while the receiver side follows
-from equilibrium and mass balances. *c_int* and *r_int* store the interface
-values, *fr* and *fsr* are the volume and face fractions of the receiver, and
-*sign* converts the carrier-to-receiver mass flux into vaporization rates (+1
-if the carrier is the liquid). The interface temperature must be already set
-in *c_int*. */
+dispersed phase *d* to the continuous phase *c*, with the decoupled procedure
+of [Cipriano et al., 2023](#cipriano2023), Sec. 3.5: the dispersed phase is
+assumed to evolve more slowly than the continuous phase (e.g. the liquid
+during evaporation), so its interface values are taken from the surrounding
+cells, while the continuous side follows from equilibrium and mass balances.
+*d_int* and *c_int* store the interface values, *fc* and *fsc* are the volume
+and face fractions of the continuous phase, and *sign* converts the
+dispersed-to-continuous mass flux into vaporization rates (+1 if the dispersed
+phase is the liquid). The interface temperature must be already set in
+*d_int*. */
 
-void species_jump_condition (Phase * c, Phase * r, Phase * c_int,
-    Phase * r_int, scalar fr, face vector fsr, double sign)
+void species_jump_condition (Phase * d, Phase * c, Phase * d_int,
+    Phase * c_int, scalar fc, face vector fsc, double sign)
 {
 
   /**
-  The carrier interface mass fractions are the volume-fraction-weighted
-  averages over the 3x3 stencil (Eq. 45). The receiver values only provide
+  The dispersed interface mass fractions are the volume-fraction-weighted
+  averages over the 3x3 stencil (Eq. 45). The continuous values only provide
   the inert composition, rescaled below. */
 
   foreach_interfacial (f, F_ERR) {
-    foreach_species_in (c_int)
-      Y[] = avg_neighbor (point, c->YList[i], f);
-    foreach_species_in (r_int) {
-      scalar YR = r->YList[i];
-      Y[] = YR[];
+    foreach_species_in (d_int)
+      Y[] = avg_neighbor (point, d->YList[i], f);
+    foreach_species_in (c_int) {
+      scalar YC = c->YList[i];
+      Y[] = YC[];
     }
   }
 
   // Update mole fractions and moles
+  memcpy (d_int->MWs, d->MWs, d->n*sizeof (double));
   memcpy (c_int->MWs, c->MWs, c->n*sizeof (double));
-  memcpy (r_int->MWs, r->MWs, r->n*sizeof (double));
+  phase_update_mw_moles (d_int);
   phase_update_mw_moles (c_int);
-  phase_update_mw_moles (r_int);
 
   /**
-  The receiver interface mole fractions follow from the phase equilibrium
+  The continuous interface mole fractions follow from the phase equilibrium
   (Eq. 47)
   $$
-  \hat{x}_{i,r} = K_{eq,i}(\hat{T})\,\hat{x}_{i,c}
+  \hat{x}_{i,c} = K_{eq,i}(\hat{T})\,\hat{x}_{i,d}
   $$
   with $K_{eq,i}$ given by *antoine()*. They are converted to mass fractions
   by lumping the inert species into a single pseudo-species (the last element
   of the arrays below), which closes the mole fractions to one. The inert
   species are then rescaled, preserving their relative composition. */
 
-  scalar TInt = c_int->T;
+  scalar TInt = d_int->T;
   foreach_interfacial (f, F_ERR, serial) {
-    double yrcorr[NCS + 1], xrcorr[NCS + 1], mwcorr[NCS + 1];
+    double yccorr[NDS + 1], xccorr[NDS + 1], mwcorr[NDS + 1];
     double yinert[NIS > 0 ? NIS : 1], mwinert[NIS > 0 ? NIS : 1];
 
     // Store the sum of the inert species
     double sum_yinert_old = 0., sum_xinert_old = 0.;
     for (int j = 0; j < NIS; j++) {
-      scalar YRInt = r_int->YList[ISI[j]];
-      scalar XRInt = r_int->XList[ISI[j]];
-      sum_yinert_old += YRInt[];
-      sum_xinert_old += XRInt[];
+      scalar YCInt = c_int->YList[ISI[j]];
+      scalar XCInt = c_int->XList[ISI[j]];
+      sum_yinert_old += YCInt[];
+      sum_xinert_old += XCInt[];
     }
 
     // Thermodynamic equilibrium
-    for (int i = 0; i < NCS; i++) {
-      scalar XCInt = c_int->XList[i];
-      scalar XRInt = r_int->XList[CSI[i]];
-      XRInt[] = min (antoine (TInt[], Pref, i), 0.98)*XCInt[];
+    for (int i = 0; i < NDS; i++) {
+      scalar XDInt = d_int->XList[i];
+      scalar XCInt = c_int->XList[DSI[i]];
+      XCInt[] = min (antoine (TInt[], Pref, i), 0.98)*XDInt[];
     }
 
     // Molecular weight of the inert species mixture
     for (int j = 0; j < NIS; j++) {
-      scalar YRInt = r_int->YList[ISI[j]];
-      yinert[j] = YRInt[];
-      mwinert[j] = r_int->MWs[ISI[j]];
+      scalar YCInt = c_int->YList[ISI[j]];
+      yinert[j] = YCInt[];
+      mwinert[j] = c_int->MWs[ISI[j]];
     }
     correctfrac (yinert, NIS);
     double mwinertmix = mass2mw (yinert, mwinert, NIS);
 
     // Convert interface mole fractions to mass fractions
-    double sum_xr = 0.;
-    for (int i = 0; i < NCS; i++) {
-      scalar XRInt = r_int->XList[CSI[i]];
-      sum_xr += XRInt[];
-      xrcorr[i] = XRInt[];
-      mwcorr[i] = c_int->MWs[i];
+    double sum_xc = 0.;
+    for (int i = 0; i < NDS; i++) {
+      scalar XCInt = c_int->XList[DSI[i]];
+      sum_xc += XCInt[];
+      xccorr[i] = XCInt[];
+      mwcorr[i] = d_int->MWs[i];
     }
-    xrcorr[NCS] = 1. - sum_xr;
-    mwcorr[NCS] = mwinertmix;
-    mole2massfrac (yrcorr, xrcorr, mwcorr, NCS + 1);
+    xccorr[NDS] = 1. - sum_xc;
+    mwcorr[NDS] = mwinertmix;
+    mole2massfrac (yccorr, xccorr, mwcorr, NDS + 1);
 
-    for (int i = 0; i < NCS; i++) {
-      scalar YRInt = r_int->YList[CSI[i]];
-      YRInt[] = yrcorr[i];
+    for (int i = 0; i < NDS; i++) {
+      scalar YCInt = c_int->YList[DSI[i]];
+      YCInt[] = yccorr[i];
     }
 
     // Rescale the inert species
     for (int j = 0; j < NIS; j++) {
-      scalar YRInt = r_int->YList[ISI[j]];
-      scalar XRInt = r_int->XList[ISI[j]];
-      YRInt[] *= yrcorr[NCS] / (sum_yinert_old + 1e-10);
-      XRInt[] *= xrcorr[NCS] / (sum_xinert_old + 1e-10);
+      scalar YCInt = c_int->YList[ISI[j]];
+      scalar XCInt = c_int->XList[ISI[j]];
+      YCInt[] *= yccorr[NDS] / (sum_yinert_old + 1e-10);
+      XCInt[] *= xccorr[NDS] / (sum_xinert_old + 1e-10);
     }
   }
 
   /**
-  Since the carrier diffusive fluxes sum to zero, summing the species
-  balances over the carrier species gives an explicit expression for the
-  total mass flux from the carrier to the receiver (Eqs. 49, 50)
+  Since the dispersed diffusive fluxes sum to zero, summing the species
+  balances over the dispersed species gives an explicit expression for the
+  total mass flux from the dispersed to the continuous phase (Eqs. 49, 50)
   $$
-  \dot{m} = \frac{\sum_{i=1}^{NCS} j_{i,r}}
-    {1 - \sum_{i=1}^{NCS} \hat{\omega}_{i,r}}
+  \dot{m} = \frac{\sum_{i=1}^{NDS} j_{i,c}}
+    {1 - \sum_{i=1}^{NDS} \hat{\omega}_{i,c}}
   \quad
-  \dot{m}_i = \dot{m}\,\hat{\omega}_{i,r} + j_{i,r}
+  \dot{m}_i = \dot{m}\,\hat{\omega}_{i,c} + j_{i,c}
   $$
-  where $j_{i,r}$ is the diffusive flux of the receiver species along the
-  normal $\mathbf{n}_r$ entering the receiver. It is defined by two options
-  ([Cipriano et al., 2024](#cipriano2024), Eqs. 26, 27):
+  where $j_{i,c}$ is the diffusive flux of the continuous species along the
+  normal $\mathbf{n}_c$ entering the continuous phase. It is defined by two
+  options ([Cipriano et al., 2024](#cipriano2024), Eqs. 26, 27):
 
   * `pcm.molar_diffusion`: the diffusivities are molar based (e.g. from the
   Hirschfelder and Curtiss approximation), so Fick's law is written in terms of
-  mole fractions, $j^F_{i,r} = -\rho_r\mathcal{D}_{i,r} (M_{w,i}/M_{w,r})\,
-  \partial x_{i,r}/\partial\mathbf{n}_r$, with $M_{w,r}$ the molecular weight
-  of the interface mixture. Otherwise, $j^F_{i,r} = -\rho_r\mathcal{D}_{i,r}\,
-  \partial\omega_{i,r}/\partial\mathbf{n}_r$.
+  mole fractions, $j^F_{i,c} = -\rho_c\mathcal{D}_{i,c} (M_{w,i}/M_{w,c})\,
+  \partial x_{i,c}/\partial\mathbf{n}_c$, with $M_{w,c}$ the molecular weight
+  of the interface mixture. Otherwise, $j^F_{i,c} = -\rho_c\mathcal{D}_{i,c}\,
+  \partial\omega_{i,c}/\partial\mathbf{n}_c$.
   * `pcm.fick_corrected`: Fick's law is exact only for binary mixtures, or for
   equal diffusivities. The correction
-  $j_{i,r} = j^F_{i,r} - \hat{\omega}_{i,r}\sum_{k=1}^{NRS} j^F_{k,r}$
-  makes the diffusive fluxes sum to zero. Otherwise, $j_{i,r} = j^F_{i,r}$.
+  $j_{i,c} = j^F_{i,c} - \hat{\omega}_{i,c}\sum_{k=1}^{NCS} j^F_{k,c}$
+  makes the diffusive fluxes sum to zero. Otherwise, $j_{i,c} = j^F_{i,c}$.
   */
 
   foreach_interfacial (f, F_ERR) {
-    scalar rhoR = r->rho;
+    scalar rhoC = c->rho;
 
-    double jRtot = 0.;
+    double jCtot = 0.;
     if (pcm.fick_corrected) {
-      for (int k = 0; k < NRS; k++) {
-        scalar DR = r->DList[k];
-        double rtrgrad = receiver_gradient (point, r, r_int, k, fr, fsr);
-        jRtot += -rhoR[]*DR[]*rtrgrad;
+      for (int k = 0; k < NCS; k++) {
+        scalar DC = c->DList[k];
+        double ctrgrad = continuous_gradient (point, c, c_int, k, fc, fsc);
+        jCtot += -rhoC[]*DC[]*ctrgrad;
       }
     }
 
-    double sum_jR = 0., sum_YRInt = 0.;
-    for (int i = 0; i < NCS; i++) {
-      scalar YRInt = r_int->YList[CSI[i]];
-      scalar DR = r->DList[CSI[i]];
-      double rtrgrad = receiver_gradient (point, r, r_int, CSI[i], fr, fsr);
-      sum_jR += -rhoR[]*DR[]*rtrgrad - YRInt[]*jRtot;
-      sum_YRInt += YRInt[];
+    double sum_jC = 0., sum_YCInt = 0.;
+    for (int i = 0; i < NDS; i++) {
+      scalar YCInt = c_int->YList[DSI[i]];
+      scalar DC = c->DList[DSI[i]];
+      double ctrgrad = continuous_gradient (point, c, c_int, DSI[i], fc, fsc);
+      sum_jC += -rhoC[]*DC[]*ctrgrad - YCInt[]*jCtot;
+      sum_YCInt += YCInt[];
     }
-    double mtot = sum_jR / min (1. - sum_YRInt, 0.99);
+    double mtot = sum_jC / min (1. - sum_YCInt, 0.99);
     mEvapTot[] = sign*mtot;
 
-    for (int i = 0; i < NCS; i++) {
-      scalar mEvap = mEvapList[CSI[i]];
-      scalar YRInt = r_int->YList[CSI[i]];
-      scalar DR = r->DList[CSI[i]];
-      double rtrgrad = receiver_gradient (point, r, r_int, CSI[i], fr, fsr);
-      mEvap[] = sign*(mtot*YRInt[] - rhoR[]*DR[]*rtrgrad - YRInt[]*jRtot);
+    for (int i = 0; i < NDS; i++) {
+      scalar mEvap = mEvapList[DSI[i]];
+      scalar YCInt = c_int->YList[DSI[i]];
+      scalar DC = c->DList[DSI[i]];
+      double ctrgrad = continuous_gradient (point, c, c_int, DSI[i], fc, fsc);
+      mEvap[] = sign*(mtot*YCInt[] - rhoC[]*DC[]*ctrgrad - YCInt[]*jCtot);
     }
   }
 
@@ -349,12 +356,13 @@ void species_jump_condition (Phase * c, Phase * r, Phase * c_int,
   the implicit source $\dot{m}\,\omega_i\delta_\Gamma$, which accounts for
   the volume change (Eq. 43; both explicit with `EXPLICIT_ONLY`). Since
   vaporization rates are positive when the liquid loses mass, the sign of the
-  sources is *sign* for the carrier and *-sign* for the receiver. */
+  sources is *sign* for the dispersed phase and *-sign* for the continuous
+  phase. */
 
   foreach_interfacial_plic (f, F_ERR) {
-    for (int k = 0; k < NRS; k++) {
-      scalar mEvap = mEvapList[k], YInt = r_int->YList[k];
-      scalar SYexp = r->SYexpList[k], SYimp = r->SYimpList[k];
+    for (int k = 0; k < NCS; k++) {
+      scalar mEvap = mEvapList[k], YInt = c_int->YList[k];
+      scalar SYexp = c->SYexpList[k], SYimp = c->SYimpList[k];
       if (pcm.diffusion == EXPLICIT_ONLY)
         SYexp[] += -sign*(mEvap[] - mEvapTot[]*YInt[])*dirac;
       else {
@@ -363,9 +371,9 @@ void species_jump_condition (Phase * c, Phase * r, Phase * c_int,
       }
     }
 
-    for (int i = 0; i < NCS; i++) {
-      scalar mEvap = mEvapList[CSI[i]], YInt = c_int->YList[i];
-      scalar SYexp = c->SYexpList[i], SYimp = c->SYimpList[i];
+    for (int i = 0; i < NDS; i++) {
+      scalar mEvap = mEvapList[DSI[i]], YInt = d_int->YList[i];
+      scalar SYexp = d->SYexpList[i], SYimp = d->SYimpList[i];
       if (pcm.diffusion == EXPLICIT_ONLY)
         SYexp[] += sign*(mEvap[] - mEvapTot[]*YInt[])*dirac;
       else {
@@ -383,49 +391,50 @@ event defaults (i = 0) {
   liq_int = new_phase_minimal ("LInt", NLS, false, liq_species);
   gas_int = new_phase_minimal ("GInt", NGS, true, gas_species);
 
-  liquid_carrier = (NLS <= NGS);
-  Phase * c_int = liquid_carrier ? liq_int : gas_int;
-  Phase * r_int = liquid_carrier ? gas_int : liq_int;
+  liquid_dispersed = (NLS <= NGS);
+  Phase * d_int = liquid_dispersed ? liq_int : gas_int;
+  Phase * c_int = liquid_dispersed ? gas_int : liq_int;
 
+  NDS = d_int->n;
   NCS = c_int->n;
-  NRS = r_int->n;
-  NIS = NRS - NCS;
+  NIS = NCS - NDS;
 
-  foreach_species_in (r_int) {
+  foreach_species_in (c_int) {
     scalar mEvap = new scalar;
     char name[80];
-    sprintf (name, "mEvap%s", r_int->species[i]);
+    sprintf (name, "mEvap%s", c_int->species[i]);
     free (mEvap.name);
     mEvap.name = strdup (name);
     mEvap.nodump = true;
     mEvapList = list_add (mEvapList, mEvap);
   }
 
-  // Carrier species indices *CSI* (aborts if missing from the receiver)
-  CSI = (int *)malloc (NCS*sizeof (int));
-  for (int i = 0; i < NCS; i++)
-    CSI[i] = phase_species_index (r_int, c_int->species[i]);
+  // Dispersed species indices *DSI* (aborts if missing from the continuous
+  // phase)
+  DSI = (int *)malloc (NDS*sizeof (int));
+  for (int i = 0; i < NDS; i++)
+    DSI[i] = phase_species_index (c_int, d_int->species[i]);
 
-  // Inert species indices *ISI*: the receiver species not in *CSI*
-  bool carrier_species[NRS];
-  for (int k = 0; k < NRS; k++)
-    carrier_species[k] = false;
-  for (int i = 0; i < NCS; i++)
-    carrier_species[CSI[i]] = true;
+  // Inert species indices *ISI*: the continuous species not in *DSI*
+  bool dispersed_species[NCS];
+  for (int k = 0; k < NCS; k++)
+    dispersed_species[k] = false;
+  for (int i = 0; i < NDS; i++)
+    dispersed_species[DSI[i]] = true;
 
   ISI = (int *)malloc (NIS*sizeof (int));
   int nis = 0;
-  for (int k = 0; k < NRS; k++)
-    if (!carrier_species[k])
+  for (int k = 0; k < NCS; k++)
+    if (!dispersed_species[k])
       ISI[nis++] = k;
   assert (nis == NIS);
 
-  // Default equilibrium constants of the carrier species
-  YIntVals = (double *)calloc (NCS, sizeof (double));
+  // Default equilibrium constants of the dispersed species
+  YIntVals = (double *)calloc (NDS, sizeof (double));
 
   // We dump only non-null vaporization rates
-  for (int i = 0; i < NCS; i++) {
-    scalar mEvap = mEvapList[CSI[i]];
+  for (int i = 0; i < NDS; i++) {
+    scalar mEvap = mEvapList[DSI[i]];
     mEvap.nodump = false;
   }
 }
@@ -434,7 +443,7 @@ event cleanup (t = end) {
   delete_phase (liq_int), liq_int = NULL;
   delete_phase (gas_int), gas_int = NULL;
   delete (mEvapList), free (mEvapList), mEvapList = NULL;
-  free (CSI), CSI = NULL;
+  free (DSI), DSI = NULL;
   free (ISI), ISI = NULL;
   free (YIntVals);
 }
@@ -490,7 +499,7 @@ event phasechange (i++) {
     }
   }
 
-  if (liquid_carrier)
+  if (liquid_dispersed)
     species_jump_condition (liq, gas, liq_int, gas_int, fg, fsg, 1.);
   else
     species_jump_condition (gas, liq, gas_int, liq_int, fl, fsl, -1.);
@@ -500,19 +509,19 @@ event phasechange (i++) {
   by solving the energy balance ([Cipriano et al., 2023](#cipriano2023),
   Eq. 51)
   $$
-  \sum_{i=1}^{NCS} \dot{m}_i\Delta h_{ev,i} =
+  \sum_{i=1}^{NDS} \dot{m}_i\Delta h_{ev,i} =
     \lambda_l\nabla T_l\cdot\mathbf{n}_\Gamma
     - \lambda_g\nabla T_g\cdot\mathbf{n}_\Gamma
   $$
   with $\mathbf{n}_\Gamma$ pointing towards the liquid, the vaporization
-  rates frozen, and $\Delta h_{ev,i}$ taken from the carrier species. In
+  rates frozen, and $\Delta h_{ev,i}$ taken from the dispersed species. In
   *energy_balance()*, each gradient is computed along the normal entering its
   own phase, hence the plus sign. */
 
   if (!pcm.isothermal && !pcm.isothermal_interface) {
     EnergyBalanceData data;
     data.liq = liq, data.gas = gas;
-    data.carrier = liquid_carrier ? liq : gas;
+    data.dispersed = liquid_dispersed ? liq : gas;
     data.fl = fl, data.fg = fg;
     data.fsl = fsl, data.fsg = fsg;
 

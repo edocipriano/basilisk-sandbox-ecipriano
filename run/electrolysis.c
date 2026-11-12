@@ -5,9 +5,10 @@ A hydrogen bubble grows on a planar electrode, fed by the dissolved hydrogen
 produced at the electrode surface. The setup reproduces the single-bubble
 simulations of [Gennari et al., 2022](#gennari2022), Sec. 5, based on the
 experiments of [Glas and Westwater, 1964](#glas1964). The bubble is pure
-hydrogen, therefore it is the *carrier* of the phase change, while the liquid
-is the *receiver*, made of dissolved hydrogen and water, the inert species
-(see [evaporation.h](../src/evaporation.h)).
+hydrogen and it is the *dispersed* phase, while the liquid is the *continuous*
+phase, made of dissolved hydrogen and water, the inert species (see
+[evaporation.h](../src/evaporation.h)). Hydrogen moves from the continuous to
+the dispersed phase.
 
 The electrode is the flat end of a wire of diameter $D_e$, on the left
 boundary. The molar flux of hydrogen produced at the electrode follows from

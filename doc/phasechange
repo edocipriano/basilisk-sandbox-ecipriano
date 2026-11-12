@@ -294,13 +294,13 @@ $$
 
 * [evaporation.h](../src/evaporation.h):
   Vaporization rate from species mass balance assuming diffusion-driven phase
-  change. The *carrier* phase (the one with fewer species, e.g. the liquid for
-  droplet evaporation, the gas for bubble dissolution) transfers its *NCS*
-  species to the *receiver* phase, which also contains *NIS* inert species.
-  The balance is written on the receiver side, with $\mathbf{n}_r$ the normal
-  entering the receiver:
+  change. The *dispersed* phase (the one with fewer species, e.g. the liquid
+  droplet for evaporation, the gas bubble for dissolution) exchanges its *NDS*
+  species with the *continuous* phase, which also contains *NIS* inert
+  species. The balance is written on the continuous side, with
+  $\mathbf{n}_c$ the normal entering the continuous phase:
 $$
-  \dot{m} = -\dfrac{\sum_{i=1}^{NCS} \rho_r\mathcal{D}_{i,r}\partial\omega_{i,r}/\partial\mathbf{n}_r}{1 - \sum_{i=1}^{NCS} \omega_{i,r}}
+  \dot{m} = -\dfrac{\sum_{i=1}^{NDS} \rho_c\mathcal{D}_{i,c}\partial\omega_{i,c}/\partial\mathbf{n}_c}{1 - \sum_{i=1}^{NDS} \omega_{i,c}}
 $$
 
 These models cover all phase change types currently implemented in Basilisk.
@@ -514,7 +514,7 @@ TL0 = 354.55, TG0 = 351.45, TIntVal = TG0;
 ~~~
 
 *Evaporation*: The default thermodynamic equilibrium constant is zero $K_{eq} =
-\hat{x}_{i,r}/\hat{x}_{i,c} = 0$ (receiver over carrier interface mole
+\hat{x}_{i,c}/\hat{x}_{i,d} = 0$ (continuous over dispersed interface mole
 fractions, i.e. $\hat{x}_{i,g}/\hat{x}_{i,l}$ for evaporation), meaning no
 evaporation. For isothermal
 evaporation, set this parameter as:
@@ -530,7 +530,7 @@ YIntVals[1] = 0.4;
 
 For temperature-dependent evaporation, use [Antoine's
 equation](https://en.wikipedia.org/wiki/Antoine_equation) via a function pointer
-assigned to each carrier species (the liquid species for evaporation):
+assigned to each dispersed species (the liquid species for evaporation):
 
 ~~~literatec
 // Declare Antoine's equation for dodecane with parameters from NIST database
@@ -549,7 +549,7 @@ event init (i = 0) {
 Note that [Clausius-Clapeyron's
 equation](https://en.wikipedia.org/wiki/Clausius–Clapeyron_relation), which is a
 special case, can be adopted as well. For bubble dissolution, where the gas is
-the carrier, the same attribute of the gas mass fraction returns Henry's law
+the dispersed phase, the same attribute of the gas mass fraction returns Henry's law
 constant $K_{eq} = P/H_i(T)$.
 
 You can also set a global `antoine()` function valid for all species, e.g., using
@@ -568,7 +568,7 @@ event init (i = 0) {
 ~~~
 
 What happends if you set all of these methods? The priority will be given to the
-global `antoine()` function, then the attribute of the carrier mass fraction, the
+global `antoine()` function, then the attribute of the dispersed mass fraction, the
 vector `YIntVals`, and lastly the pure equilibrium constant value `YIntVal`.
 
 ### Variable material properties and chemical reactions

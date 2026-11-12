@@ -448,7 +448,7 @@ event init (i = 0) {
   double MWLs[NLS], MWGs[NGS];
   molecular_weights (NGS, MWGs);
   foreach_species_in (liq)
-    MWLs[i] = MWGs[CSI[i]];
+    MWLs[i] = MWGs[DSI[i]];
 
   phase_set_properties (liq, MWs = MWLs);
   phase_set_properties (gas, MWs = MWGs);
@@ -600,7 +600,7 @@ event output_data (i += 50) {
       TIntAvg, TDropAvg);
 
   foreach_species_in (liq_int) {
-    scalar YGInt = gas_int->YList[CSI[i]];
+    scalar YGInt = gas_int->YList[DSI[i]];
     double YGIntAvg = avg_interface (YGInt, f, tol = 0.1);
     fprintf (fp, " %g", YGIntAvg);
   }
