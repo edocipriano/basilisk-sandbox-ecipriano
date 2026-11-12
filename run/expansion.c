@@ -351,8 +351,9 @@ set yrange[1:1.12]
 set size square
 
 basedir350 = "../expansion/"
-basedir375 = "../expansion-T375/"
-basedir400 = "../expansion-T400/"
+basedir375 = "../data/expansion/expansion-T375/"
+basedir400 = "../data/expansion/expansion-T400/"
+
 
 set label "∆T = 50 K"  at 2.45,1.05  left font ",11" tc rgb "black"
 set label "∆T = 75 K"  at 2.45,1.078 left font ",11" tc rgb "black"
@@ -379,13 +380,13 @@ stats "<tail -n 1 OutputData-5" u 6 nooutput name "T1_LEVEL5"
 stats "<tail -n 1 OutputData-6" u 6 nooutput name "T1_LEVEL6"
 stats "<tail -n 1 OutputData-7" u 6 nooutput name "T1_LEVEL7"
 
-stats "<tail -n 1 ../expansion-T375/OutputData-5" u 6 nooutput name "T2_LEVEL5"
-stats "<tail -n 1 ../expansion-T375/OutputData-6" u 6 nooutput name "T2_LEVEL6"
-stats "<tail -n 1 ../expansion-T375/OutputData-7" u 6 nooutput name "T2_LEVEL7"
+stats "<tail -n 1 ".basedir375."/OutputData-5" u 6 nooutput name "T2_LEVEL5"
+stats "<tail -n 1 ".basedir375."/OutputData-6" u 6 nooutput name "T2_LEVEL6"
+stats "<tail -n 1 ".basedir375."/OutputData-7" u 6 nooutput name "T2_LEVEL7"
 
-stats "<tail -n 1 ../expansion-T400/OutputData-5" u 6 nooutput name "T3_LEVEL5"
-stats "<tail -n 1 ../expansion-T400/OutputData-6" u 6 nooutput name "T3_LEVEL6"
-stats "<tail -n 1 ../expansion-T400/OutputData-7" u 6 nooutput name "T3_LEVEL7"
+stats "<tail -n 1 ".basedir400."OutputData-5" u 6 nooutput name "T3_LEVEL5"
+stats "<tail -n 1 ".basedir400."OutputData-6" u 6 nooutput name "T3_LEVEL6"
+stats "<tail -n 1 ".basedir400."OutputData-7" u 6 nooutput name "T3_LEVEL7"
 
 set print "errors"
 
