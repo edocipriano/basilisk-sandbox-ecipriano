@@ -14,18 +14,6 @@ CFLAGS += -O2 \
 	$(BASILISK_INCLUDES) \
 	$(BASILISK_LIBS)
 
-expansion-T375.c: expansion.c
-	ln -s expansion.c expansion-T375.c
-expansion-T375.s: CFLAGS += -DTEMPERATURE=375
-expansion-T375.tst: CFLAGS += -DTEMPERATURE=375
-
-expansion-T400.c: expansion.c
-	ln -s expansion.c expansion-T400.c
-expansion-T400.s: CFLAGS += -DTEMPERATURE=400
-expansion-T400.tst: CFLAGS += -DTEMPERATURE=400
-
-expansion.tst: expansion-T375.tst expansion-T400.tst
-
 ifdef CANTERA_LIBRARY_PATH
 CFLAGS += -I$(CANTERA_INCLUDE_PATH) -L$(CANTERA_LIBRARY_PATH) -Wl,-rpath,$(CANTERA_LIBRARY_PATH)
 endif
