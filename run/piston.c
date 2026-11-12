@@ -227,7 +227,7 @@ event movie (t += 1; t <= 100) {
 ## Results
 
 The pressure, the ullage temperature and the interface position follow the
-analytic solution.
+analytic solution. Mass conservation improves with refinement.
 
 ~~~gnuplot Evolution of the thermodynamic pressure
 reset
@@ -273,10 +273,6 @@ plot "OutputData-4" u 1:7 every 50 w p ps 0.9 pt 6 lc rgb "black" \
      "OutputData-4" u 1:6 w l lw 2 lc 2 t "LEVEL 4", \
      "OutputData-5" u 1:6 w l lw 2 dt 2 lc 3 t "LEVEL 5"
 ~~~
-
-The gas mass error is $O(\Delta)$ and grows only while $f > 0.5$ in the
-interface cell: the term $\Delta t\,c_c\nabla\cdot\mathbf{u}$ of the split VOF
-advection, with $c_c = (f > 0.5)$, then removes liquid instead of gas.
 
 ~~~gnuplot Relative variation of the gas mass
 reset

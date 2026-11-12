@@ -49,5 +49,5 @@ pressurization-heatflux-embed.s: CFLAGS += -DHEATFLUX=1 -DSOLID=1
 pressurization-heatflux-embed.tst: CFLAGS += -DHEATFLUX=1 -DSOLID=1
 
 pressurization.tst: pressurization-embed.tst pressurization-heatflux.tst \
-	pressurization-heatflux-embed.tst
+	pressurization-heatflux-embed.tst piston.tst cavity.tst
 

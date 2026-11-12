@@ -320,7 +320,11 @@ boundary contained in the cut cells at the contact line is wetted partly by the
 liquid and partly by the gas. The following functions compute the portion of
 the fragment wetted by each phase, which is used to split the fluxes through the
 embedded boundary (e.g. a heat flux imposed on the wall) between the phases. They
-work in two and three dimensions. */
+work in two and three dimensions. 
+
+todo: the following functions with geometric operations were written using
+Claude and never reviewed
+*/
 
 #if EMBED
 

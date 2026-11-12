@@ -20,7 +20,11 @@ $$
 - \frac{\theta}{dt}f^{n} - r
 $$
 This is a Poisson--Helmholtz problem which can be solved with a
-multigrid solver. */
+multigrid solver.
+
+This is a copy of [diffusion.h](/src/diffusion.h) which adds the optional
+arguments `tolerance` and `flux`, forwarded to `poisson()`. The latter replaces
+`embed_flux()` (e.g. with `phase_embed_flux()` in [phase.h](phase.h)). */
 
 #include "poisson.h"
 

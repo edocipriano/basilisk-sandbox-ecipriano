@@ -42,7 +42,9 @@ The benchmark proposes three cases: `T1` with constant transport properties,
 `T2` (default) and `T3` with Sutherland's laws. For a matter of computational
 time, the test runs only the grids from $32^2$ to $128^2$: the convergence
 towards the reference solution can be observed by increasing the level of
-refinement (e.g. `-DLEVELMAX=9`). */
+refinement (e.g. `-DMAXLEVEL=9`). The reference solutions of the average
+Nusselt number and of the pressure ratio $P_0/P_{00}$ are taken from Table 1 of
+[Le Quéré et al., 2005](#lequere2005modelling). */
 
 #ifndef CASE
 # define CASE 2
@@ -51,19 +53,25 @@ refinement (e.g. `-DLEVELMAX=9`). */
 #if CASE == 1
 # define RAYLEIGH 1.e6
 # define SUTHERLAND 0
+# define NUREF 8.85978
+# define P0REF 0.856338
 #elif CASE == 2
 # define RAYLEIGH 1.e6
 # define SUTHERLAND 1
+# define NUREF 8.6866
+# define P0REF 0.924487
 #else
 # define RAYLEIGH 1.e7
 # define SUTHERLAND 1
+# define NUREF 16.2410
+# define P0REF 0.92263
 #endif
 
-#ifndef LEVELMIN
-# define LEVELMIN 5
+#ifndef MINLEVEL
+# define MINLEVEL 5
 #endif
-#ifndef LEVELMAX
-# define LEVELMAX 7
+#ifndef MAXLEVEL
+# define MAXLEVEL 7
 #endif
 
 #define P00     101325.   // Initial thermodynamic pressure [Pa]
@@ -73,7 +81,7 @@ refinement (e.g. `-DLEVELMAX=9`). */
 #define EPS     0.6       // Non-dimensional temperature difference [-]
 
 int maxlevel;
-double Thot, Tcold, T0ref, mu0, lambda0, alpha0, tend;
+double Thot, Tcold, T0ref, mu0, lambda0, alpha0, tend = 1.;
 
 /**
 ### Material Properties
@@ -159,7 +167,14 @@ int main (void) {
   DT = 0.1*L0/sqrt (fabs (G.y)*L0*(Thot - Tcold)/T0ref);
   tend = 0.3*sq(L0)/alpha0;
 
-  for (maxlevel = LEVELMIN; maxlevel <= LEVELMAX; maxlevel++) {
+  /**
+  We write the reference solution of the selected case, used by the plots. */
+
+  FILE * fpr = fopen ("Reference", "w");
+  fprintf (fpr, "%g %g\n", NUREF, P0REF);
+  fclose (fpr);
+
+  for (maxlevel = MINLEVEL; maxlevel <= MAXLEVEL; maxlevel++) {
     init_grid (1 << maxlevel);
     run();
   }
@@ -173,9 +188,7 @@ gas, i.e. of the gas initially at rest at $T_0$ and $P_{00}$:
 $$
   P_0 = P_{00}\dfrac{\int_\Omega dV/T_0}{\int_\Omega dV/T}
 $$
-Integrating $dP_0/dt$ instead accumulates the residual imbalance between the
-discrete heat fluxes of the two walls, and the pressure drifts away during the
-thousands of time steps needed to reach the steady state. */
+Integrating $dP_0/dt$ instead seem to be less accurate in this case. */
 
 void pressure_from_mass (void) {
   scalar TG = gas->T;
@@ -201,8 +214,10 @@ event init (i = 0) {
   ThermoState tsl, tsg;
   tsl.T = T0ref, tsl.P = P0, tsl.x = (double[]){1.};
   tsg.T = T0ref, tsg.P = P0, tsg.x = (double[]){1.};
+
   phase_set_thermo_state (liq, &tsl);
   phase_set_thermo_state (gas, &tsg);
+
   phase_set_properties (liq, MWs = (double[]){R_GAS*1.e3/RGAS});
   phase_set_properties (gas, MWs = (double[]){R_GAS*1.e3/RGAS});
 
@@ -247,21 +262,11 @@ double nusselt (bool hot) {
 We write the Nusselt number of the two walls and the pressure ratio
 $P_0/P_{00}$ at fixed fractions of the simulation time. */
 
-event output_data (i++) {
-  static FILE * fp = NULL;
-  static double tout;
-  if (i == 0) {
-    char name[80];
-    sprintf (name, "OutputData-%d", maxlevel);
-    if (fp)
-      fclose (fp);
-    fp = fopen (name, "w");
-    tout = 0.;
-  }
-  if (t < tout)
-    return 0;
-  tout += tend/100.;
+event output_data (t += tend/100.) {
+  char name[80];
+  sprintf (name, "OutputData-%d", maxlevel);
 
+  static FILE * fp = fopen (name, "w");
   fprintf (fp, "%g %g %g %g\n", t*alpha0/sq(L0), nusselt (true),
       nusselt (false), P0/P00);
   fflush (fp);
@@ -280,7 +285,7 @@ event logger (t = end) {
   double nuh = nusselt (true), nuc = nusselt (false);
   fprintf (stderr, "%d %.3f %.3f %.5f\n", maxlevel, nuh, nuc, P0/P00);
 
-  if (maxlevel == LEVELMAX) {
+  if (maxlevel == MAXLEVEL) {
     clear();
     box();
     view (tx = -0.5, ty = -0.5);
@@ -299,27 +304,16 @@ solution $\overline{Nu} = 8.6866$, $P_0/P_{00} = 0.924487$:
 
 | Grid | $\overline{Nu}_h$ | $\overline{Nu}_c$ | $P_0/P_{00}$ | error $\overline{Nu}_h$ | error $P_0$ |
 |------|-------|-------|---------|--------|--------|
-| $32^2$  | 8.401 | 8.819 | 0.97966 | -3.29% | +5.97% |
-| $64^2$  | 8.681 | 8.926 | 0.93522 | -0.06% | +1.16% |
+| $32^2$  | 8.404 | 8.820 | 0.97959 | -3.25% | +5.96% |
+| $64^2$  | 8.681 | 8.926 | 0.93521 | -0.06% | +1.16% |
 | $128^2$ | 8.670 | 8.764 | 0.92658 | -0.19% | +0.23% |
 
 The thermodynamic pressure converges monotonically towards the reference value.
-The convergence of the Nusselt number is instead not monotonic: the error of the
-hot wall almost vanishes on the $64^2$ grid and it increases again on the
-$128^2$ grid, while the error of the cold wall increases from the $32^2$ to the
-$64^2$ grid. The heat fluxes of the two walls, which must be equal at steady
-state, differ by 5%, 2.8% and 1.1% on the three grids. This energy conservation
-error is a known feature of segregated algorithms that advance the temperature
-in non-conservative form, with the density computed from the equation of state
-(algorithm A1 of [Knikker, 2011](#knikker2011comparative)). It is added to the
-discretization error of the Nusselt number with a different sign, resulting in
-a non-monotonic convergence on coarse grids. As in Knikker (2011), the cold
-wall, whose boundary layer is thinner, is the most affected. Energy conserving
-algorithms remove this error.
-
-The steady state also depends on the time step: the BCG scheme of
-[vof.h](/src/vof.h) adds a numerical diffusion $u^2\Delta t/2$ along the
-streamlines, which does not vanish at steady state.
+The convergence of the Nusselt number is instead not monotonic. The problem
+might be due to the algorithm used by the low-mach solver and the time
+staggering or the coupling between the solution of the scalar fields and the
+divergence. See [Knikker, 2011](#knikker2011comparative) for a detailed analysis
+of different choices, although discussed only for single-phase flows.
 
 ~~~gnuplot Convergence of the Nusselt number towards the steady state
 reset
@@ -327,18 +321,19 @@ set grid
 set key bottom right
 set xlabel "t α_0/L^2 [-]"
 set ylabel "Nu [-]"
-set yrange [7:10]
+nuref = real(system("awk '{print $1}' Reference"))
+set yrange [nuref - 1.7:nuref + 1.3]
 set size square
-set label "hot wall" at 0.12,7.55 center
-set arrow from 0.12,7.65 to 0.12,8.33 head filled
-set label "cold wall" at 0.12,9.65 center
-set arrow from 0.12,9.55 to 0.12,9.0 head filled
+set label "hot wall" at 0.12,nuref - 1.14 center
+set arrow from 0.12,nuref - 1.04 to 0.12,nuref - 0.36 head filled
+set label "cold wall" at 0.12,nuref + 0.96 center
+set arrow from 0.12,nuref + 0.86 to 0.12,nuref + 0.31 head filled
 levels = system("awk '{print $1}' log")
 plot for [l in levels] "OutputData-".l u 1:2 w l lw 2 lc (l - 4) \
        t sprintf("%d^2", 2**(l + 0)), \
      for [l in levels] "OutputData-".l u 1:3 w l lw 2 lc (l - 4) \
        dt 2 notitle, \
-     8.6866 w l lc rgb "black" dt 2 t "Le Quéré et al. 2005"
+     nuref w l lc rgb "black" dt 2 t "Le Quéré et al. 2005"
 ~~~
 
 ~~~gnuplot Convergence of the thermodynamic pressure towards the steady state
@@ -348,10 +343,11 @@ set key top right
 set xlabel "t α_0/L^2 [-]"
 set ylabel "P_0/P_{00} [-]"
 set size square
+p0ref = real(system("awk '{print $2}' Reference"))
 levels = system("awk '{print $1}' log")
 plot for [l in levels] "OutputData-".l u 1:4 w l lw 2 lc (l - 4) \
        t sprintf("%d^2", 2**(l + 0)), \
-     0.924487 w l lc rgb "black" dt 2 t "Le Quéré et al. 2005"
+     p0ref w l lc rgb "black" dt 2 t "Le Quéré et al. 2005"
 ~~~
 
 ## References

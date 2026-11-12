@@ -15,13 +15,12 @@ $$
 $$
 $$
 \nabla\cdot\mathbf{u} =
-  {\color{blue} \dot{m} \left(\dfrac{1}{\rho_g}
-  - \dfrac{1}{\rho_l}\right)\delta_\Gamma
-  -\color{blue} \dfrac{1}{\rho}\dfrac{D\rho}{Dt}
-  -\chi_T \dfrac{dP_0}{dt}}
+  \textcolor{blue}{S - \chi_T \dfrac{dP_0}{dt}}
 $$
-with the deformation tensor 
-$\mathbf{D}=[\nabla\mathbf{u} + (\nabla\mathbf{u})^T]/2$.
+with the deformation tensor $\mathbf{D}=[\nabla\mathbf{u} +
+(\nabla\mathbf{u})^T]/2$, $S$ the expansion sources at constant thermodynamic
+pressure (temperature, composition, and phase change), and the last term active
+only in closed systems (see [low-mach](../../doc/low-mach) for the derivation).
 */
 
 /**
@@ -55,13 +54,10 @@ $\int_\Omega\nabla\cdot\mathbf{u}\,dV = 0$, the pressurization rate is obtained:
 $$
   \dfrac{dP_0}{dt} = \dfrac{\int_\Omega S\,dV}{\int_\Omega \chi_T\,dV}
 $$
-The compensation is weighted on the *local* compressibility: since the gas phase
-is about five orders of magnitude more compressible than the liquid phase, the
-ullage absorbs almost the entire volume variation, while the liquid remains
-still. The field `chiT` must be filled by the module that computes the material
-properties; if it is left to zero everywhere, the net expansion is redistributed
-uniformly over the domain, which is the behaviour of an incompressible closed
-system.
+The compensation is weighted on the *local* compressibility. The field `chiT`
+must be filled by the module that computes the material properties and if it is
+left to zero everywhere, the net expansion is redistributed uniformly over the
+domain, which is the behaviour of an incompressible closed system.
 
 If the container exchanges mass through boundaries which are not balanced by an
 outlet condition (e.g. an inflow of liquid in a tank whose other boundaries are
@@ -73,7 +69,12 @@ $$
 $$
 The flow rate $\dot{Q}$ is set by the user through the variable `closed_flux`,
 which is positive for a net outflow and negative for a net inflow. It is zero by
-default, which corresponds to a closed box. */
+default, which corresponds to a closed box.
+
+Closed systems are activated with `closed = true`. The user sets the initial
+`P0` (null by default) and updates it in the simulation file, e.g.
+`P0 += dt*dP0dt`, or from mass conservation, depending on the equation of
+state. */
 
 scalar chiT[];
 double P0 = 0., dP0dt = 0., _P0 = 0., closed_flux = 0.;
