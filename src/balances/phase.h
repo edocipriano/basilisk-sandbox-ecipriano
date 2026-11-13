@@ -42,7 +42,8 @@ static void write_balances (void) {
   fprintf (fbalances, "\n");
 }
 
-event balances (i++) {
+// note: before the projection, i.e. with the `uf` used by the VOF advection
+event tracer_advection (i++) {
   phase_mass_balance (balance, phase, NULL, dt, uf, boundaries = true);
 
   if (pid() == 0)

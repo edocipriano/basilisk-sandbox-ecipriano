@@ -1633,20 +1633,22 @@ static double face_value_bid (Point point, scalar s, int bid) {
 static double face_gradient_bid (Point point, scalar s, int bid) {
   double grad = 0.;
   switch (bid) {
-    case 0: grad = (s[1,0]  - s[])/Delta*fm.x[];  break;  // right
+    case 0: grad = (s[1,0]  - s[])/Delta*fm.x[1];  break;  // right
     case 1: grad = (s[-1,0] - s[])/Delta*fm.x[];  break;  // left
-    case 2: grad = (s[0,1]  - s[])/Delta*fm.y[];  break;  // top
+    case 2: grad = (s[0,1]  - s[])/Delta*fm.y[0,1];  break;  // top
     case 3: grad = (s[0,-1] - s[])/Delta*fm.y[];  break;  // bottom
   }
   return grad;
 }
 
+// note: `foreach_boundary` loops over the interior cells next to the boundary,
+// whose faces on the right and top boundaries are `uf.x[1]` and `uf.y[0,1]`
 static double face_flux_bid (Point point, face vector uf, int bid) {
   double flux = 0.;
   switch (bid) {
-    case 0: flux = +uf.x[]; break;   // right
+    case 0: flux = +uf.x[1]; break;   // right
     case 1: flux = -uf.x[]; break;   // left
-    case 2: flux = +uf.y[]; break;   // top
+    case 2: flux = +uf.y[0,1]; break;   // top
     case 3: flux = -uf.y[]; break;   // bottom
   }
   return flux;
