@@ -9,8 +9,9 @@ event init (i = 0) {
     fprintf (ferr,
         "src/balances/two-phase.h:%d: warning: balances considers just 4 boundaries\n",
         LINENO), fflush (ferr);
-  liq_balance = new_phase_mass_balance (liq);
-  gas_balance = new_phase_mass_balance (gas);
+  // enthalpy: zero for the liquid at TIntVal, dhev for the gas at TIntVal
+  liq_balance = new_phase_mass_balance (liq, TIntVal, 0.);
+  gas_balance = new_phase_mass_balance (gas, TIntVal, dhev);
 
   char name[80];
   sprintf (name, "balances-%d", grid->maxdepth);
@@ -24,6 +25,9 @@ event init (i = 0) {
     fprintf (fbalances, "mG_%s(%d) ", gas->species[i], counter++);
   foreach_species_in (gas)
     fprintf (fbalances, "mE_%s(%d) ", gas->species[i], counter++);
+  fprintf (fbalances, "totenergy1(%d) totenergy2(%d) qint1(%d) qint2(%d) "
+      "evapenergy(%d) ", counter, counter + 1, counter + 2, counter + 3,
+      counter + 4);
   fprintf (fbalances, "\n");
 }
 
@@ -46,15 +50,28 @@ static void write_balances (void) {
         (gas_balance->m[i] + gas_balance->mf[i]) - gas_balance->m0[i]);
   foreach_species_in (gas)
     fprintf (fbalances, FORMAT_G, gas_balance->mevap[i]);
+  fprintf (fbalances, FORMAT_G FORMAT_G FORMAT_G FORMAT_G FORMAT_G,
+      liq_balance->e0 - (liq_balance->e + liq_balance->ef),
+      (gas_balance->e + gas_balance->ef) - gas_balance->e0,
+      liq_balance->eint, gas_balance->eint,
+      gas_balance->mevaptot*gas_balance->h0);
   fprintf (fbalances, "\n");
 }
 
-// note: before the projection, i.e. with the `uf` used by the VOF advection
-event tracer_advection (i++) {
+// note: interfacial terms and convective fluxes before the interface moves
+// (events with the same name run in reverse order of definition: this one runs
+// before the VOF advection), contents and diffusive fluxes at the end of the
+// time step
+event vof (i++) {
   face vector ufl = (nv > 1) ? uflist[1] : uflist[0];
   face vector ufg = uflist[0];
-  phase_mass_balance (liq_balance, liq, NULL, dt, ufl, f, boundaries = true);
-  phase_mass_balance (gas_balance, gas, mEvapList, dt, ufg, f, boundaries = true);
+  phase_balance_transport (liq_balance, liq, NULL, dt, ufl, f);
+  phase_balance_transport (gas_balance, gas, mEvapList, dt, ufg, f);
+}
+
+event balances (i++) {
+  phase_balance_update (liq_balance, liq, dt, f);
+  phase_balance_update (gas_balance, gas, dt, f);
 
   if (pid() == 0)
     write_balances();

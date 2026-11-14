@@ -25,6 +25,8 @@ event init (i = 0) {
     sprintf (species, "m_%s(%d)", phase->species[i], counter++);
     fprintf (fbalances, FORMAT_S, species);
   }
+  sprintf (species, "energy(%d)", counter++);
+  fprintf (fbalances, FORMAT_S, species);
   fprintf (fbalances, "\n");
 }
 
@@ -39,12 +41,18 @@ static void write_balances (void) {
   foreach_species_in (phase)
     fprintf (fbalances, FORMAT_G,
         (balance->m[i] + balance->mf[i]) - balance->m0[i]);
+  fprintf (fbalances, FORMAT_G, (balance->e + balance->ef) - balance->e0);
   fprintf (fbalances, "\n");
 }
 
-// note: before the projection, i.e. with the `uf` used by the VOF advection
+// note: convective fluxes before the projection and the diffusion step,
+// contents and diffusive fluxes at the end of the time step
 event tracer_advection (i++) {
-  phase_mass_balance (balance, phase, NULL, dt, uf, boundaries = true);
+  phase_balance_transport (balance, phase, NULL, dt, uf);
+}
+
+event balances (i++) {
+  phase_balance_update (balance, phase, dt);
 
   if (pid() == 0)
     write_balances();

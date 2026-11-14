@@ -1579,14 +1579,21 @@ typedef struct {
   double mevaptot;  // total mass evaporated
   double * mf;      // species flux though the domain
   double mftot;     // total mass through the domain
+  double Tref, h0;  // reference temperature, and enthalpy at Tref
+  double e, e0, ef; // energy in the domain, initial value, and through the domain
+  double eint;      // heat conducted from the interface (STexp)
   bool first;       // flag the first iteration
 } PhaseMassBalance;
 
 /**
 ### *new_phase_mass_balance()*: create a mass balance object */
 
-PhaseMassBalance * new_phase_mass_balance (const Phase * phase) {
+PhaseMassBalance * new_phase_mass_balance (const Phase * phase,
+    double Tref = 0., double h0 = 0.)
+{
   PhaseMassBalance * pmb = malloc (sizeof (PhaseMassBalance));
+  pmb->Tref = Tref, pmb->h0 = h0;
+  pmb->e = pmb->e0 = pmb->ef = pmb->eint = 0.;
   pmb->mtot = 0.;
   pmb->mtot0 = 0.;
   pmb->mftot = 0.;
@@ -1617,7 +1624,41 @@ void delete_phase_mass_balances (PhaseMassBalance * pmb) {
 }
 
 /**
-### *phase_mass_balance()*: compute mass balance for a single time step */
+### *tracer_to_scalar()*: scalar form of a tracer in a separate field
+
+Stores in `s` the scalar form $t/c$ of the tracer `t` (zero where the volume
+fraction $c$ is not larger than `tol`), with the boundary conditions of `t`. */
+
+void tracer_to_scalar (scalar t, scalar s, (const) scalar f,
+    bool inverse = false, double tol = F_ERR)
+{
+  foreach() {
+    double ff = inverse ? 1. - f[] : f[];
+    s[] = (ff > tol) ? t[]/ff : 0.;
+  }
+  copy_bcs ({s}, t);
+  boundary ({s});
+}
+
+scalar * tracers_to_scalars (scalar * tracers, (const) scalar f,
+    bool inverse = false, double tol = F_ERR)
+{
+  scalar * list = NULL;
+  for (scalar t in tracers) {
+    scalar s = new scalar;
+    tracer_to_scalar (t, s, f, inverse, tol);
+    list = list_append (list, s);
+  }
+  return list;
+}
+
+/**
+### Mass and energy balances for a single time step
+
+The energy is the enthalpy $\rho [c_p (T - T_{ref}) + h_0]$, and the interface
+is a boundary of the phase: for $T_\Gamma = T_{ref}$ its flux is the conducted
+heat plus $h_0$ times the evaporated mass. The boundary fluxes use the scalar
+form of temperature and mass fractions. */
 
 static double face_value_bid (Point point, scalar s, int bid) {
   double val = 0.;
@@ -1654,21 +1695,24 @@ static double face_flux_bid (Point point, face vector uf, int bid) {
   return flux;
 }
 
-void phase_mass_balance (PhaseMassBalance * pmb, const Phase * phase,
-    scalar * mEvapList = NULL, double dt, face vector uf,
-    (const) scalar f = unity, bool boundaries = true,
-    bool fick_corrected = false, bool molar_diffusion = false)
+/**
+#### *phase_balance_transport()*: interfacial terms and convective fluxes
+
+Called before the VOF advection (with its `uf`, and before the interface moves)
+and before the diffusion step, which overwrites `STexp`. The first time step is
+skipped: the initial values are measured at its end. */
+
+void phase_balance_transport (PhaseMassBalance * pmb, const Phase * phase,
+    scalar * mEvapList, double dt, face vector uf, (const) scalar f = unity)
 {
+  if (pmb->first)
+    return;
+
   PhaseMassBalance * balance = new_phase_mass_balance (phase);
+  double Tref = pmb->Tref, h0 = pmb->h0;
 
   foreach_scalar_in (phase) {
-    foreach(serial) {
-      double ff = phase->inverse ? 1. - f[] : f[];
-      balance->mtot += rho[]*ff*dv();
-      foreach_species_in (phase)
-        balance->m[i] += rho[]*Y[]*dv();
-    }
-    if (mEvapList) {  // fixme: must be computed befored the interface moves
+    if (mEvapList) {
       assert (phase->n == list_len (mEvapList));
       foreach_interfacial_plic (f, F_ERR, serial) {
         foreach_species_in (phase) {
@@ -1678,35 +1722,118 @@ void phase_mass_balance (PhaseMassBalance * pmb, const Phase * phase,
         }
       }
     }
+
+    scalar Ts[];
+    if (!phase->isothermal) {
+      foreach(serial)
+        if (cm[] > 0.)
+          balance->eint += STexp[]*dt*dv()/cm[];
+      tracer_to_scalar (T, Ts, f, phase->inverse);
+    }
+    scalar * YsList = phase->isomassfrac ? phase->YList :
+      tracers_to_scalars (phase->YList, f, phase->inverse);
+
+    // note: do not remove calls to boundaries
+    // `foreach_boundary` does not trigger the automatic boundary conditions
+    boundary ({rho,f,cp});
+    boundary ((scalar *){uf});
+    boundary (phase->YList);
+
+    for (int b = 0; b < nboundary; b++) {
+      foreach_boundary(b, serial) {
+        double rhof = face_value_bid (point, rho, b);
+        double uff = face_flux_bid (point, uf, b);
+        double ff = face_value_bid (point, f, b);
+        ff = phase->inverse ? 1. - ff : ff;
+        balance->mftot += rhof*ff*uff*Delta*dt;
+        foreach_species_in (phase) {
+          scalar Ys = YsList[i];
+          balance->mf[i] += rhof*ff*face_value_bid (point, Ys, b)*uff*Delta*dt;
+        }
+        if (!phase->isothermal)
+          balance->ef += rhof*ff*(face_value_bid (point, cp, b)*
+              (face_value_bid (point, Ts, b) - Tref) + h0)*uff*Delta*dt;
+      }
+    }
+    if (!phase->isomassfrac)
+      delete (YsList), free (YsList);
   }
 
-  if (boundaries) {
+#if _MPI
+  mpi_all_reduce (balance->mftot, MPI_DOUBLE, MPI_SUM);
+  mpi_all_reduce (balance->ef, MPI_DOUBLE, MPI_SUM);
+  mpi_all_reduce (balance->eint, MPI_DOUBLE, MPI_SUM);
+  mpi_all_reduce_array (balance->mf, MPI_DOUBLE, MPI_SUM, phase->n);
+  mpi_all_reduce_array (balance->mevap, MPI_DOUBLE, MPI_SUM, phase->n);
+#endif
+
+  pmb->mftot += balance->mftot;
+  pmb->ef += balance->ef;
+  pmb->eint += balance->eint;
+  foreach_species_in (phase) {
+    pmb->mf[i] += balance->mf[i];
+    pmb->mevap[i] += balance->mevap[i];
+    pmb->mevaptot += balance->mevap[i];
+  }
+
+  delete_phase_mass_balances (balance);
+}
+
+/**
+#### *phase_balance_update()*: contents and diffusive fluxes
+
+Called at the end of the time step. */
+
+void phase_balance_update (PhaseMassBalance * pmb, const Phase * phase,
+    double dt, (const) scalar f = unity, bool boundaries = true,
+    bool fick_corrected = false, bool molar_diffusion = false)
+{
+  PhaseMassBalance * balance = new_phase_mass_balance (phase);
+  double Tref = pmb->Tref, h0 = pmb->h0;
+
+  foreach_scalar_in (phase) {
+    foreach(serial) {
+      double ff = phase->inverse ? 1. - f[] : f[];
+      balance->mtot += rho[]*ff*dv();
+      foreach_species_in (phase)
+        balance->m[i] += rho[]*Y[]*dv();
+      if (!phase->isothermal)
+        balance->e += rho[]*(cp[]*(T[] - ff*Tref) + ff*h0)*dv();
+    }
+  }
+
+  if (boundaries && !pmb->first) {
     foreach_scalar_in (phase) {
+      // scalar forms and face fractions of the phase, as in phase_diffusion()
+      scalar Ts[], ff[];
+      face vector fs[];
+      if (!phase->isothermal)
+        tracer_to_scalar (T, Ts, f, phase->inverse);
+      scalar * YsList = phase->isomassfrac ? phase->YList :
+        tracers_to_scalars (phase->YList, f, phase->inverse);
+      foreach()
+        ff[] = phase->inverse ? 1. - f[] : f[];
+      face_fraction (ff, fs);
+
       // note: do not remove calls to boundaries
       // `foreach_boundary` does not trigger the automatic boundary conditions
-      boundary ({rho,f,MW});
-      boundary ((scalar *){uf});
+      boundary ({rho,f,MW,lambda});
       boundary (phase->YList);
       boundary (phase->XList);
       boundary (phase->DList);
 
       for (int b = 0; b < nboundary; b++) {
         foreach_boundary(b, serial) {
-          // Convective flux
           double rhof = face_value_bid (point, rho, b);
-          double uff = face_flux_bid (point, uf, b);
-          double ff = face_value_bid (point, f, b);
-          ff = phase->inverse ? 1. - ff : ff;
-          balance->mftot += rhof*ff*uff*Delta*dt;
-          foreach_species_in (phase)
-            balance->mf[i] += rhof*ff*face_value_bid (point, Y, b)*uff*Delta*dt;
+          double fsf = fabs (face_flux_bid (point, fs, b));
 
           // Diffusive flux
           // todo: need check metrics
           double jcorr = 0.;
           if (fick_corrected) {
             foreach_species_in (phase) {
-              double Df = face_value_bid (point, D, b);
+              scalar Ys = YsList[i];
+              double Df = fsf*face_value_bid (point, D, b);
               double gradYn = 0.;
               if (molar_diffusion) {
                 double MWf = face_value_bid (point, MW, b);
@@ -1714,14 +1841,15 @@ void phase_mass_balance (PhaseMassBalance * pmb, const Phase * phase,
                   phase->MWs[i]/MWf*face_gradient_bid (point, X, b) : 0.;
               }
               else
-                gradYn = face_gradient_bid (point, Y, b);
+                gradYn = face_gradient_bid (point, Ys, b);
               jcorr += -rhof*Df*gradYn*Delta;
             }
           }
 
           foreach_species_in (phase) {
-            double Df = face_value_bid (point, D, b);
-            double Yf = face_value_bid (point, Y, b);
+            scalar Ys = YsList[i];
+            double Df = fsf*face_value_bid (point, D, b);
+            double Yf = face_value_bid (point, Ys, b);
             double gradYn = 0.;
             if (molar_diffusion) {
               double MWf = face_value_bid (point, MW, b);
@@ -1729,16 +1857,24 @@ void phase_mass_balance (PhaseMassBalance * pmb, const Phase * phase,
                 phase->MWs[i]/MWf*face_gradient_bid (point, X, b) : 0.;
             }
             else
-              gradYn = face_gradient_bid (point, Y, b);
+              gradYn = face_gradient_bid (point, Ys, b);
             balance->mf[i] += (-rhof*Df*gradYn*Delta - jcorr*Yf)*dt;
           }
+
+          if (!phase->isothermal)
+            balance->ef += -fsf*face_value_bid (point, lambda, b)*
+              face_gradient_bid (point, Ts, b)*Delta*dt;
         }
       }
+      if (!phase->isomassfrac)
+        delete (YsList), free (YsList);
     }
   }
 
 #if _MPI
   mpi_all_reduce (balance->mtot, MPI_DOUBLE, MPI_SUM);
+  mpi_all_reduce (balance->e, MPI_DOUBLE, MPI_SUM);
+  mpi_all_reduce (balance->ef, MPI_DOUBLE, MPI_SUM);
   mpi_all_reduce (balance->mftot, MPI_DOUBLE, MPI_SUM);
   mpi_all_reduce_array (balance->m, MPI_DOUBLE, MPI_SUM, phase->n);
   mpi_all_reduce_array (balance->mf, MPI_DOUBLE, MPI_SUM, phase->n);
@@ -1747,6 +1883,7 @@ void phase_mass_balance (PhaseMassBalance * pmb, const Phase * phase,
 
   if (pmb->first) {
     pmb->mtot0 = balance->mtot;
+    pmb->e0 = balance->e;
     foreach_species_in (phase)
       pmb->m0[i] = balance->m[i];
   }
@@ -1754,6 +1891,8 @@ void phase_mass_balance (PhaseMassBalance * pmb, const Phase * phase,
 
   pmb->mtot = balance->mtot;
   pmb->mftot += balance->mftot;
+  pmb->e = balance->e;
+  pmb->ef += balance->ef;
   foreach_species_in (phase) {
     pmb->m[i] = balance->m[i];
     pmb->mevap[i] += balance->mevap[i];

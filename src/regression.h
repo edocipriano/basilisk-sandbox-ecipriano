@@ -122,16 +122,34 @@ void vof_expl_sources (
     double dt               // Time step
 )
 {
+  // Don't modify f at the first round, or it will modify the f used by the
+  // iterator to map the interfacial cells.
+  scalar df[];
   foreach_interfacial_plic (f, F_ERR)
-    f[] += (rho[] > 0.) ? dt*mEvapTot[]/rho[]*area/Delta : 0.;
+    df[] = (rho[] > 0.) ? dt*mEvapTot[]/rho[]*dirac/cm[] : 0.;
+
+  foreach_interfacial (f, F_ERR) {
+    double f0 = f[];
+    f[] = clamp (f[] + df[], 0., 1.);
+
+    /**
+    The tracers of $f$ are volume-averaged (i.e. $f\phi$ and $(1 - f)\phi$),
+    therefore we rescale them with the new volume of their phase: the interface
+    motion does not modify the intensive values $\phi$, which are updated with
+    the boundary conditions of the diffusion step. */
+
+    for (scalar t in f.tracers)
+      t[] *= t.inverse ? (1. - f[])/(1. - f0) : f[]/f0;
+  }
 }
 
 /**
 ## Plane shifting
 
 We apply the interface regression by shifting the PLIC approximation of the
-interface along its normal direction.
-*/
+interface along its normal direction. I think this method is just a more
+complicated version of `vof_expl_sources()`, and it seems to give the same
+results. */
 
 void vof_plane_shifting (
     scalar f,               // VOF volume fraction
@@ -140,12 +158,27 @@ void vof_plane_shifting (
     double dt               // Time step
 )
 {
+  // Don't modify f at the first round, or it will modify the f used by the
+  // iterator to map the interfacial cells.
+  scalar fn[];
   foreach_interfacial_plic (f, F_ERR) {
     double delta_alpha = 0.;
     double magn = sqrt (sq (m.x) + sq (m.y) + sq (m.z));
     delta_alpha = (rho[] > 0.) ? dt*mEvapTot[]*magn/rho[]/Delta : 0.;
+#if AXI
+    delta_alpha *= (y + prel.y*Delta)/y; // as dirac/cm in vof_expl_sources()
+#endif
     double ff = plane_volume (m, alpha + delta_alpha);
-    f[] = (ff > F_ERR && ff < 1.-F_ERR) ? ff : (ff <= F_ERR) ? 0. : 1.;
+    fn[] = (ff > F_ERR && ff < 1.-F_ERR) ? ff : (ff <= F_ERR) ? 0. : 1.;
+  }
+
+  foreach_interfacial (f, F_ERR) {
+    double f0 = f[];
+    f[] = fn[];
+
+    // tracers rescaled with the new volume of their phase, see vof_expl_sources()
+    for (scalar t in f.tracers)
+      t[] *= t.inverse ? (1. - f[])/(1. - f0) : f[]/f0;
   }
 }
 
