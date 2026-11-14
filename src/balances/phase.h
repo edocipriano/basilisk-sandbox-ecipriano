@@ -1,4 +1,4 @@
-PhaseMassBalance * balance = NULL;
+PhaseBalance * balance = NULL;
 FILE * fbalances = NULL;
 
 #define FORMAT_S "%-15s"
@@ -10,7 +10,7 @@ event init (i = 0) {
         "src/balances/two-phase.h:%d: warning: balances considers just 4 boundaries\n",
         LINENO), fflush (ferr);
 
-  balance = new_phase_mass_balance (phase);
+  balance = new_phase_balance (phase);
 
   char name[80];
   sprintf (name, "balances-%d", grid->maxdepth);
@@ -31,7 +31,7 @@ event init (i = 0) {
 }
 
 event cleanup (t = end) {
-  delete_phase_mass_balances (balance), balance = NULL;
+  delete_phase_balance (balance), balance = NULL;
   fclose (fbalances), fbalances = NULL;
 }
 

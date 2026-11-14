@@ -1565,10 +1565,10 @@ void phase_chemistry_binning (Phase * phase, double dt,
 #endif    // CHEMISTRY
 
 /**
-## Phase Mass Balance
+## Phase Balances
 
-The following structure and function simplifies setting up mass balances for the
-phase components. */
+The following structure and functions simplify setting up mass and energy
+balances (budgets) for the phase components. */
 
 typedef struct {
   double * m;       // species mass in the domain
@@ -1583,44 +1583,44 @@ typedef struct {
   double e, e0, ef; // energy in the domain, initial value, and through the domain
   double eint;      // heat conducted from the interface (STexp)
   bool first;       // flag the first iteration
-} PhaseMassBalance;
+} PhaseBalance;
 
 /**
-### *new_phase_mass_balance()*: create a mass balance object */
+### *new_phase_balance()*: create a balance object */
 
-PhaseMassBalance * new_phase_mass_balance (const Phase * phase,
+PhaseBalance * new_phase_balance (const Phase * phase,
     double Tref = 0., double h0 = 0.)
 {
-  PhaseMassBalance * pmb = malloc (sizeof (PhaseMassBalance));
-  pmb->Tref = Tref, pmb->h0 = h0;
-  pmb->e = pmb->e0 = pmb->ef = pmb->eint = 0.;
-  pmb->mtot = 0.;
-  pmb->mtot0 = 0.;
-  pmb->mftot = 0.;
-  pmb->mevaptot = 0.;
-  pmb->m = malloc (phase->n*sizeof (double));
-  pmb->m0 = malloc (phase->n*sizeof (double));
-  pmb->mevap = malloc (phase->n*sizeof (double));
-  pmb->mf = malloc (phase->n*sizeof (double));
+  PhaseBalance * pb = malloc (sizeof (PhaseBalance));
+  pb->Tref = Tref, pb->h0 = h0;
+  pb->e = pb->e0 = pb->ef = pb->eint = 0.;
+  pb->mtot = 0.;
+  pb->mtot0 = 0.;
+  pb->mftot = 0.;
+  pb->mevaptot = 0.;
+  pb->m = malloc (phase->n*sizeof (double));
+  pb->m0 = malloc (phase->n*sizeof (double));
+  pb->mevap = malloc (phase->n*sizeof (double));
+  pb->mf = malloc (phase->n*sizeof (double));
   foreach_species_in (phase) {
-    pmb->m[i] = 0.;
-    pmb->m0[i] = 0.;
-    pmb->mevap[i] = 0.;
-    pmb->mf[i] = 0.;
+    pb->m[i] = 0.;
+    pb->m0[i] = 0.;
+    pb->mevap[i] = 0.;
+    pb->mf[i] = 0.;
   }
-  pmb->first = true;
-  return pmb;
+  pb->first = true;
+  return pb;
 }
 
 /**
-### *delete_phase_mass_balances()*: free mass balance object */
+### *delete_phase_balance()*: free a balance object */
 
-void delete_phase_mass_balances (PhaseMassBalance * pmb) {
-  free (pmb->m), pmb->m = NULL;
-  free (pmb->m0), pmb->m = NULL;
-  free (pmb->mevap), pmb->mevap = NULL;
-  free (pmb->mf), pmb->mf = NULL;
-  free (pmb), pmb = NULL;
+void delete_phase_balance (PhaseBalance * pb) {
+  free (pb->m), pb->m = NULL;
+  free (pb->m0), pb->m0 = NULL;
+  free (pb->mevap), pb->mevap = NULL;
+  free (pb->mf), pb->mf = NULL;
+  free (pb), pb = NULL;
 }
 
 /**
@@ -1702,14 +1702,14 @@ Called before the VOF advection (with its `uf`, and before the interface moves)
 and before the diffusion step, which overwrites `STexp`. The first time step is
 skipped: the initial values are measured at its end. */
 
-void phase_balance_transport (PhaseMassBalance * pmb, const Phase * phase,
+void phase_balance_transport (PhaseBalance * pb, const Phase * phase,
     scalar * mEvapList, double dt, face vector uf, (const) scalar f = unity)
 {
-  if (pmb->first)
+  if (pb->first)
     return;
 
-  PhaseMassBalance * balance = new_phase_mass_balance (phase);
-  double Tref = pmb->Tref, h0 = pmb->h0;
+  PhaseBalance * balance = new_phase_balance (phase);
+  double Tref = pb->Tref, h0 = pb->h0;
 
   foreach_scalar_in (phase) {
     if (mEvapList) {
@@ -1736,7 +1736,6 @@ void phase_balance_transport (PhaseMassBalance * pmb, const Phase * phase,
     // note: do not remove calls to boundaries
     // `foreach_boundary` does not trigger the automatic boundary conditions
     boundary ({rho,f,cp});
-    boundary ((scalar *){uf});
     boundary (phase->YList);
 
     for (int b = 0; b < nboundary; b++) {
@@ -1767,16 +1766,16 @@ void phase_balance_transport (PhaseMassBalance * pmb, const Phase * phase,
   mpi_all_reduce_array (balance->mevap, MPI_DOUBLE, MPI_SUM, phase->n);
 #endif
 
-  pmb->mftot += balance->mftot;
-  pmb->ef += balance->ef;
-  pmb->eint += balance->eint;
+  pb->mftot += balance->mftot;
+  pb->ef += balance->ef;
+  pb->eint += balance->eint;
   foreach_species_in (phase) {
-    pmb->mf[i] += balance->mf[i];
-    pmb->mevap[i] += balance->mevap[i];
-    pmb->mevaptot += balance->mevap[i];
+    pb->mf[i] += balance->mf[i];
+    pb->mevap[i] += balance->mevap[i];
+    pb->mevaptot += balance->mevap[i];
   }
 
-  delete_phase_mass_balances (balance);
+  delete_phase_balance (balance);
 }
 
 /**
@@ -1784,12 +1783,12 @@ void phase_balance_transport (PhaseMassBalance * pmb, const Phase * phase,
 
 Called at the end of the time step. */
 
-void phase_balance_update (PhaseMassBalance * pmb, const Phase * phase,
+void phase_balance_update (PhaseBalance * pb, const Phase * phase,
     double dt, (const) scalar f = unity, bool boundaries = true,
     bool fick_corrected = false, bool molar_diffusion = false)
 {
-  PhaseMassBalance * balance = new_phase_mass_balance (phase);
-  double Tref = pmb->Tref, h0 = pmb->h0;
+  PhaseBalance * balance = new_phase_balance (phase);
+  double Tref = pb->Tref, h0 = pb->h0;
 
   foreach_scalar_in (phase) {
     foreach(serial) {
@@ -1802,7 +1801,7 @@ void phase_balance_update (PhaseMassBalance * pmb, const Phase * phase,
     }
   }
 
-  if (boundaries && !pmb->first) {
+  if (boundaries && !pb->first) {
     foreach_scalar_in (phase) {
       // scalar forms and face fractions of the phase, as in phase_diffusion()
       scalar Ts[], ff[];
@@ -1881,26 +1880,26 @@ void phase_balance_update (PhaseMassBalance * pmb, const Phase * phase,
   mpi_all_reduce_array (balance->mevap, MPI_DOUBLE, MPI_SUM, phase->n);
 #endif
 
-  if (pmb->first) {
-    pmb->mtot0 = balance->mtot;
-    pmb->e0 = balance->e;
+  if (pb->first) {
+    pb->mtot0 = balance->mtot;
+    pb->e0 = balance->e;
     foreach_species_in (phase)
-      pmb->m0[i] = balance->m[i];
+      pb->m0[i] = balance->m[i];
   }
-  pmb->first = false;
+  pb->first = false;
 
-  pmb->mtot = balance->mtot;
-  pmb->mftot += balance->mftot;
-  pmb->e = balance->e;
-  pmb->ef += balance->ef;
+  pb->mtot = balance->mtot;
+  pb->mftot += balance->mftot;
+  pb->e = balance->e;
+  pb->ef += balance->ef;
   foreach_species_in (phase) {
-    pmb->m[i] = balance->m[i];
-    pmb->mevap[i] += balance->mevap[i];
-    pmb->mf[i] += balance->mf[i];
-    pmb->mevaptot += balance->mevap[i];
+    pb->m[i] = balance->m[i];
+    pb->mevap[i] += balance->mevap[i];
+    pb->mf[i] += balance->mf[i];
+    pb->mevaptot += balance->mevap[i];
   }
 
-  delete_phase_mass_balances (balance);
+  delete_phase_balance (balance);
 }
 
 /**

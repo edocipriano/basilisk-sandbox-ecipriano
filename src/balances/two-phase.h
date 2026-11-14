@@ -1,4 +1,4 @@
-PhaseMassBalance * liq_balance = NULL, * gas_balance = NULL;
+PhaseBalance * liq_balance = NULL, * gas_balance = NULL;
 FILE * fbalances = NULL;
 
 #define FORMAT_S "%-15s"
@@ -10,8 +10,8 @@ event init (i = 0) {
         "src/balances/two-phase.h:%d: warning: balances considers just 4 boundaries\n",
         LINENO), fflush (ferr);
   // enthalpy: zero for the liquid at TIntVal, dhev for the gas at TIntVal
-  liq_balance = new_phase_mass_balance (liq, TIntVal, 0.);
-  gas_balance = new_phase_mass_balance (gas, TIntVal, dhev);
+  liq_balance = new_phase_balance (liq, TIntVal, 0.);
+  gas_balance = new_phase_balance (gas, TIntVal, dhev);
 
   char name[80];
   sprintf (name, "balances-%d", grid->maxdepth);
@@ -32,8 +32,8 @@ event init (i = 0) {
 }
 
 event cleanup (t = end) {
-  delete_phase_mass_balances (liq_balance), liq_balance = NULL;
-  delete_phase_mass_balances (gas_balance), gas_balance = NULL;
+  delete_phase_balance (liq_balance), liq_balance = NULL;
+  delete_phase_balance (gas_balance), gas_balance = NULL;
   fclose (fbalances), fbalances = NULL;
 }
 
