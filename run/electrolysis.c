@@ -117,7 +117,6 @@ int main (void) {
   the volume fraction. The system is isothermal. */
 
   nv = 1;
-  pcm.consistent = true;
   pcm.isothermal = true;
 
   R0 = 0.5*De/10.;

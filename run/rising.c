@@ -155,11 +155,10 @@ int main (void) {
 
   /**
   In order to use the conserving extension of the Navier--Stokes solver we use
-  a single pressure-velocity coupling (default), and we activate the `consistent`
-  option of the phase change model. */
+  a single pressure-velocity coupling (default), which transports the phase
+  tracers consistently with the volume fraction. */
 
   nv = 1;
-  pcm.consistent = true;
 
   /**
   We change the dimension of the domain and the origin of the bubble. */

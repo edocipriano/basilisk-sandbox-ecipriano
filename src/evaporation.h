@@ -354,32 +354,24 @@ void species_jump_condition (Phase * d, Phase * c, Phase * d_int,
   /**
   The species equations get the explicit source $\dot{m}_i\delta_\Gamma$ and
   the implicit source $\dot{m}\,\omega_i\delta_\Gamma$, which accounts for
-  the volume change (Eq. 43; both explicit with `EXPLICIT_ONLY`). Since
+  the volume change (Eq. 43). Since
   vaporization rates are positive when the liquid loses mass, the sign of the
   sources is *sign* for the dispersed phase and *-sign* for the continuous
   phase. */
 
   foreach_interfacial_plic (f, F_ERR) {
     for (int k = 0; k < NCS; k++) {
-      scalar mEvap = mEvapList[k], YInt = c_int->YList[k];
+      scalar mEvap = mEvapList[k];
       scalar SYexp = c->SYexpList[k], SYimp = c->SYimpList[k];
-      if (pcm.diffusion == EXPLICIT_ONLY)
-        SYexp[] += -sign*(mEvap[] - mEvapTot[]*YInt[])*dirac;
-      else {
-        SYexp[] += -sign*mEvap[]*dirac;
-        SYimp[] += sign*mEvapTot[]*dirac;
-      }
+      SYexp[] += -sign*mEvap[]*dirac;
+      SYimp[] += sign*mEvapTot[]*dirac;
     }
 
     for (int i = 0; i < NDS; i++) {
-      scalar mEvap = mEvapList[DSI[i]], YInt = d_int->YList[i];
+      scalar mEvap = mEvapList[DSI[i]];
       scalar SYexp = d->SYexpList[i], SYimp = d->SYimpList[i];
-      if (pcm.diffusion == EXPLICIT_ONLY)
-        SYexp[] += sign*(mEvap[] - mEvapTot[]*YInt[])*dirac;
-      else {
-        SYexp[] += sign*mEvap[]*dirac;
-        SYimp[] += -sign*mEvapTot[]*dirac;
-      }
+      SYexp[] += sign*mEvap[]*dirac;
+      SYimp[] += -sign*mEvapTot[]*dirac;
     }
   }
 }
@@ -593,7 +585,6 @@ regression velocity uses the gas density. */
 // fixme: check compatibility with restore
 event init (i = 0) {
   pcm.shifting = SHIFT_TO_LIQUID;
-  pcm.diffusion = EXPLICIT_IMPLICIT;
   if (nv == 1)
     pcm.byrhogas = true;
 }

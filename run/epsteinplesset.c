@@ -112,7 +112,6 @@ int main (void) {
   of the temperature equation. */
 
   nv = 1;
-  pcm.consistent = true;
   pcm.isothermal = true;
 
   /**

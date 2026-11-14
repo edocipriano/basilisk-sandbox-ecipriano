@@ -59,7 +59,6 @@ int main (void) {
   lambdaw = 2.*pi*sqrt (3.*f.sigma / (fabs (G.x)*(rho1 - rho2)));
 
   nv = 1;
-  pcm.consistent = true;
 
   TOLERANCE = 1.e-6 [*];
   size (lambdaw);

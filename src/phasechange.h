@@ -22,7 +22,8 @@ double MW1 = 1., MW2 = 1.;
 Phase * liq, * gas;
 char ** liq_species = NULL, ** gas_species = NULL;
 
-scalar fu[], fu1[], * fulist = {fu,fu1};  // fixme: fu1 should be dynamic
+// volume fractions transporting the gas (fu) and liquid (fu1) for nv = 2
+scalar fu[], fu1[], * fulist = {fu,fu1};
 scalar T[], Y[];
 
 #include "regression.h"
@@ -39,8 +40,8 @@ static scalar * f_tracers = NULL;
 The structure `pcm` collects the options of the phase change model: the
 transport of the interface due to the phase change (`advection`, `byrhogas`),
 the localization of the expansion term (`expansion`, `shifting`), the
-treatment of the diffusion (`diffusion`, `consistent`, `fick_corrected`,
-`molar_diffusion`, `mass_diffusion_enthalpy`, `normalize`), and the physics
+treatment of the diffusion (`fick_corrected`, `molar_diffusion`,
+`mass_diffusion_enthalpy`, `normalize`), and the physics
 included in the model (`boiling`, `isothermal`, `isomassfrac`,
 `isothermal_interface`, `divergence`, `chemistry`, `emissivity`). The models
 set their own values in `init`, which can be overridden by the simulation in
@@ -54,18 +55,12 @@ enum shifting_policy {
   NO_SHIFTING, SHIFT_TO_LIQUID, SHIFT_TO_GAS
 };
 
-enum diffusion_policy {
-  EXPLICIT_ONLY, EXPLICIT_IMPLICIT
-};
-
 struct PhaseChangeModel {
   enum advection_policy advection;
   enum shifting_policy shifting;
-  enum diffusion_policy diffusion;
   bool boiling;
   bool byrhogas;
   bool expansion;
-  bool consistent;
   bool isothermal;
   bool isomassfrac;
   bool isothermal_interface;
@@ -79,11 +74,9 @@ struct PhaseChangeModel {
 } pcm = {
   ADVECTION_VELOCITY,         // advection
   SHIFT_TO_LIQUID,            // shifting
-  EXPLICIT_IMPLICIT,          // diffusion
   false,                      // boiling
   false,                      // byrhogas
   true,                       // expansion
-  false,                      // consistent
   false,                      // isothermal
   false,                      // isomassfrac
   false,                      // isothermal_interface
@@ -326,13 +319,16 @@ void phasechange_advection (void) {
       vof_plane_shifting (f, mEvapTot, rhoh, dt);
   }
 
-  // Transport tracers with uf by default (i.e. nv == 1)
-  scalar fug = fulist[0];
-  vof_advection ({fug}, iter);
+  /**
+  With `nv == 2`, the gas tracers are transported with the gas velocity by
+  *fu*, and the liquid tracers with the liquid velocity by *fu1*, while *f* is
+  transported with the liquid velocity by [vof.h](/src/vof.h). With
+  `nv == 1`, the phase tracers are transported with *f*. */
 
-  // Transport tracers with liquid velocity
   if (nv == 2) {
-    scalar ful = fulist[1];
+    scalar fug = fulist[0], ful = fulist[1];
+    vof_advection ({fug}, iter);
+
     face vector ufl = uflist[1];
     foreach_face() {
       ufsave.x[] = uf.x[];
@@ -366,20 +362,14 @@ fraction `Y` are reconstructed. */
 
 void phasechange_diffusion (void) {
 
-  if (pcm.consistent) {
+  if (nv == 1) {
     phase_tracers_to_scalars (liq, f, tol = F_ERR);
     phase_tracers_to_scalars (gas, f, tol = F_ERR);
   }
   else {
-    if (nv == 1) {
-      phase_tracers_to_scalars (liq, fu, tol = F_ERR);
-      phase_tracers_to_scalars (gas, fu, tol = F_ERR);
-    }
-    else if (nv == 2) {
-      scalar ful = fulist[1], fug = fulist[0];
-      phase_tracers_to_scalars (liq, ful, tol = F_ERR);
-      phase_tracers_to_scalars (gas, fug, tol = F_ERR);
-    }
+    scalar ful = fulist[1], fug = fulist[0];
+    phase_tracers_to_scalars (liq, ful, tol = F_ERR);
+    phase_tracers_to_scalars (gas, fug, tol = F_ERR);
   }
 
   phase_update_mw_moles (liq, f, tol = P_ERR, extend = true);
@@ -559,7 +549,12 @@ event defaults (i = 0) {
   phase_set_tracers (liq);
   phase_set_tracers (gas);
 
-  if (pcm.consistent) {
+  /**
+  With `nv == 1`, the phase tracers are transported with *f*. With `nv == 2`,
+  the gas and liquid tracers are transported with the gas and liquid
+  velocities by *fu* and *fu1*, respectively. */
+
+  if (nv == 1) {
     f_tracers = f.tracers;
     // These passages are necessary to avoid memory leaks
     scalar * f_tracers2 = list_concat (f.tracers, liq->tracers);
@@ -567,18 +562,9 @@ event defaults (i = 0) {
     free (f_tracers2), f_tracers2 = NULL;
   }
   else {
-    if (nv == 1) {
-      scalar fug = fulist[0];
-      // These passages are necessary to avoid memory leaks
-      scalar * fug_tracers = list_concat (fug.tracers, liq->tracers);
-      fug.tracers = list_concat (fug_tracers, gas->tracers);
-      free (fug_tracers), fug_tracers = NULL;
-    }
-    else if (nv == 2) {
-      scalar ful = fulist[1], fug = fulist[0];
-      ful.tracers = list_concat (ful.tracers, liq->tracers);
-      fug.tracers = list_concat (fug.tracers, gas->tracers);
-    }
+    scalar ful = fulist[1], fug = fulist[0];
+    ful.tracers = list_concat (ful.tracers, liq->tracers);
+    fug.tracers = list_concat (fug.tracers, gas->tracers);
   }
 
 #if TREE
@@ -612,9 +598,6 @@ event init (i = 0) {
   if (pcm.divergence)
     no_advection_div = true;
 
-  //if (nv == 1)
-  //  pcm.consistent = true;
-
   if (phase_is_uniform (liq))
     phase_scalars_to_tracers (liq, f);
   if (phase_is_uniform (gas))
@@ -635,7 +618,7 @@ event cleanup (t = end) {
   for (scalar fu in fulist)
     free (fu.tracers), fu.tracers = NULL;
 
-  if (pcm.consistent)
+  if (nv == 1)
     free (f.tracers), f.tracers = f_tracers;
 
   delete_phase (liq);
