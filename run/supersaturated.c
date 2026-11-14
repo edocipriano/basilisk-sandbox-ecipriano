@@ -180,7 +180,6 @@ int main (void) {
   the volume fraction. The system is isothermal. */
 
   nv = 1;
-  pcm.consistent = true;
   pcm.isothermal = true;
 
   L0 = 16.*R0;
