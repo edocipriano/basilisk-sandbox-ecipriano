@@ -13,8 +13,7 @@ double MW1 = 1., MW2 = 1.;
 Phase * liq, * gas;
 char ** liq_species = NULL, ** gas_species = NULL;
 
-// volume fractions transporting the gas (fu) and liquid (fu1) for nv = 2
-scalar fu[], fu1[], * fulist = {fu,fu1};
+scalar fu[];  // volume fraction transporting the gas tracers with nv = 2
 scalar T[], Y[];
 
 #include "regression.h"
@@ -165,39 +164,34 @@ event defaults (i = 0) {
   phase_set_tracers (gas);
 
   /**
-  With `nv == 1`, the phase tracers are transported with *f*. With `nv == 2`,
-  the gas and liquid tracers are transported with the gas and liquid
-  velocities by *fu* and *fu1*, respectively. */
+  The phase tracers are transported with *f*, except for the gas tracers with
+  `nv == 2`, which are transported with *fu* using the gas velocity. */
 
+  f_tracers = f.tracers;
+  // These passages are necessary to avoid memory leaks
+  scalar * f_tracers2 = list_concat (f.tracers, liq->tracers);
   if (nv == 1) {
-    f_tracers = f.tracers;
-    // These passages are necessary to avoid memory leaks
-    scalar * f_tracers2 = list_concat (f.tracers, liq->tracers);
     f.tracers = list_concat (f_tracers2, gas->tracers);
     free (f_tracers2), f_tracers2 = NULL;
   }
   else {
-    scalar ful = fulist[1], fug = fulist[0];
-    ful.tracers = list_concat (ful.tracers, liq->tracers);
-    fug.tracers = list_concat (fug.tracers, gas->tracers);
+    f.tracers = f_tracers2;
+    fu.tracers = list_concat (fu.tracers, gas->tracers);
   }
 
 #if TREE
   // Only f.tracers are set to the correct refine functions in
-  // [vof.h](src/vof.h). Other helper fractions with their tracers must be
-  // set here. Do not remove.
-  for (scalar c in fulist) {
-    c.refine = fraction_refine;
-    set_prolongation (c, fraction_refine);
-    scalar * tracers = c.tracers;
-    for (scalar t in tracers) {
-      set_restriction (t, restriction_volume_average);
-      t.refine = vof_concentration_refine;
-      set_prolongation (t, vof_concentration_refine);
-      t.c = c;
+  // [vof.h](src/vof.h). The helper fraction with its tracers must be set
+  // here. Do not remove.
+  fu.refine = fraction_refine;
+  set_prolongation (fu, fraction_refine);
+  for (scalar t in fu.tracers) {
+    set_restriction (t, restriction_volume_average);
+    t.refine = vof_concentration_refine;
+    set_prolongation (t, vof_concentration_refine);
+    t.c = fu;
 
-      t.depends = list_add (t.depends, c);
-    }
+    t.depends = list_add (t.depends, fu);
   }
 #endif
 }
@@ -221,11 +215,8 @@ event init (i = 0) {
 }
 
 event cleanup (t = end) {
-  for (scalar fu in fulist)
-    free (fu.tracers), fu.tracers = NULL;
-
-  if (nv == 1)
-    free (f.tracers), f.tracers = f_tracers;
+  free (fu.tracers), fu.tracers = NULL;
+  free (f.tracers), f.tracers = f_tracers;
 
   delete_phase (liq);
   delete_phase (gas);
@@ -238,8 +229,6 @@ event reset_sources (i++) {
   foreach() {
     for (scalar mEvap in mEvapList)
       mEvap[] = 0.;
-    for (scalar fu in fulist)
-      fu[] = f[];
     for (scalar intexp in intexplist)
       intexp[] = 0.;
     for (scalar drhodt in drhodtlist)
@@ -369,6 +358,20 @@ event phasechange (i++) {
     }
   }
 #endif
+
+  /**
+  The phase change can modify the volume fraction also in the neighbors of
+  the interfacial cells, where the interfacial values are extended. */
+
+  scalar * intlist = NULL;
+  for (scalar t in liq->tracers)
+    if (t.interfacial.i)
+      intlist = list_add (intlist, t.interfacial);
+  for (scalar t in gas->tracers)
+    if (t.interfacial.i)
+      intlist = list_add (intlist, t.interfacial);
+  extend_interfacial (intlist, f, F_ERR);
+  free (intlist);
 }
 
 #if TWO_PHASE_VARPROP
@@ -399,9 +402,23 @@ event divergence (i++) {
 face vector ufsave[];
 
 event vof (i++) {
-  // Transport due to the phase change
-  // fixme: add consistency also for source and plane shifting
+
+  /**
+  The phase change step moves the volume fraction before the advection. The
+  phase tracers are removed from the `f.tracers` list. They are not transported
+  by this step to avoid using the wrong (non-interfacial) value. The value of
+  the tracers is updated from the variation of volume fraction, see
+   *phasechange_tracers()*. */
+
   scalar rhoh = pcm.byrhogas ? gas->rho : liq->rho;
+
+  scalar f0[];
+  foreach()
+    f0[] = f[];
+
+  scalar * ftracers = f.tracers;
+  f.tracers = f_tracers;
+
   switch (pcm.advection) {
     case NO_ADVECTION:
       break;
@@ -415,15 +432,19 @@ event vof (i++) {
       vof_plane_shifting (f, mEvapTot, rhoh, dt);
   }
 
+  f.tracers = ftracers;
+  phasechange_tracers (liq->tracers, f0, f, F_ERR);
+  phasechange_tracers (gas->tracers, f0, f, F_ERR);
+
   /**
   With `nv == 2`, the gas tracers are transported with the gas velocity by
-  *fu*, and the liquid tracers with the liquid velocity by *fu1*, while *f* is
-  transported with the liquid velocity by [vof.h](/src/vof.h). With
-  `nv == 1`, the phase tracers are transported with *f*. */
+  *fu*, while *f* and the liquid tracers are transported with the liquid
+  velocity by [vof.h](/src/vof.h). */
 
   if (nv == 2) {
-    scalar fug = fulist[0], ful = fulist[1];
-    vof_advection ({fug}, i);
+    foreach()
+      fu[] = f[];
+    vof_advection ({fu}, i);
 
     face vector ufl = uflist[1];
     foreach_face() {
@@ -431,7 +452,6 @@ event vof (i++) {
       uf.x[] = ufl.x[];
     }
     boundary ((scalar *){uf});  // do not remove
-    vof_advection ({ful}, i);
   }
 }
 
@@ -451,15 +471,16 @@ event tracer_advection (i++);
 
 event tracer_diffusion (i++) {
 
-  if (nv == 1) {
-    phase_tracers_to_scalars (liq, f, tol = F_ERR);
-    phase_tracers_to_scalars (gas, f, tol = F_ERR);
-  }
-  else {
-    scalar ful = fulist[1], fug = fulist[0];
-    phase_tracers_to_scalars (liq, ful, tol = F_ERR);
-    phase_tracers_to_scalars (gas, fug, tol = F_ERR);
-  }
+  /**
+  With `nv == 2`, the gas volume transported by *fu* differs from the one of
+  *f* by the vapor produced at the interface, which is added (or removed) with
+  the interfacial values. */
+
+  if (nv == 2)
+    phasechange_tracers (gas->tracers, fu, f, F_ERR);
+
+  phase_tracers_to_scalars (liq, f, tol = F_ERR);
+  phase_tracers_to_scalars (gas, f, tol = F_ERR);
 
   phase_update_mw_moles (liq, f, tol = P_ERR, extend = true);
   phase_update_mw_moles (gas, f, tol = P_ERR, extend = true);
@@ -534,4 +555,3 @@ event properties (i++) {
   }
 }
 #endif
-

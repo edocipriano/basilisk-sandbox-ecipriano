@@ -114,6 +114,38 @@ double avg_interface (scalar Y, scalar f, double tol=F_ERR) {
 }
 
 /**
+## *extend_interfacial()*: Extend interfacial values to the neighbors of the interfacial cells
+
+The interfacial values are usually computed in the interfacial cells only,
+while the volume fraction can change also in their neighbors. The values in
+the non-interfacial cells are replaced by the average of the values in the
+interfacial neighbors (one layer of cells).
+
+* *list*: fields to extend
+* *f*: vof volume fraction field
+* *tol*: tolerance on the volume fraction of the interfacial cells
+*/
+
+void extend_interfacial (scalar * list, scalar f, double tol = 1e-10) {
+  foreach() {
+    if (f[] <= tol || f[] >= 1. - tol) {
+      int n = 0;
+      foreach_neighbor (1)
+        if (f[] > tol && f[] < 1. - tol)
+          n++;
+      if (n > 0)
+        for (scalar s in list) {
+          double sum = 0.;
+          foreach_neighbor (1)
+            if (f[] > tol && f[] < 1. - tol)
+              sum += s[];
+          s[] = sum/n;
+        }
+    }
+  }
+}
+
+/**
 ## *vof_reconstruction()*: VOF reconstruction step
 
 The VOF reconstruction step must be frequently performed to compute

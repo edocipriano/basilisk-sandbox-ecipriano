@@ -581,6 +581,17 @@ event init (i = 0) {
   pcm.shifting = SHIFT_TO_LIQUID;
   if (nv == 1)
     pcm.byrhogas = true;
+
+  /**
+  The interface temperatures are the interfacial values of the temperatures
+  of the phases (see *phasechange_tracers()* in [regression.h](regression.h)).
+  The mass fractions have no interfacial value, because the implicit species
+  source $\dot{m}\,\omega_i\delta_\Gamma$ uses the cell value of $\omega_i$,
+  which must be the same value used for the volume converted by phase change. */
+
+  scalar TL = liq->T, TG = gas->T;
+  TL.interfacial = liq_int->T;
+  TG.interfacial = gas_int->T;
 }
 
 /**

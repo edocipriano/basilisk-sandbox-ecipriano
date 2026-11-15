@@ -18,7 +18,7 @@ parameters (`pcm`) for boiling. */
 #include "phasechange.h"
 #include "gradients.h"
 
-scalar mEvap[], * mEvapList = {mEvap};
+scalar mEvap[], * mEvapList = {mEvap}, TInt[];
 
 /**
 ## Phase change
@@ -31,6 +31,9 @@ region with embedded boundaries. */
 event phasechange (i++) {
   phase_tracers_to_scalars (liq, f, tol = F_ERR);
   phase_tracers_to_scalars (gas, f, tol = F_ERR);
+
+  foreach()
+    TInt[] = TIntVal;
 
   scalar fl[], fg[];
   foreach() {
@@ -104,4 +107,13 @@ event init (i = 0) {
   pcm.shifting = SHIFT_TO_GAS;
   pcm.boiling = true;
   pcm.byrhogas = false;
+
+  /**
+  The interface temperature is the interfacial value of the temperatures of
+  the phases (see *phasechange_tracers()* in [regression.h](regression.h)). */
+
+  TInt.nodump = true;
+  scalar TL = liq->T, TG = gas->T;
+  TL.interfacial = TInt;
+  TG.interfacial = TInt;
 }
