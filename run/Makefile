@@ -2,7 +2,6 @@ include $(BASILISK)/Makefile.defs
 
 CFLAGS += -O2 \
 	-DMOVIE=1 \
-	-DUSE_GSL=0 \
 	-DUSE_CANTERA=1 \
 	-DUSE_OPENSMOKE=0 \
 	-DTEST_RESTART=0 \
@@ -18,6 +17,10 @@ ifdef CANTERA_LIBRARY_PATH
 CFLAGS += -I$(CANTERA_INCLUDE_PATH) -L$(CANTERA_LIBRARY_PATH) -Wl,-rpath,$(CANTERA_LIBRARY_PATH)
 endif
 
+scrivenproblem.tst: CFLAGS += -DUSE_GSL=1
+suckingproblem.tst: CFLAGS += -DUSE_GSL=1
+supersaturated.tst: CFLAGS += -DUSE_GSL=1
+
 microgravity.yaml:
 	ln -s normalgravity.yaml microgravity.yaml
 
@@ -30,7 +33,7 @@ microgravity.tst: CFLAGS += -DJUMP=0 -DTEMPERATURE=565 -DTEMPERATURE_DROPLET=363
 normalgravity.tst: CFLAGS += -DJUMP=0 -DMOVIE_EVERY=0.002 -DTEMPERATURE=773 \
 	-DPRESSURE=10 -DKINFOLDER=normalgravity.yaml -DGRAVITY=-9.81
 
-burningdroplet.tst: CFLAGS += -DKINFOLDER=burningdroplet.yaml -DMOVIE_EVERY=0.0001
+burningdroplet.tst: CFLAGS += -DUSE_GSL=1 -DKINFOLDER=burningdroplet.yaml -DMOVIE_EVERY=0.0001
 
 # Low-mach with pressurization
 pressurization-embed.c: pressurization.c
