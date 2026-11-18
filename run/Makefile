@@ -2,7 +2,7 @@ include $(BASILISK)/Makefile.defs
 
 CFLAGS += -O2 \
 	-DMOVIE=1 \
-	-DUSE_GSL=1 \
+	-DUSE_GSL=0 \
 	-DUSE_CANTERA=1 \
 	-DUSE_OPENSMOKE=0 \
 	-DTEST_RESTART=0 \
