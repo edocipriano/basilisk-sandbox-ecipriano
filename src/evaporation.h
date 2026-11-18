@@ -537,10 +537,11 @@ event phasechange (i++) {
 #if USE_GSL
       fsolve (energy_balance_gsl, arrUnk, &data);
 #else
-      fprintf (ferr,
-          "src/evaporation.h:%d: error: missing root-finding method\n",
-          LINENO), fflush (ferr);
-      exit(1);
+      double * x = (double *)arrUnk->p, F0, F1, x1 = x[0] + 1.;
+      energy_balance (x, &F0, &data);
+      energy_balance (&x1, &F1, &data);
+      if (F1 != F0)
+        x[0] -= F0/(F1 - F0);
 #endif
 
       double * unk = (double *)arrUnk->p;

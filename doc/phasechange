@@ -374,10 +374,16 @@ However, some models or features rely on external libraries.
 
 #### GNU Scientific Library: root-finding
 
-The evaporation model under non-isothermal conditions requires a root-finding
-routine to update the interfacial temperature. This functionality uses the [GNU
-Scientific Library (GSL)](https://www.gnu.org/software/gsl/), which is already
-installed on the Basilisk server.
+The evaporation model under non-isothermal conditions updates the interfacial
+temperature from the interface energy balance. With frozen vaporization rates,
+this balance is linear in the interfacial temperature, and it is solved without
+external libraries. The only non-linear contribution is the radiative heat flux:
+without GSL it is linearized around the current estimate, while using the
+root-finding routine of the [GNU Scientific Library
+(GSL)](https://www.gnu.org/software/gsl/), which is already installed on the
+Basilisk server, we solve the full non-linear balance. GSL is also used by some
+test cases for initialization, e.g. to compute analytical solutions, but it is no
+longer strictly required from the physical models.
 
 To enable GSL support, compile with the following flags:
 
@@ -720,7 +726,7 @@ in [low-mach.h](../src/navier-stokes/low-mach.h)).
 1. Automatic transition from diffusion-driven to temperature-driven phase change -
 this is not so difficult for pure liquids, but it is really challenging for
 multicomponent systems.
-1. Avoid dependency from GSL library for root-finding
+1. Avoid dependency from GSL library in the initialization of boiling problems
 1. Move the species diffusion contribution to the heat equation from
 [evaporation.h](../src/evaporation.h) to
 [phasechange.h](../src/phasechange.h).
