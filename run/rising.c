@@ -15,6 +15,30 @@ case, and by [Long et al., 2024](#long2024edge) who simulated the
 [same case using EBIT](/sandbox/tianlong/test/bubblerising.c).
 
 ![Evolution of the interface and temperature field](rising/movie.mp4)(width="500" height="500")
+
+The growth of the bubble is compared with the experimental data of
+[Florschuetz et al., 1969](#florschuetz1969growth) for ethanol bubbles (Fig.
+10a). As in the experiments, the radius is the arithmetic mean of the major and
+minor axes, $R = (D_1 + D_2)/4$, normalized by $2\beta\sqrt{\alpha_l}$, so that
+the Scriven solution reads $\sqrt{t}$. The simulation starts at the Scriven time
+$t_0 = 5.6$ ms, where $2\beta\sqrt{\alpha_l} = R_0/\sqrt{t_0}$.
+
+~~~gnuplot Bubble radius compared with the experiments
+reset
+set xlabel "t [ms]"
+set ylabel "R/(2βα^{1/2}) [s^{1/2}]"
+set logscale xy
+set xrange [0.3:150]
+set yrange [0.01:0.6]
+set key top left reverse Left
+set grid
+
+t0 = 0.0056
+plot "../data/florschuetz1969/ethanol-fig10a.csv" w p pt 6 \
+        t "Florschuetz et al., 1969", \
+      sqrt(x*1e-3) w l lc -1 t "Scriven", \
+     "OutputData-10" u (($1 + t0)*1e3):5 w l lw 2 t "LEVEL 10"
+~~~
 */
 
 /**
@@ -38,6 +62,7 @@ and [Boyd et al., 2023](#boyd2023). */
 #include "navier-stokes/conserving.h"
 #include "tension.h"
 #include "reduced.h"
+#define vof_gradients false
 #include "boiling.h"
 #include "view.h"
 
@@ -263,15 +288,24 @@ event output (i++) {
     if (f[] > F_ERR && f[] < 1.-F_ERR)
       pos.x[] -= xb;
 
+  /**
+  The rise velocity is the average axial velocity of the gas phase, and the
+  effective radius is computed from the volume of the bubble. */
+
   scalar ux[];
   foreach()
-    foreach_dimension()
-      ux[] = u.x[]*(1. - f[]);
-  double ur = statsf(ux).sum;
+    ux[] = u.x[]*(1. - f[]);
+  double ur = statsf(ux).sum / statsf(ff).sum;
+  effective_radius = pow (3./2.*statsf(ff).sum, 1./3.);
+
+  /**
+  `Dx` is the horizontal semi-axis (`pos.y` is the distance from the axis)
+  while `Dy` is the vertical diameter. As in the experiments, the radius is the
+  arithmetic mean of the major and minor axes $R = (D_1 + D_2)/4$. */
 
   double Dx = statsf(pos.y).max;
   double Dy = statsf(pos.x).max - statsf(pos.x).min;
-  double Ra = 0.25*(Dx + Dy);
+  double Ra = 0.25*(2.*Dx + Dy);
   double Pe = rho1*cp1*Ra*ur/lambda1;
   Ra /= 2.*betaGrowth*sqrt (lambda1/rho1/cp1);
 
@@ -310,7 +344,7 @@ event movie (t += 0.0002; t <= 0.08) {
   view (theta=0., phi=0., psi=-pi/2.,
         tx = 0., ty = 0.);
 
-  travelling (0., 0.01, fov = 4, ty = -0.1);
+  travelling (0., 0.01, fov = 5, ty = -0.1);
   travelling (0.01, 0.8, tx = 0., ty = -5.5);
 
   draw_vof ("f", lw = 1.5);
@@ -345,6 +379,17 @@ event movie (t += 0.0002; t <= 0.08) {
   author={Long, Tian and Pan, Jieyun and Zaleski, St{\'e}phane},
   journal={arXiv preprint arXiv:2402.13677},
   year={2024}
+}
+
+@article{florschuetz1969growth,
+  title={Growth rates of free vapor bubbles in liquids at uniform superheats
+         under normal and zero gravity conditions},
+  author={Florschuetz, L. W. and Henry, C. L. and Khan, A. Rashid},
+  journal={International Journal of Heat and Mass Transfer},
+  volume={12},
+  number={11},
+  pages={1465--1489},
+  year={1969}
 }
 ~~~
 */
