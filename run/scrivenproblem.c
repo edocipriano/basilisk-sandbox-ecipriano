@@ -21,12 +21,16 @@ $\alpha_l = \lambda_l/\rho_l/cp_l$, while $\beta$ is the
 growth constant, which is obtained as a function of the
 physical properties of the simulation:
 $$
-  \dfrac{\rho_l cp_l (T_{bulk}-T_{sat})}{\rho_g
-  (\Delta h_{ev} + (cp_l - cp_g)(T_{bulk} - T_{sat}))} =
+  \dfrac{\rho_l cp_l (T_{bulk}-T_{sat})}{\rho_g \Delta h_{ev}} =
   2\beta^2 \int_{0}^1
   \exp \left(-\beta^2((1-x)^{-2}
-  -2(1-\dfrac{\rho_l}{\rho_g})x - 1)\right)dx
+  -2(1-\dfrac{\rho_g}{\rho_l})x - 1)\right)dx
 $$
+This is Eq. (40) of [Tanguy et al., 2014](#tanguy2014benchmarks), consistent
+with the jump condition of the boiling model. Adding $(cp_l - cp_g)(T_{bulk} -
+T_{sat})$ to $\Delta h_{ev}$ in the denominator, as done for example by Malan et
+al. (2021), increases $\beta$ with the Jakob number, and the error of the radius
+grows in time and with Ja, at all levels of refinement.
 
 The animation shows the map of the temperature field, which
 is initialized with the analytic solution at the beginning
@@ -111,12 +115,11 @@ obtain the analytic temperature profile:
 $$
   T(r,t) = T_{bulk} - 2\beta^2
   \left(
-  \dfrac{\rho_g (\Delta h_{ev} +
-  (cp_l-cp_g)(T_{bulk} - T_{sat}))}{\rho_l cp_l}
+  \dfrac{\rho_g \Delta h_{ev}}{\rho_l cp_l}
   \right)
   \int_{1-R/r}^1
   \exp \left(-\beta^2((1-x)^{-2}
-  -2(1-\dfrac{\rho_l}{\rho_g})x - 1)\right)dx
+  -2(1-\dfrac{\rho_g}{\rho_l})x - 1)\right)dx
 $$
 */
 
@@ -142,7 +145,7 @@ void betafun (const double * xdata, double *fdata, void * params) {
   gsl_integration_workspace_free (w);
 
   double deltaT = Tbulk - Tsat;
-  double lhs = rho1*cp1*deltaT/(rho2*(dhev + (cp1 - cp2)*deltaT));
+  double lhs = rho1*cp1*deltaT/(rho2*dhev);
   double rhs = 2.*beta*beta*result;
   fdata[0] = lhs - rhs;
 }
@@ -164,7 +167,7 @@ double tempsol (double r, double R) {
   gsl_integration_qags (&F, 1.-R/r, 1., 1.e-9, 1.e-5, 1000,
                         w, &result, &error);
   gsl_integration_workspace_free (w);
-  return Tbulk - 2.*sq(beta)*(rho2*(dhev + (cp1 - cp2)*(Tbulk - Tsat))/rho1/cp1)*result;
+  return Tbulk - 2.*sq(beta)*(rho2*dhev/rho1/cp1)*result;
 }
 
 double beta_growth (double guess = 1.) {
