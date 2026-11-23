@@ -82,9 +82,11 @@ jobs:
           echo "stamp=${stamp:-$(date +%Y%W)}" >> "$GITHUB_OUTPUT"
           echo "basilisk.tar.gz: ${stamp:-unknown}"
 
-      - name: Cache basilisk build
+      # restore/save instead of actions/cache: only cache/restore has the
+      # cache-matched-key output, and the build is saved only when rebuilt
+      - name: Restore basilisk build
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: basilisk-build.tar
           key: basilisk-${{ env.RUNNER }}-${{ steps.version.outputs.stamp }}
@@ -124,6 +126,7 @@ jobs:
           init-shell: none
 
       - name: Build basilisk
+        id: build
         if: >-
           steps.cache.outputs.cache-hit != 'true' &&
           (steps.version.outputs.reachable == 'true' ||
@@ -143,6 +146,13 @@ jobs:
           ./qcc --version
           ls -l gl/libfb_tiny.a gl/libglutils.a
           tar cf "$GITHUB_WORKSPACE/basilisk-build.tar" -C "$HOME" basilisk
+
+      - name: Save basilisk build
+        if: steps.build.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: basilisk-build.tar
+          key: ${{ steps.cache.outputs.cache-primary-key }}
 
       - name: Set up environment
         run: bash .github/scripts/setup-env.sh
