@@ -66,11 +66,19 @@ jobs:
 
       # Only the headers are fetched here (basilisk.fr is slow from GitHub):
       # the tarball is downloaded only when it changed since the cached build.
+      # basilisk.fr is sometimes unreachable from the GitHub runners: the last
+      # cached build is then reused (see restore-keys and "Basilisk stamp").
       - name: Check basilisk version
         id: version
         run: |
-          stamp=$(curl -sSfIL "$BASILISK_URL" | grep -i '^last-modified:' | tail -1 \
-                  | cut -d' ' -f2- | tr -cd '[:alnum:]')
+          stamp=$(curl -sSfIL --connect-timeout 15 --retry 2 --retry-all-errors \
+                    "$BASILISK_URL" | grep -i '^last-modified:' | tail -1 \
+                  | cut -d' ' -f2- | tr -cd '[:alnum:]') || true
+          if [ -n "$stamp" ]; then
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::basilisk.fr unreachable: reusing the last cached build"
+          fi
           echo "stamp=${stamp:-$(date +%Y%W)}" >> "$GITHUB_OUTPUT"
           echo "basilisk.tar.gz: ${stamp:-unknown}"
 
@@ -80,6 +88,23 @@ jobs:
         with:
           path: basilisk-build.tar
           key: basilisk-${{ env.RUNNER }}-${{ steps.version.outputs.stamp }}
+          restore-keys: basilisk-${{ env.RUNNER }}-
+
+      # Stamp of the build actually used: the one of the restored cache when
+      # basilisk.fr is unreachable, so that the selection of the cases does not
+      # change (the date fallback above would rerun all of them).
+      - name: Basilisk stamp
+        id: stamp
+        env:
+          REACHABLE: ${{ steps.version.outputs.reachable }}
+          STAMP: ${{ steps.version.outputs.stamp }}
+          MATCHED: ${{ steps.cache.outputs.cache-matched-key }}
+        run: |
+          if [ "$REACHABLE" != true ] && [ -n "$MATCHED" ]; then
+            STAMP=${MATCHED#basilisk-$RUNNER-}
+          fi
+          echo "stamp=$STAMP" >> "$GITHUB_OUTPUT"
+          echo "basilisk build: $STAMP"
 
       - name: Install dependencies
         run: |
@@ -99,9 +124,13 @@ jobs:
           init-shell: none
 
       - name: Build basilisk
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: >-
+          steps.cache.outputs.cache-hit != 'true' &&
+          (steps.version.outputs.reachable == 'true' ||
+           steps.cache.outputs.cache-matched-key == '')
         run: |
-          curl -sSfL "$BASILISK_URL" -o basilisk.tar.gz
+          curl -sSfL --connect-timeout 15 --retry 3 --retry-all-errors \
+               "$BASILISK_URL" -o basilisk.tar.gz
           # qcc embeds the BASILISK path: build where the tests will run
           tar xzf basilisk.tar.gz -C "$HOME"
           cd "$HOME/basilisk/src"
@@ -123,7 +152,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          STAMP: ${{ steps.version.outputs.stamp }}
+          STAMP: ${{ steps.stamp.outputs.stamp }}
           FORCE: ${{ inputs.force && '1' || '' }}
         run: |
           bash .github/scripts/select-cases.sh > selection
