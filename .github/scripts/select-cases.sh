@@ -6,7 +6,7 @@
 # passed with exactly the same inputs: the key of a case is a hash of
 # the contents of <case>.c, <case>.ref, all the headers it includes (as
 # listed by 'make <case>.s.d', i.e. 'qcc -MD'), run/Makefile, the CI
-# scripts, the Cantera packages, the runner image and the Basilisk
+# scripts and the Basilisk patch (.github/basilisk.patch), the Cantera packages, the runner image and the Basilisk
 # version. Passed keys are stored as (tiny) GitHub cache entries, so
 # that this works across branches.
 #
@@ -23,6 +23,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../../run"
 
 common=$( (cat Makefile ../.github/scripts/select-cases.sh ../.github/scripts/setup-env.sh
+           cat ../.github/basilisk.patch 2> /dev/null || true
            echo "$STAMP ${CANTERA:-} ${RUNNER:-}") | sha256sum)
 
 passed=$(gh cache list --key pass- --limit 1000 --json key --jq '.[].key' || true)
