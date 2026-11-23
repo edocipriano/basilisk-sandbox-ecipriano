@@ -128,12 +128,12 @@ void set_spark (struct SparkModel * spark) {
 /**
 ## Apply Spark
 
-We use the `chemistry` event to set the spark in order to include its effect in
-the calculation of the density material derivative. If multiple sparks must be
-used, they can be created in the simulation file and applied creating a
-similar `chemistry` event. */
+We use the `vof` event to set the spark, before the phase change or
+combustion step, in order to include its effect in the calculation of the
+density material derivative. If multiple sparks must be used, they can be
+created in the simulation file and applied creating a similar `vof` event. */
 
-event chemistry (i++) {
+event vof (i++) {
   set_spark (&spark);
 }
 

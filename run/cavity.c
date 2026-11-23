@@ -31,7 +31,6 @@ the whole height of the walls, therefore we use uniform grids. */
 #include "basilisk-properties.h"
 #include "two-phase.h"
 #include "gravity.h"
-#include "phasechange.h"
 #include "fixedflux.h"
 #include "view.h"
 

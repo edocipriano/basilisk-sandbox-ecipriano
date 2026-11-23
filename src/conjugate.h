@@ -100,8 +100,10 @@ We specify an initial solid temperature and the function used to refine or
 coarsen the solid temperature and the solid volume fraction. */
 
 event defaults (i = 0) {
-  foreach()
+  foreach() {
     TS[] = TS0;
+    QSexp[] = 0.;
+  }
 #if TREE
   cw.refine = fraction_refine;
   set_prolongation (cw, fraction_refine);
@@ -113,11 +115,6 @@ event defaults (i = 0) {
     //t.depends = list_add (t.depends, cw);
   }
 #endif
-}
-
-event reset_sources (i++) {
-  foreach()
-    QSexp[] = 0.;
 }
 
 /**
@@ -239,6 +236,13 @@ event tracer_diffusion (i++) {
   energy_sources (zeroc, QSexp);
 
   diffusion (TS, dt, D = D, theta = theta, r = QSexp);
+
+  /**
+  The heat sources are reset after their use, so that they can be modified
+  anywhere in the next time step before the diffusion. */
+
+  foreach()
+    QSexp[] = 0.;
 }
 
 /**

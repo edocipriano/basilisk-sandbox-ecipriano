@@ -32,7 +32,6 @@ the user.
 #include "navier-stokes/low-mach.h"
 #include "two-phase.h"
 #include "tension.h"
-#include "phasechange.h"
 #include "fixedflux.h"
 #include "view.h"
 

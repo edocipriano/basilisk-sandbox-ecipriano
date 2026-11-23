@@ -64,7 +64,6 @@ with a null vaporization rate.
 #include "two-phase-varprop.h"
 #include "basilisk-properties.h"
 #include "two-phase.h"
-#include "phasechange.h"
 #include "fixedflux.h"
 #include "view.h"
 
@@ -242,13 +241,13 @@ event init (i = 0) {
 /**
 ### Volumetric Heat Source
 
-The source is added in the `chemistry` event, after the source terms are reset
-and before the `divergence` event, so that it enters both the velocity
-divergence and the temperature equation. It is weighted on the volume fraction
-of the gas phase. */
+The source is added in the `vof` event, which runs before the phase change
+step (see [phasechange.h](/src/phasechange.h)), so that it enters both the
+velocity divergence and the temperature equation. It is weighted on the volume
+fraction of the gas phase. */
 
 #if !HEATFLUX
-event chemistry (i++) {
+event vof (i++) {
   scalar STexpG = gas->STexp;
   foreach()
     STexpG[] += q0*cmv()*(1. - f[]);

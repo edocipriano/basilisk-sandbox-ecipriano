@@ -26,9 +26,7 @@ scalar mEvap[], * mEvapList = {mEvap};
 The volume and face fractions of each phase are restricted to the fluid
 region with embedded boundaries. */
 
-// fixme: put these operations in a function, such that the used can easily move
-// it from the phase change event
-event phasechange (i++) {
+void phasechange_rate (void) {
   phase_tracers_to_scalars (liq, f, tol = F_ERR);
   phase_tracers_to_scalars (gas, f, tol = F_ERR);
 
@@ -90,6 +88,28 @@ event phasechange (i++) {
 
   phase_scalars_to_tracers (liq, f);
   phase_scalars_to_tracers (gas, f);
+}
+
+/**
+## Order of integration
+
+The interface heat fluxes are explicit, and the phase change step precedes the
+transport of the interface and of the tracers: phase change, VOF, advection,
+diffusion, Navier--Stokes (see [phasechange.h](phasechange.h)). */
+
+event vof (i++) {
+  phasechange_reset();
+  phasechange_properties();
+  phasechange_chemistry();
+  phasechange_rate();
+  phasechange_expansion();
+  phasechange_divergence();
+  phasechange_advection();
+}
+
+event tracer_diffusion (i++) {
+  phasechange_diffusion();
+  phasechange_reset_sources();
 }
 
 /**

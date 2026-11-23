@@ -32,7 +32,6 @@ provided by the user.
 #include "navier-stokes/velocity-jump.h"
 #include "two-phase.h"
 #include "tension.h"
-#include "phasechange.h"
 #include "fixedflux.h"
 #include "view.h"
 

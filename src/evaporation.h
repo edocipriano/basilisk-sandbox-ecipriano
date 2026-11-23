@@ -448,7 +448,7 @@ event cleanup (t = end) {
   free (YIntVals);
 }
 
-event reset_sources (i++) {
+static void evaporation_reset (void) {
   foreach() {
     foreach_scalar_in (liq_int) {
       T[] = 0.;
@@ -468,9 +468,14 @@ event reset_sources (i++) {
 }
 
 /**
-## Phase change */
+## Phase change
 
-event phasechange (i++) {
+*phasechange_rate()* computes the interface temperature and mass fractions,
+the vaporization rates `mEvapList`, and the interface source terms. */
+
+void phasechange_rate (void) {
+  evaporation_reset();
+
   phase_tracers_to_scalars (liq, f, tol = F_ERR);
   phase_tracers_to_scalars (gas, f, tol = F_ERR);
 
@@ -575,6 +580,28 @@ event phasechange (i++) {
 
   phase_scalars_to_tracers (liq, f);
   phase_scalars_to_tracers (gas, f);
+}
+
+/**
+## Order of integration
+
+The interface source terms are explicit, and the phase change step precedes
+the transport of the interface and of the tracers: phase change, VOF,
+advection, diffusion, Navier--Stokes (see [phasechange.h](phasechange.h)). */
+
+event vof (i++) {
+  phasechange_reset();
+  phasechange_properties();
+  phasechange_chemistry();
+  phasechange_rate();
+  phasechange_expansion();
+  phasechange_divergence();
+  phasechange_advection();
+}
+
+event tracer_diffusion (i++) {
+  phasechange_diffusion();
+  phasechange_reset_sources();
 }
 
 /**

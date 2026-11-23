@@ -33,7 +33,6 @@ switched off using the fixed flux model with a null vaporization rate. */
 #include "two-phase-varprop.h"
 #include "basilisk-properties.h"
 #include "two-phase.h"
-#include "phasechange.h"
 #include "fixedflux.h"
 #include "view.h"
 

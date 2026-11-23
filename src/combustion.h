@@ -103,21 +103,25 @@ event cleanup (t = end) {
   delete_phase (gas);
 }
 
-event reset_sources (i++) {
-  phase_reset_sources (gas);
+/**
+## Time step
 
+The combustion step is assembled from the functions below in the `vof` event,
+which runs before the transport of the tracers by [vof.h](/src/vof.h): material
+properties, chemistry, and velocity divergence. The source terms of the gas
+(`STexp`, `SYexp`, ...) are reset after the diffusion: the simulation can add
+its own sources in the `vof` event, which runs before the event of this
+module, or in the `tracer_diffusion` event (diffusion only). */
+
+void combustion_reset (void) {
   foreach() {
     for (scalar drhodt in drhodtlist)
       drhodt[] = 0.;
   }
 }
 
-event end_init (i = 0);
-
-event reset_sources (i++);
-
+void combustion_properties (void) {
 #if VARIABLE_PROPERTIES
-event phase_properties (i++) {
 
 #if LOW_MACH
   /**
@@ -142,10 +146,10 @@ event phase_properties (i++) {
   [phasechange.h](phasechange.h).
 
   The source is added here, together with the material properties, and not in
-  the `divergence` event, because `betaT` is evaluated by
-  `phase_update_properties()` using the temperature of this event: the product
-  $\beta_T T$ must be formed from the same thermodynamic state, and it reduces
-  to one for an ideal gas. Adding the source after `chemistry`, which updates
+  *combustion_divergence()*, because `betaT` is evaluated by
+  `phase_update_properties()` using the temperature of this function: the
+  product $\beta_T T$ must be formed from the same thermodynamic state, and it
+  reduces to one for an ideal gas. Adding the source after the chemistry, which updates
   the temperature in place, would combine the new temperature with the old
   expansion coefficient. The source still reaches the velocity divergence,
   because `phase_update_divergence()` accumulates `STexp` into the material
@@ -154,10 +158,10 @@ event phase_properties (i++) {
   if (closed)
     phase_add_compression_work (gas, dP0dt, f, F_ERR);
 #endif
-}
 #endif
+}
 
-event chemistry (i++) {
+void combustion_chemistry (void) {
 #if CHEMISTRY
   if (pcm.chemistry) {
     ode_function batch = batch_isothermal_constantpressure;
@@ -181,8 +185,8 @@ event chemistry (i++) {
     phase_add_heat_species_diffusion (gas, f, pcm.molar_diffusion);
 }
 
+void combustion_divergence (void) {
 #if VARIABLE_PROPERTIES
-event divergence (i++) {
   if (pcm.divergence) {
     phase_update_divergence (gas, f, pcm.fick_corrected, pcm.molar_diffusion);
 
@@ -190,8 +194,21 @@ event divergence (i++) {
     foreach()
       drhodt[] = divu2[];
   }
-}
 #endif
+}
+
+event vof (i++) {
+  combustion_reset();
+  combustion_properties();
+  combustion_chemistry();
+  combustion_divergence();
+}
+
+/**
+The event `end_init` allows the simulation to override the `pcm` parameters
+set in `init`. */
+
+event end_init (i = 0);
 
 event tracer_advection (i++);
 
@@ -202,6 +219,8 @@ event tracer_diffusion (i++) {
 
   if (pcm.normalize)
     phase_normalize_fractions (gas);
+
+  phase_reset_sources (gas);
 }
 
 event properties (i++) {
