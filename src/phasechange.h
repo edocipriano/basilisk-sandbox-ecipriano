@@ -462,10 +462,16 @@ void phasechange_mixture (void) {
 /**
 ## Events
 
-The models define the events `vof` and `tracer_diffusion`, which set the order
-of integration. The simulation can add its own source terms to the phases in
-the `vof` event, before the interface moves, or in the `tracer_diffusion`
-event, after the interface moves.
+The events `vof` and `tracer_diffusion` set the order of integration, through
+the macros *phasechange_vof()* and *phasechange_tracer_diffusion()*. By default,
+the phase change step precedes the transport of the interface and of the
+tracers (phase change, VOF, advection, diffusion, Navier--Stokes). A model with
+a different order overloads the two macros (see
+[macro.h](/src/ast/macro.h#overloading)).
+
+The simulation can add its own source terms to the phases in the `vof` event,
+before the interface moves, or in the `tracer_diffusion` event, after the
+interface moves.
 
 We create the phases, set their properties, and attach the phase tracers to
 the volume fractions used to transport them. */
@@ -642,11 +648,41 @@ The simulation can override the `pcm` parameters set by the model. */
 event end_init (i = 0);
 
 /**
+Phase change step, and transport of the interface and of the tracers. */
+
+auto macro phasechange_vof() {
+  phasechange_reset();
+  phasechange_properties();
+  phasechange_chemistry();
+  phasechange_rate();
+  phasechange_expansion();
+  phasechange_divergence();
+  phasechange_advection();
+}
+
+event vof (i++) {
+  phasechange_vof();
+}
+
+/**
 We complete the transport of the interface, before the advection of the other
 tracers. */
 
 event tracer_advection (i++) {
   phasechange_advection_end();
+}
+
+/**
+Diffusion of temperature and species, which uses and resets the source
+terms. */
+
+auto macro phasechange_tracer_diffusion() {
+  phasechange_diffusion();
+  phasechange_reset_sources();
+}
+
+event tracer_diffusion (i++) {
+  phasechange_tracer_diffusion();
 }
 
 /**

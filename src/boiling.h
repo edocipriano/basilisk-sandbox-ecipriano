@@ -91,28 +91,6 @@ void phasechange_rate (void) {
 }
 
 /**
-## Order of integration
-
-The interface heat fluxes are explicit, and the phase change step precedes the
-transport of the interface and of the tracers: phase change, VOF, advection,
-diffusion, Navier--Stokes (see [phasechange.h](phasechange.h)). */
-
-event vof (i++) {
-  phasechange_reset();
-  phasechange_properties();
-  phasechange_chemistry();
-  phasechange_rate();
-  phasechange_expansion();
-  phasechange_divergence();
-  phasechange_advection();
-}
-
-event tracer_diffusion (i++) {
-  phasechange_diffusion();
-  phasechange_reset_sources();
-}
-
-/**
 ## Phase change model parameters
 
 We set the `pcm` parameters for boiling: the expansion term is shifted to the
