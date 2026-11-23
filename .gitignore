@@ -6,3 +6,11 @@
 *.tags
 *.DS_Store
 *bib*
+
+# simulation output directories (make <case>.tst)
+/run/*/
+!/run/data/
+!/run/makefiles/
+/test/*/
+# editor backups
+*~
