@@ -33,7 +33,7 @@ velocity jump. A fixed contact angle is imposed on the left side of the domain.
 #else
 # include "navier-stokes/low-mach.h"
 #endif
-#include "contact.h"
+#include "contact-small.h"
 #include "two-phase.h"
 #include "tension.h"
 #include "boiling.h"

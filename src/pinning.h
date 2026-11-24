@@ -6,7 +6,7 @@ pin the droplet a specific point of the domain. The method
 implemented here was extended from [sandbox/lopez/contact.c](/sandbox/lopez/contact.c).
 */
 
-#include "contact.h"
+#include "contact-small.h"
 
 /**
 Known the position of the interface $a$ we compute the corresponding
