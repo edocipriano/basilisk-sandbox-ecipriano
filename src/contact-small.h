@@ -21,6 +21,9 @@ coord height_myc_normal (Point point, scalar c)
   coord n;
   if (!c.height.x.i || (n = height_normal (point, c, c.height)).x == nodata)
     n = mycs (point, c);
+  else if (c.inverse)
+    foreach_dimension()
+      n.x *= -1.;
   return n;
 }
 
@@ -257,21 +260,23 @@ static double contact_fraction_x (double expr, double tol,
     }
     return rectangle_fraction (mcl, alpha, a, b);
   }
-  else if (s[] > 0.)
-    return expr < pi/2. ? 1. : 0.;
+  else if (expr < pi/2.)
+    return s[] > 0. ? 1. : 0.;
   else
-    return s[];
+    return s[] < 1. ? 0. : s[];
 }
 
 double contact_fraction (double expr, double tol = THETA_MIN,
     Point point = point, Point neighbor = neighbor, scalar s = _s)
 {
+  if (s.inverse)
+    expr = pi - expr;
   if (neighbor.i != point.i)
     return contact_fraction_x (expr, tol, point, neighbor, s);
   if (neighbor.j != point.j)
     return contact_fraction_y (expr, tol, point, neighbor, s);
   assert (false);
-  return 0;
+  return 0.;
 }
 
 /**
