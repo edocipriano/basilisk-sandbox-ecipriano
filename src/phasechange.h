@@ -571,9 +571,15 @@ event defaults (i = 0) {
   // Only f.tracers are set to the correct refine functions in
   // [vof.h](src/vof.h). Other helper fractions with their tracers must be
   // set here. Do not remove.
+  // The volume fractions are restricted with the same (metric-weighted)
+  // average of their tracers, otherwise on coarse levels t/c is not an average
+  // value (axisymmetric), and vof_concentration_refine() builds wrong gradients
+  // when coarse cells next to refined interfacial cells are refined.
+  set_restriction (f, restriction_fraction);
   for (scalar c in fulist) {
     c.refine = fraction_refine;
     set_prolongation (c, fraction_refine);
+    set_restriction (c, restriction_fraction);
     scalar * tracers = c.tracers;
     for (scalar t in tracers) {
       set_restriction (t, restriction_volume_average);

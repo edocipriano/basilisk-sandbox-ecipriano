@@ -277,10 +277,6 @@ void copy_bcs (scalar * dest, scalar orig) {
 }
 
 #if TREE
-attribute {
-  scalar rho;
-}
-
 void density_refine (Point point, scalar rhov) {
   refine_bilinear (point, rhov);
   double rhou = 0.;
@@ -290,23 +286,133 @@ void density_refine (Point point, scalar rhov) {
   foreach_child()
     rhov[] += drho;
 }
+#endif
 
-void density_restriction (Point point, scalar rhov) {
-  double rhou = 0.;
-  foreach_child()
-    rhou += cm[]*rhov[];
-  rhov[] = rhou/((1 << dimension)*(cm[] + SEPS));
-  //restriction_volume_average (point, rhov);
+#if TREE
+/**
+### *restriction_fraction()*: metric-weighted restriction of a volume fraction
+
+The volume fractions are restricted with the same metric-weighted average used
+for their tracers, otherwise on coarse levels $t/c$ is not an average value
+(axisymmetric). The parent volume fraction is the volume of the phase in the
+children divided by their volume, which conserves the volume of the phase. The
+weights are the volumes of the children: differently from
+`restriction_volume_average()`, which divides by the metric of the parent, the
+result does not depend on the metric of the parent. The coarse levels of `cm`
+are not necessarily up to date, e.g. when `restriction()` is called explicitly
+by [heights.h](/src/heights.h) at the first time step, and their values are
+undefined. Since the restriction proceeds from the finest to the coarsest level,
+we also restrict `cm` in the parent, so that the volumes of the children are
+always defined. */
+
+static void restriction_fraction (Point point, scalar c) {
+  double sum = 0., vol = 0., avg = 0.;
+  foreach_child() {
+    sum += cm[]*c[];
+    vol += cm[];
+    avg += c[];
+  }
+  if (vol > 0.)
+    c[] = sum/vol;
+  else
+    c[] = avg/(1 << dimension);
+  if (!is_constant (cm))
+    cm.restriction (point, cm);
+}
+#endif
+
+/**
+## Restriction and prolongation of phase scalars
+
+On trees, the scalars of a phase stored in intensive form (see
+*phase_tracers_to_scalars()* in [phase.h](phase.h)) need restriction and
+prolongation operators which consider only the cells containing the phase,
+whose volume fraction is `s.c` (or `1 - s.c` if `s.inverse`).
+
+### *restriction_scalar_stepwise()*
+
+We compute the parent value from the children using an average, weighted on the
+volume fraction. The returned value is the intensive scalar form:
+$$
+  s_p = \dfrac{\sum_c cm_c c_c s_c}{\sum_c cm_c c_c}
+$$ */
+
+#if TREE
+void restriction_scalar_stepwise (Point point, scalar s) {
+  scalar c = s.c;
+  foreach_blockf (s) {
+    double num = 0., den = 0.;
+    foreach_child() {
+      double w = cm[]*(s.inverse ? 1. - c[] : c[]);
+      num += s[]*w;
+      den += w;
+    }
+    s[] = (den > 0.) ? num/den : 0.;
+  }
 }
 
-void restriction_mass_average (Point point, scalar s) {
-  scalar rhov = s.rho;
-  double sum = 0., mass = 0.;
-  foreach_child() {
-    sum += cm[]*rhov[]*s[];
-    mass += cm[]*rhov[];
+/**
+### *prolongation_scalar_stepwise()*
+
+Extended from [vof.h](/src/vof.h), the prolongation for the scalar values on
+children cells are calculated from a Taylor expansion, based on the gradients of
+the scalar between neighboring parent cells:
+$$
+  s_c = s_p + \sum_d \dfrac{\pm\Delta}{4}
+  \left(\dfrac{\partial s}{\partial x_d}\right)_p
+$$
+where only the neighbors containing the phase are used in the gradient. The
+children which do not contain the phase are not set to zero: the scalar is
+intensive, and a zero next to the phase value would enter the fluxes across
+fine/coarse boundaries where the face fractions do not vanish (e.g. halo
+children refined by `fraction_refine()`), spoiling the convergence of the
+diffusion solver. If the parent does not contain the phase (and its value is
+therefore not meaningful), the children get the average of the face neighbors
+containing the phase, weighted by their volume fraction. These values are not
+always discarded: stencils which do not use the face fractions (e.g. the
+interface gradients) can read them, and using the value of the parent instead
+gave spurious temperatures and solver failures with coarse adaptive grids. */
+
+foreach_dimension()
+static double stepwise_gradient_x (Point point, scalar c, scalar t)
+{
+  double cl = c[-1], cr = c[1];
+  if (t.inverse)
+    cl = 1. - cl, cr = 1. - cr;
+  if (cl > 0. && cr > 0.)
+    return (t[1] - t[-1])/(2.*Delta);
+  else if (cr > 0.)
+    return (t[1] - t[])/Delta;
+  else if (cl > 0.)
+    return (t[] - t[-1])/Delta;
+  return 0.;
+}
+
+void prolongation_scalar_stepwise (Point point, scalar s) {
+  scalar c = s.c;
+  double cp = s.inverse ? 1. - c[] : c[];
+  double sc = s[];
+  coord g = {0., 0., 0.};
+  if (cp > 0.)
+    foreach_dimension()
+      g.x = Delta*stepwise_gradient_x (point, c, s);
+  else {
+    double num = 0., den = 0.;
+    foreach_dimension()
+      for (int i = -1; i <= 1; i += 2) {
+        double w = s.inverse ? 1. - c[i] : c[i];
+        if (w > 0.)
+          num += w*s[i], den += w;
+      }
+    sc = den > 0. ? num/den : 0.;
   }
-  s[] = sum/(mass + 1e-30);
+  double cmc = 4.*cm[];
+  foreach_child() {
+    s[] = sc;
+    if (cmc > 0.)
+      foreach_dimension()
+        s[] += child.x*g.x*cm[-child.x]/cmc;
+  }
 }
 #endif
 
