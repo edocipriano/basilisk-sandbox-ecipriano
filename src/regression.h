@@ -52,8 +52,16 @@ void vof_advection_phasechange (
     bool extrapolation = false  // Use PDE-based extrapolation
 )
 {
-  vector n[];
   face vector upc[];
+
+  /**
+  The default antisymmetry boundary conditions would compute the wrong flux at
+  the boundary. */
+
+  vector n[];
+  foreach_dimension()
+    for (int b = 0; b < nboundary; b++)
+      n.x.boundary[b] = n.x.boundary_homogeneous[b] = symmetry;
 
   foreach() {
     coord m = interface_normal (point, f);
@@ -101,7 +109,21 @@ void vof_advection_phasechange (
   }
   boundary ((scalar *){uf});  // do not remove
 
+  /**
+  The tracers are transported with first-order upwinding: the liquid removed
+  by the phase change leaves the cell with the mean value of the cell, as with
+  the source term. */
+
+  int nt = list_len (f.tracers), k = 0;
+  double (* gsave[nt + 1]) (double, double, double);
+  for (scalar t in f.tracers)
+    gsave[k++] = t.gradient, t.gradient = zero;
+
   vof_advection ({f}, i);
+
+  k = 0;
+  for (scalar t in f.tracers)
+    t.gradient = gsave[k++];
 
   foreach_face()
     uf.x[] = ufsave.x[];
