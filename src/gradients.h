@@ -50,6 +50,17 @@ static inline double vof_dirichlet_gradient_x (Point point, scalar s,
       if (fs.x[i + (i < 0),j] && fs.y[i,j] && fs.y[i,j+1] &&
           cs[i,j-1] && cs[i,j] && cs[i,j+1])
         v[l] = quadratic (y1, (s[i,j-1]), (s[i,j]), (s[i,j+1]));
+
+      /**
+      If one side of the quadratic stencil is not in the phase (e.g.
+      in the contact line cell, where the stencil touches the dry
+      wall), we use linear interpolation with the points on the side
+      of the probe. */
+
+      else if (fs.x[i + (i < 0),j] && cs[i,j] &&
+               (y1 >= 0. ? fs.y[i,j+1] && cs[i,j+1] : fs.y[i,j] && cs[i,j-1]))
+        v[l] = y1 >= 0. ? s[i,j] + y1*(s[i,j+1] - s[i,j]) :
+                          s[i,j] - y1*(s[i,j-1] - s[i,j]);
 #else // dimension == 3
       double z = p.z + d[l]*n.z;
       int k = z > 0.5 ? 1 : z < -0.5 ? -1 : 0;
@@ -144,9 +155,7 @@ face vector *fs* in the stencil functions. */
 double plic_gradient (Point point, scalar s, scalar cs, face vector fs,
     double bc, bool vof = true, dstats * stat = NULL)
 {
-  coord m = vof ?
-    interface_normal (point, cs) :
-    facet_normal (point, cs, fs), p;
+  coord m = interface_normal (point, cs), p;
   double alpha = plane_alpha (cs[], m);
   plane_area_center (m, alpha, &p);
   normalize (&m);
@@ -155,6 +164,24 @@ double plic_gradient (Point point, scalar s, scalar cs, face vector fs,
   if (stat)
     stat->coef = coef;
   return (grad == nodata || coef != 0.) ? 0. : grad;
+}
+
+/**
+## plic_gradient_implicit(): gradients consistent with *plic_flux()*
+
+In degenerate cases the gradient is $-coef\,(bc - s[])$, as in
+[embed_flux()](/src/embed.h#embed_flux) and in *plic_flux()*, which treats it
+implicitly: with explicit interface sources it is unstable. The function has
+no optional arguments (see [this bug](/sandbox/bugs/args-stencil.c)). */
+
+double plic_gradient_implicit (Point point, scalar s, scalar cs,
+    face vector fs, double bc, bool vof, dstats * stat)
+{
+  dstats st;
+  double grad = plic_gradient (point, s, cs, fs, bc, vof, &st);
+  if (stat)
+    *stat = st;
+  return st.coef ? st.coef*(s[] - bc) : grad;
 }
 
 /**
@@ -192,7 +219,8 @@ double plic_navier (Point point, scalar s, scalar cs, face vector fs,
 On embedded boundaries the Navier condition is turned into a Dirichlet
 condition with value given by *plic_navier()*. On the domain
 boundaries we use the default [navier()](/src/grid/cartesian-common.h)
-condition. */
+condition. The same approach is used on VOF interfaces with `IMPLICIT`
+(see *plic_flux()* below). */
 
 #if EMBED
 macro2
@@ -215,6 +243,103 @@ double navier_homogeneous (double expr, double lambda, Point point = point,
     s[]*(lambda - Delta/2.)/(lambda + Delta/2.);
 }
 #endif
+
+/**
+## plic_flux(): implicit interface contribution
+
+With `IMPLICIT`, the interface flux is included in the diffusion as for
+embedded boundaries, using the fractions `cs1` and `fs1` of the phase (see
+[phase.h](phase.h)), and e.g. `T[interface] = dirichlet (TIntVal);` or
+`navier (TIntVal, lambda)`. `IMPLICIT` is not compatible with EMBED yet.
+
+note: the interface value is evaluated at the cell center, instead of the
+barycenter of the interface fragment. This matters only if the arguments of
+the condition depend on `x,y,z`. */
+
+#if IMPLICIT
+#if EMBED
+# error "IMPLICIT is not compatible with EMBED yet"
+#endif
+
+bid interface;
+
+scalar cs1[];
+face vector fs1[];
+
+#ifndef vof_gradients
+# define vof_gradients true
+#endif
+
+macro2
+double dirichlet (double expr, Point point = point,
+                  scalar s = _s, bool * data = data)
+{
+  return data ? *((bool *)data) = true, expr : 2.*expr - s[];
+}
+
+macro2
+double dirichlet_homogeneous (double expr, Point point = point,
+                              scalar s = _s, bool * data = data)
+{
+  return data ? *((bool *)data) = true, 0 : - s[];
+}
+
+macro2
+double navier (double expr, double lambda, Point point = point,
+    scalar s = _s, bool * data = data)
+{
+  return data ? *((bool *)data) = true,
+    plic_navier (point, s, cs1, fs1, expr, lambda, vof_gradients) :
+    (Delta*expr + s[]*(lambda - Delta/2.))/(lambda + Delta/2.);
+}
+
+macro2
+double navier_homogeneous (double expr, double lambda, Point point = point,
+    scalar s = _s, bool * data = data)
+{
+  return data ? *((bool *)data) = true,
+    plic_navier (point, s, cs1, fs1, 0., lambda, vof_gradients) :
+    s[]*(lambda - Delta/2.)/(lambda + Delta/2.);
+}
+
+double plic_flux (Point point, scalar s, face vector D, double * val)
+{
+  *val = 0.;
+  if (cs1[] < F_ERR || cs1[] > 1. - F_ERR)
+    return 0.;
+
+  bool dirichlet = false;
+  double bc = s.boundary[interface] (point, point, s, &dirichlet);
+  if (!dirichlet)
+    return 0.;
+
+  coord m = interface_normal (point, cs1), p;
+  double alpha = plane_alpha (cs1[], m);
+  double area = plane_area_center (m, alpha, &p);
+#if AXI
+  area *= (y + p.y*Delta);
+#endif
+
+  normalize (&m);
+  double coef = 0.;
+  double grad = vof_dirichlet_gradient (point, s, cs1, fs1, m, p, bc, &coef,
+      vof_gradients, NULL);
+  if (grad == nodata)
+    grad = 0., coef = 0.;
+
+  double Da = 0., fa = 0.;
+  foreach_dimension() {
+    Da += D.x[] + D.x[1];
+    fa += fm.x[]*fs1.x[] + fm.x[1]*fs1.x[1];
+  }
+
+  // No faces in the phase (e.g. coarse multigrid levels): no flux
+  if (fa < 1e-10)
+    return 0.;
+  *val = - Da/fa*grad*area/Delta;
+  return - Da/fa*coef*area/Delta;
+}
+#endif // IMPLICIT
 
 /**
 ## References

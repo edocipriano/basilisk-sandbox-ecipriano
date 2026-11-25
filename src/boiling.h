@@ -13,7 +13,14 @@ and $\dot{m}$ is positive when the liquid loses mass: the heat conducted from
 the superheated phase towards the interface is used for the phase change. This
 module includes [phasechange.h](phasechange.h), computes the vaporization
 rate and the interface heat fluxes, and sets the phase change model
-parameters (`pcm`) for boiling. */
+parameters (`pcm`) for boiling.
+
+With `IMPLICIT`, the saturation temperature is imposed implicitly in the
+diffusion (see *plic_flux()* in [gradients.h](gradients.h)). */
+
+#ifndef IMPLICIT
+# define IMPLICIT 0
+#endif
 
 #include "phasechange.h"
 #include "gradients.h"
@@ -64,8 +71,15 @@ void phasechange_rate (void) {
   foreach_interfacial (f, F_ERR) {
     scalar TL = liq->T, TG = gas->T;
     bool vof = vof_gradients;
+#if IMPLICIT
+    double ltrgrad = plic_gradient_implicit (point, TL, fl, fsl, TIntVal, vof,
+        NULL);
+    double gtrgrad = plic_gradient_implicit (point, TG, fg, fsg, TIntVal, vof,
+        NULL);
+#else
     double ltrgrad = plic_gradient (point, TL, fl, fsl, TIntVal, vof, NULL);
     double gtrgrad = plic_gradient (point, TG, fg, fsg, TIntVal, vof, NULL);
+#endif
 
     scalar lambdal = liq->lambda, lambdag = gas->lambda;
     scalar deltahev = liq->dhev;
@@ -75,9 +89,10 @@ void phasechange_rate (void) {
   }
 
   /**
-  The interface conductive heat fluxes enter the temperature equation of each
-  phase as explicit source terms. */
+  Without `IMPLICIT`, the interface conductive heat fluxes enter the
+  temperature equation of each phase as explicit source terms. */
 
+#if !IMPLICIT
   foreach_interfacial_plic (f, F_ERR) {
     scalar TL = liq->T, TG = gas->T;
     bool vof = vof_gradients;
@@ -90,10 +105,36 @@ void phasechange_rate (void) {
     slT[] += lambdal[]*ltrgrad*dirac;
     sgT[] += lambdag[]*gtrgrad*dirac;
   }
+#endif
 
   phase_scalars_to_tracers (liq, f);
   phase_scalars_to_tracers (gas, f);
 }
+
+/**
+## Order of integration
+
+With `IMPLICIT`: VOF (with `mEvapTot` of the previous step), advection,
+diffusion, phase change from $T^{n+1}$, properties, Navier--Stokes. The rate
+uses the same conductivity of the implicit interface flux.
+
+fixme: `mEvapTot` is zero in the first VOF step. */
+
+#if IMPLICIT
+macro phasechange_vof() {
+  phasechange_advection();
+}
+
+macro phasechange_tracer_diffusion() {
+  phasechange_reset();
+  phasechange_diffusion();
+  phasechange_rate();
+  phasechange_properties();
+  phasechange_expansion();
+  phasechange_divergence();
+  phasechange_reset_sources();
+}
+#endif
 
 /**
 ## Phase change model parameters

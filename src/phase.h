@@ -9,6 +9,9 @@ improving re-usability, and limiting code duplication. */
 #include "variable-properties.h"
 #include "common-evaporation.h"
 #include "diffusion-flux.h"
+#if IMPLICIT
+# include "gradients.h"
+#endif
 
 #define UNDEFINED -1
 #ifndef F_ERR
@@ -713,12 +716,36 @@ double phase_embed_flux (Point point, scalar s, face vector mu, double * val)
 #endif
 
 /**
+### *phase_interface_fractions()*: fractions used by *plic_flux()*
+
+Copy of the attributes and of the fractions *ff* and *fs* of the phase. */
+
+#if IMPLICIT
+void phase_interface_fractions (Phase * phase, (const) scalar f,
+    scalar ff, face vector fs)
+{
+  if (!is_constant (f))
+    scalar_clone (cs1, f);
+  cs1.inverse = phase->inverse;
+  foreach()
+    cs1[] = ff[];
+  foreach_face()
+    fs1.x[] = fs.x[];
+#if TREE
+  set_prolongation (cs1, fraction_refine);
+  restriction ((scalar *){cs1,fs1});
+#endif
+}
+#endif
+
+/**
 ### *phase_diffusion()*: resolve diffusion of species and temperature
 
 With embedded boundaries, the flux through the boundary is computed by
 *phase_embed_flux()*, using the wetting correction obtained from the volume
 fraction and from the face fractions of the phase used by the diffusion
-coefficients.
+coefficients. With `IMPLICIT`, the interface flux is included (see
+*plic_flux()* in [gradients.h](gradients.h)).
 
 The tolerances of the multigrid solver for the temperature and for the mass
 fractions are *TOLERANCE_TEMPERATURE* and *TOLERANCE_SPECIES* (if null, the
@@ -749,6 +776,12 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
   if (phase->wetting.i >= 0)
     embed_fraction (phase->wetting, ff, fs);
 #endif
+#if IMPLICIT
+  flux = plic_flux;
+  phase_interface_fractions (phase, f, ff, fs);
+#endif
+
+  // diffusion() modifies r and beta: the sources are kept for the divergence
 
   foreach_scalar_in (phase) {
     if (!phase->isothermal) {
@@ -765,13 +798,14 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
         lambdaf.x[] *= fs.x[]*fm.x[];
       }
 
-      if (!varcoeff)
-        foreach() {
-          STexp[] = (rho[]*cp[] > 0.) ? STexp[]/(rho[]*cp[]) : STexp[];
-          STimp[] = (rho[]*cp[] > 0.) ? STimp[]/(rho[]*cp[]) : STimp[];
-        }
+      scalar rT[], bT[];
+      foreach() {
+        rT[] = STexp[], bT[] = STimp[];
+        if (!varcoeff && rho[]*cp[] > 0.)
+          rT[] /= rho[]*cp[], bT[] /= rho[]*cp[];
+      }
 
-      diffusion (T, dt, D=lambdaf, r=STexp, beta=STimp, theta=thetaT,
+      diffusion (T, dt, D=lambdaf, r=rT, beta=bT, theta=thetaT,
           tolerance = TOLERANCE_TEMPERATURE, flux = flux);
     }
 
@@ -789,20 +823,19 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
           Df.x[] *= fs.x[]*fm.x[];
         }
 
-        if (!varcoeff)
-          foreach() {
-            SYexp[] = (rho[] > 0.) ? SYexp[]/rho[] : SYexp[];
-            SYimp[] = (rho[] > 0.) ? SYimp[]/rho[] : SYimp[];
-          }
+        scalar rY[], bY[];
+        foreach() {
+          rY[] = SYexp[], bY[] = SYimp[];
+          if (!varcoeff && rho[] > 0.)
+            rY[] /= rho[], bY[] /= rho[];
+        }
 
-        diffusion (Y, dt, D=Df, r=SYexp, beta=SYimp, theta=thetaY,
+        diffusion (Y, dt, D=Df, r=rY, beta=bY, theta=thetaY,
             tolerance = TOLERANCE_SPECIES, flux = flux);
       }
 
     }
   }
-
-  phase_reset_sources (phase);  // fixme: maybe I still need those terms
 }
 
 /**
@@ -1161,6 +1194,9 @@ void phase_update_divergence (Phase * phase,
   if (phase->wetting.i >= 0)
     embed_fraction (phase->wetting, ff, fs);
 #endif
+#if IMPLICIT
+  phase_interface_fractions (phase, f, ff, fs);
+#endif
 
   foreach_scalar_in (phase) {
 
@@ -1200,6 +1236,23 @@ void phase_update_divergence (Phase * phase,
 #endif
 
     /**
+    With `IMPLICIT`, the same applies to the interface flux (*plic_flux()*),
+    with the sign of the solver. */
+
+#if IMPLICIT
+    {
+      face vector lambdaf[];
+      foreach_face()
+        lambdaf.x[] = face_value (lambda, 0)*fm.x[]*fs.x[];
+
+      foreach (nowarning) {
+        double c, e = plic_flux (point, T, lambdaf, &c);
+        DTDt[] -= c + e*T[];
+      }
+    }
+#endif
+
+    /**
     We calculate the Lagrangian derivative of the chemical species mass fractions.
     */
 
@@ -1230,6 +1283,18 @@ void phase_update_divergence (Phase * phase,
         foreach (nowarning) {
           double c, e = phase_embed_flux (point, Y, rhoDf, &c);
           DYDt[] += e*Y[] - c;
+        }
+      }
+#endif
+#if IMPLICIT
+      {
+        face vector rhoDf[];
+        foreach_face()
+          rhoDf.x[] = face_value (rho, 0)*face_value (D, 0)*fm.x[]*fs.x[];
+
+        foreach (nowarning) {
+          double c, e = plic_flux (point, Y, rhoDf, &c);
+          DYDt[] -= c + e*Y[];
         }
       }
 #endif
