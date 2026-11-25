@@ -65,6 +65,7 @@ velocity jump. */
 #include "two-phase.h"
 #include "tension.h"
 #include "boiling.h"
+#include "balances/two-phase.h"
 #include "view.h"
 
 /**
@@ -381,11 +382,11 @@ set key top left
 set size square
 set grid
 
-plot "OutputData-6" every 8 u 1:3 w p ps 2 t "Analytic", \
-     "OutputData-6" u 1:2 w l lw 2 t "LEVEL 6", \
-     "OutputData-7" u 1:2 w l lw 2 t "LEVEL 7", \
-     "OutputData-8" u 1:2 w l lw 2 t "LEVEL 8", \
-     "OutputData-9" u 1:2 w l lw 2 t "LEVEL 9"
+plot "OutputData-6" every 8 u 1:3 w p ps 1.2 t "Analytic", \
+     "OutputData-6" u 1:2 w l lw 1.2 t "LEVEL 6", \
+     "OutputData-7" u 1:2 w l lw 1.2 t "LEVEL 7", \
+     "OutputData-8" u 1:2 w l lw 1.2 t "LEVEL 8", \
+     "OutputData-9" u 1:2 w l lw 1.2 t "LEVEL 9"
 ~~~
 
 ~~~gnuplot Relative Errors
@@ -428,9 +429,9 @@ set yr[1e-4:10]
 set size square
 set grid
 
-plot "Errors.csv" w p pt 8 ps 2 title "Results", \
-  50*x**(-1) lw 2 title "1^{st} order", \
-  1000*x**(-2) lw 2 title "2^{nd} order"
+plot "Errors.csv" w p pt 8 ps 1.2 title "Results", \
+  50*x**(-1) lw 1.2 title "1^{st} order", \
+  1000*x**(-2) lw 1.2 title "2^{nd} order"
 ~~~
 
 ~~~gnuplot Temperature Profile
@@ -444,11 +445,70 @@ set key bottom right
 set size square
 set grid
 
-plot "Temperature-6" u 1:3 w p ps 2 t "Analytic", \
-     "Temperature-6" u 1:2 w l lw 2 t "LEVEL 6", \
-     "Temperature-7" u 1:2 w l lw 2 t "LEVEL 7", \
-     "Temperature-8" u 1:2 w l lw 2 t "LEVEL 8", \
-     "Temperature-9" u 1:2 w l lw 2 t "LEVEL 9"
+plot "Temperature-6" u 1:3 w p ps 1.2 t "Analytic", \
+     "Temperature-6" u 1:2 w l lw 1.2 t "LEVEL 6", \
+     "Temperature-7" u 1:2 w l lw 1.2 t "LEVEL 7", \
+     "Temperature-8" u 1:2 w l lw 1.2 t "LEVEL 8", \
+     "Temperature-9" u 1:2 w l lw 1.2 t "LEVEL 9"
+~~~
+
+~~~gnuplot Mass balances
+reset
+set xlabel "t [s]"
+set ylabel "Mass [kg]"
+set key top left
+set size square
+set grid
+
+plot "balances-9" every 200 u 1:(-$4) w p ps 1.2 lc 3 t "Evaporated mass", \
+     "balances-9" u 1:2 w l lw 1.2 lc 1 t "Liquid mass lost", \
+     "balances-9" u 1:3 w l lw 1.2 lc 2 t "Gas mass gained"
+~~~
+
+~~~gnuplot Energy balances
+reset
+set xlabel "t [s]"
+set ylabel "Energy [J]"
+set key top left
+set size square
+set grid
+
+plot "balances-9" every 200 u 1:(-$7) w p ps 1.2 lc 1 t "Heat from the liquid", \
+     "balances-9" every 200 u 1:($8 - $9) w p ps 1.2 lc 2 t "Heat from the gas + latent heat", \
+     "balances-9" u 1:5 w l lw 1.2 lc 1 t "Liquid energy lost", \
+     "balances-9" u 1:6 w l lw 1.2 lc 2 t "Gas energy gained"
+~~~
+
+~~~gnuplot Gas mass and energy conservation errors
+reset
+
+set print "BalanceErrors.csv"
+do for [l = 6:9] {
+  stats sprintf ("balances-%d", l) \
+    using (em = abs($3 + $4)/abs($4), ee = abs($6 - ($8 - $9))/abs($8 - $9)) \
+    nooutput
+  print sprintf ("%d %.12e %.12e", 2**l, em, ee)
+}
+unset print
+
+reset
+set xlabel "N"
+set ylabel "Relative Error"
+
+set logscale x 2
+set logscale y
+
+set xr[2**5:2**10]
+set format y "10^{%L}"
+
+set key bottom left
+set size square
+set grid
+
+plot "BalanceErrors.csv" u 1:2 w lp pt 8 ps 1.2 title "Gas mass", \
+     "BalanceErrors.csv" u 1:3 w lp pt 6 ps 1.2 title "Gas energy", \
+     1e-1*x**(-1) lw 1.2 title "1^{st} order", \
+     1e1*x**(-2) lw 1.2 title "2^{nd} order"
 ~~~
 
 ## References
