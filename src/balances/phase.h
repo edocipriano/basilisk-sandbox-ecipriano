@@ -1,4 +1,4 @@
-PhaseMassBalance * balance = NULL;
+PhaseBalance * balance = NULL;
 FILE * fbalances = NULL;
 
 #define FORMAT_S "%-15s"
@@ -10,7 +10,7 @@ event init (i = 0) {
         "src/balances/two-phase.h:%d: warning: balances considers just 4 boundaries\n",
         LINENO), fflush (ferr);
 
-  balance = new_phase_mass_balance (phase);
+  balance = new_phase_balance (phase);
 
   char name[80];
   sprintf (name, "balances-%d", grid->maxdepth);
@@ -25,11 +25,13 @@ event init (i = 0) {
     sprintf (species, "m_%s(%d)", phase->species[i], counter++);
     fprintf (fbalances, FORMAT_S, species);
   }
+  sprintf (species, "energy(%d)", counter++);
+  fprintf (fbalances, FORMAT_S, species);
   fprintf (fbalances, "\n");
 }
 
 event cleanup (t = end) {
-  delete_phase_mass_balances (balance), balance = NULL;
+  delete_phase_balance (balance), balance = NULL;
   fclose (fbalances), fbalances = NULL;
 }
 
@@ -39,11 +41,18 @@ static void write_balances (void) {
   foreach_species_in (phase)
     fprintf (fbalances, FORMAT_G,
         (balance->m[i] + balance->mf[i]) - balance->m0[i]);
+  fprintf (fbalances, FORMAT_G, (balance->e + balance->ef) - balance->e0);
   fprintf (fbalances, "\n");
 }
 
+// note: convective fluxes before the projection and the diffusion step,
+// contents and diffusive fluxes at the end of the time step
+event tracer_advection (i++) {
+  phase_balance_transport (balance, phase, NULL, dt, uf);
+}
+
 event balances (i++) {
-  phase_mass_balance (balance, phase, NULL, dt, uf, boundaries = true);
+  phase_balance_update (balance, phase, dt);
 
   if (pid() == 0)
     write_balances();

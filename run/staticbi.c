@@ -182,10 +182,16 @@ event output_data (i++) {
 /**
 ### Logger
 
-We output the total liquid volume in time (for testing). */
+We output the total liquid volume and the relative error on the total mass
+conservation (from the [balances](/src/balances/two-phase.h)) in time (for
+testing). */
 
 event logger (t += 1e-4) {
-  fprintf (stderr, "%d %.3g %.3g\n", i, t, statsf (f).sum);
+  double m0 = liq_balance->mtot0 + gas_balance->mtot0;
+  double m = liq_balance->mtot + liq_balance->mftot +
+    gas_balance->mtot + gas_balance->mftot;
+  fprintf (stderr, "%d %.3g %.3g %.3g\n", i, t, statsf (f).sum,
+      m0 > 0. ? (m - m0)/m0 : 0.);
 }
 
 /**
