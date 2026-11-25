@@ -217,19 +217,35 @@ double plic_navier (Point point, scalar s, scalar cs, face vector fs,
 ## navier(): Navier/Robin condition on embedded boundaries
 
 On embedded boundaries the Navier condition is turned into a Dirichlet
-condition with value given by *plic_navier()*. On the domain
-boundaries we use the default [navier()](/src/grid/cartesian-common.h)
-condition. The same approach is used on VOF interfaces with `IMPLICIT`
-(see *plic_flux()* below). */
+condition with value given by *embed_navier()*, which uses the normal and the
+gradient of [embed.h](/src/embed.h#dirichlet_gradient) (as
+[embed_flux()](/src/embed.h#embed_flux)) in the approach of *plic_navier()*.
+On the domain boundaries we use the default
+[navier()](/src/grid/cartesian-common.h) condition. The same approach is used
+on VOF interfaces with `IMPLICIT` (see *plic_flux()* below). */
 
 #if EMBED
+double embed_navier (Point point, scalar s, double expr, double lambda)
+{
+  coord n = facet_normal (point, cs, fs), p;
+  double alpha = plane_alpha (cs[], n);
+  plane_area_center (n, alpha, &p);
+  normalize (&n);
+  double ca, cb;
+  double b = dirichlet_gradient (point, s, cs, n, p, 0., &cb);
+  double a = dirichlet_gradient (point, s, cs, n, p, 1., &ca) - b;
+  if (ca)
+    a = - ca, b = ca*s[];
+  return (expr - lambda*b)/(1. + lambda*a);
+}
+
 macro2
 double navier (double expr, double lambda, Point point = point,
     scalar s = _s, bool * data = data)
 {
   return data ? embed_area_center (point, &x, &y, &z),
     *((bool *)data) = true,
-    plic_navier (point, s, cs, fs, expr, lambda, false) :
+    embed_navier (point, s, expr, lambda) :
     (Delta*expr + s[]*(lambda - Delta/2.))/(lambda + Delta/2.);
 }
 
@@ -239,7 +255,7 @@ double navier_homogeneous (double expr, double lambda, Point point = point,
 {
   return data ? embed_area_center (point, &x, &y, &z),
     *((bool *)data) = true,
-    plic_navier (point, s, cs, fs, 0., lambda, false) :
+    embed_navier (point, s, 0., lambda) :
     s[]*(lambda - Delta/2.)/(lambda + Delta/2.);
 }
 #endif
