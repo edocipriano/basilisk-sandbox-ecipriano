@@ -2,8 +2,11 @@
 *.tests
 *.html
 *.tags.*
+*.s
 *.s.d
+*.tst
 *.tags
+*.html
 *.DS_Store
 *bib*
 
