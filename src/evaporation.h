@@ -592,6 +592,21 @@ event init (i = 0) {
   pcm.shifting = SHIFT_TO_LIQUID;
   if (nv == 1)
     pcm.byrhogas = true;
+
+  /**
+  We set the interface temperature values for the temperature advection step
+  with phase change. This is not necessary for the species because of the
+  combination of implicit and explicit source terms which already account for
+  volume changes. */
+
+  if (!liq->isothermal) {
+    scalar TL = liq->T;
+    TL.interfacial = liq_int->T;
+  }
+  if (!gas->isothermal) {
+    scalar TG = gas->T;
+    TG.interfacial = gas_int->T;
+  }
 }
 
 /**

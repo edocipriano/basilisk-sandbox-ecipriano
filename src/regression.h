@@ -35,6 +35,89 @@ computing the interface velocity, or by discretizing the source term.
 #include "aslam.h"
 
 /**
+## Interfacial values
+
+A phase tracer (e.g. the temperature or a mass fraction of a phase) can be
+associated with the field of its interfacial value $\phi_\Gamma$ (e.g. the
+interface temperature) using the `interfacial` attribute. */
+
+attribute {
+  scalar interfacial;
+}
+
+/**
+### *phasechange_tracers()*: tracers in the volume converted by phase change
+
+The VOF advection solves $D(c\phi)/Dt = 0$ for the tracer $t = c\phi$ of a
+phase with volume fraction $c$, while the transport equation of the phase is
+$c\,D\phi/Dt = 0$. The difference is
+$$
+  \dfrac{D(c\phi)}{Dt} - c\dfrac{D\phi}{Dt} = \phi\dfrac{Dc}{Dt}
+$$
+which is not null with phase change, since the interface does not move with
+the velocity of the phase. Being localized at the interface, $\phi =
+\phi_\Gamma$, and the change of the tracer due to the change $\Delta c$ of the
+volume fraction is
+$$
+  \Delta t = \Delta c\,\phi_\Gamma
+$$
+i.e. the volume converted by phase change leaves (or enters) the phase with the
+interfacial value ([Malan et al., 2021](#malan2021), Eq. 43). This function
+updates the *tracers* when the volume fraction moves. If the interfacial value
+of a tracer is not set, the intensive value of the cell is preserved (i.e. the
+tracer is rescaled). Where the phase disappears, its residual content is moved
+to the neighboring cells of the same phase, proportionally to their volume of
+the phase. */
+
+void phasechange_tracers (scalar * tracers, scalar f0, scalar f1,
+    double tol = 1e-10)
+{
+  for (scalar t in tracers) {
+    scalar res[];
+    if (t.interfacial.i) {
+      scalar ti = t.interfacial;
+      foreach() {
+        double c0 = t.inverse ? 1. - f0[] : f0[];
+        double c1 = t.inverse ? 1. - f1[] : f1[];
+        t[] += (c1 - c0)*ti[];
+        res[] = (c1 > tol) ? 0. : t[];
+        t[] -= res[];
+      }
+    }
+    else
+      foreach() {
+        double c0 = t.inverse ? 1. - f0[] : f0[];
+        double c1 = t.inverse ? 1. - f1[] : f1[];
+        t[] = (c0 > tol) ? t[]*c1/c0 : 0.;
+        res[] = (c1 > tol) ? 0. : t[];
+        t[] -= res[];
+      }
+
+    // residual per unit volume of the phase in the neighbors
+    scalar w[];
+    foreach() {
+      double wsum = 0.;
+      if (res[])
+        foreach_neighbor (1) {
+          double cn = t.inverse ? 1. - f1[] : f1[];
+          wsum += (cn > tol) ? cn*dv() : 0.;
+        }
+      w[] = (wsum > 0.) ? res[]*dv()/wsum : 0.;
+    }
+
+    foreach() {
+      double c1 = t.inverse ? 1. - f1[] : f1[];
+      if (c1 > tol) {
+        double add = 0.;
+        foreach_neighbor (1)
+          add += w[];
+        t[] += c1*add;
+      }
+    }
+  }
+}
+
+/**
 ## Interface velocity
 
 Apply the phase change velocity $\mathbf{u}_{pc} =
@@ -204,3 +287,19 @@ void vof_plane_shifting (
   }
 }
 
+/**
+## References
+
+~~~bib
+@article{malan2021,
+  title = {A geometric VOF method for interface resolved phase change and
+           conservative thermal energy advection},
+  author = {Malan, L. C. and Malan, A. G. and Zaleski, S. and Rousseau, P. G.},
+  journal = {Journal of Computational Physics},
+  volume = {426},
+  pages = {109920},
+  year = {2021},
+  doi = {10.1016/j.jcp.2020.109920}
+}
+~~~
+*/

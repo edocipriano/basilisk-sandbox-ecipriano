@@ -26,6 +26,7 @@ diffusion (see *plic_flux()* in [gradients.h](gradients.h)). */
 #include "gradients.h"
 
 scalar mEvap[], * mEvapList = {mEvap};
+scalar TInt[];
 
 /**
 ## Phase change
@@ -37,7 +38,9 @@ void phasechange_rate (void) {
   phase_tracers_to_scalars (liq, f, tol = F_ERR);
   phase_tracers_to_scalars (gas, f, tol = F_ERR);
 
-  // Copy attributes and boundary conditions from `f`
+  foreach()
+    TInt[] = TIntVal;
+
   scalar fl[], fg[];
   scalar_clone (fl, f);
   scalar_clone (fg, f);
@@ -114,11 +117,9 @@ void phasechange_rate (void) {
 /**
 ## Order of integration
 
-With `IMPLICIT`: VOF and advection (without phase change), diffusion with the
-implicit interface condition, vaporization rate from $T^{n+1}$ (and expansion
-term), phase change step of the interface and of the tracers with this rate,
-properties, Navier--Stokes. The rate uses the same conductivity of the implicit interface
-flux. */
+The boiling problem is difficult from the evaporation, since the interfacial temperature
+is often known a-priori. This allows using a different time integration scheme. Below, we
+overwrite the default time integration of [phasechange.h](phasechange.h). */
 
 #if IMPLICIT
 macro phasechange_vof() {
@@ -149,4 +150,20 @@ event init (i = 0) {
   pcm.shifting = SHIFT_TO_GAS;
   pcm.boiling = true;
   pcm.byrhogas = false;
+
+  /**
+  The interface temperatures are the interfacial values of the temperatures of
+  the phases (see *phasechange_tracers()* in [regression.h](regression.h)). */
+
+  TInt.nodump = true;
+  foreach()
+    TInt[] = TIntVal;
+  if (!liq->isothermal) {
+    scalar TL = liq->T;
+    TL.interfacial = TInt;
+  }
+  if (!gas->isothermal) {
+    scalar TG = gas->T;
+    TG.interfacial = TInt;
+  }
 }
