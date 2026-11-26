@@ -114,23 +114,24 @@ void phasechange_rate (void) {
 /**
 ## Order of integration
 
-With `IMPLICIT`: VOF (with `mEvapTot` of the previous step), advection,
-diffusion, phase change from $T^{n+1}$, properties, Navier--Stokes. The rate
-uses the same conductivity of the implicit interface flux.
-
-fixme: `mEvapTot` is zero in the first VOF step. */
+With `IMPLICIT`: VOF and advection (without phase change), diffusion with the
+implicit interface condition, vaporization rate from $T^{n+1}$ (and expansion
+term), phase change step of the interface and of the tracers with this rate,
+properties, Navier--Stokes. The rate uses the same conductivity of the implicit interface
+flux. */
 
 #if IMPLICIT
 macro phasechange_vof() {
-  phasechange_advection();
+  phasechange_transport();
 }
 
 macro phasechange_tracer_diffusion() {
   phasechange_reset();
   phasechange_diffusion();
   phasechange_rate();
-  phasechange_properties();
   phasechange_expansion();
+  phasechange_regression();
+  phasechange_properties();
   phasechange_divergence();
   phasechange_reset_sources();
 }

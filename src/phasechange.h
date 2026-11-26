@@ -289,21 +289,12 @@ void phasechange_divergence (void) {
 }
 
 /**
-### *phasechange_advection()*: transport of the interface and of the tracers
+### *phasechange_regression()*: phase change step of the interface
 
-The interface is transported by the phase change, and the volume fractions
-`fulist`, which carry the phase tracers, are transported by the fluid
-velocity (the liquid velocity `ufl` with two velocity fields). */
+The phase change moves the interface with the total vaporization rate
+`mEvapTot`. */
 
-face vector ufsave[];
-
-void phasechange_advection (void) {
-  // Volume fractions used to transport the tracers
-  foreach()
-    for (scalar fu in fulist)
-      fu[] = f[];
-
-  // Transport due to the phase change
+void phasechange_regression (void) {
   // fixme: add consistency also for source and plane shifting
   scalar rhoh = pcm.byrhogas ? gas->rho : liq->rho;
   switch (pcm.advection) {
@@ -318,12 +309,26 @@ void phasechange_advection (void) {
     case PLANE_SHIFTING:
       vof_plane_shifting (f, mEvapTot, rhoh, dt);
   }
+}
 
-  /**
-  With `nv == 2`, the gas tracers are transported with the gas velocity by
-  *fu*, and the liquid tracers with the liquid velocity by *fu1*, while *f* is
-  transported with the liquid velocity by [vof.h](/src/vof.h). With
-  `nv == 1`, the phase tracers are transported with *f*. */
+/**
+### *phasechange_transport()*: transport of the tracers
+
+The volume fractions `fulist`, which carry the phase tracers, are transported
+by the fluid velocity. With `nv == 2`, the gas tracers are transported with
+the gas velocity by *fu*, and the liquid tracers with the liquid velocity by
+*fu1*, while *f* is transported with the liquid velocity by
+[vof.h](/src/vof.h), which is set here and restored by
+*phasechange_advection_end()*. With `nv == 1`, the phase tracers are
+transported with *f*. */
+
+face vector ufsave[];
+
+void phasechange_transport (void) {
+  // Volume fractions used to transport the tracers
+  foreach()
+    for (scalar fu in fulist)
+      fu[] = f[];
 
   if (nv == 2) {
     scalar fug = fulist[0], ful = fulist[1];
@@ -640,7 +645,8 @@ auto macro phasechange_vof() {
   phasechange_rate();
   phasechange_expansion();
   phasechange_divergence();
-  phasechange_advection();
+  phasechange_transport();
+  phasechange_regression();
 }
 
 event vof (i++) {
