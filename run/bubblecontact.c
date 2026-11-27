@@ -36,6 +36,7 @@ velocity jump. A fixed contact angle is imposed on the left side of the domain.
 #include "contact-small.h"
 #include "two-phase.h"
 #include "tension.h"
+#define IMPLICIT 1
 #include "boiling.h"
 #include "view.h"
 
@@ -58,6 +59,9 @@ u.t[left] = dirichlet (0.);
 double Tsat, Tbulk;
 T[top] = dirichlet (Tbulk);
 T[right] = dirichlet (Tbulk);
+#if IMPLICIT
+T[interface] = dirichlet (TIntVal);
+#endif
 
 /**
 To set the contact angle, we allocate a [height-function field](/src/heights.h)
@@ -127,13 +131,6 @@ int main (void) {
 
   Tbulk = 3., Tsat = 1., TIntVal = 1.;
   TL0 = Tbulk, TG0 = TIntVal;
-
-  /**
-  We solve two different sets of Navier--Stokes equations, which is fine for
-  both the double pressure-velocity coupling approach and for the velocity-jump
-  solver. */
-
-  nv = 2;
 
   /**
   We change the dimension of the domain, the surface tension coefficient, and
