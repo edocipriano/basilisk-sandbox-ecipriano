@@ -42,6 +42,7 @@ droplet diameter.
 # include "opensmoke/flame.h"
 #endif
 #if CHT
+# define CONJUGATE_BOTTOM 1
 # include "conjugate.h"
 #endif
 #include "defaultvars.h"
@@ -242,7 +243,7 @@ void radiation_fiber (scalar i, scalar e) {
   foreach()
     if (f[] == 0.)
       e[] -= 4.*sigma_stefan_boltzmann*emissivity/dfiber*
-        (pow (TS[], 4.) - pow (TS0, 4.))*cm[]*cw[];
+        (pow (TS[], 4.) - pow (TS0, 4.));
 }
 #endif
 
@@ -488,10 +489,6 @@ event init (i = 0) {
 #if CHT
   {
     solid (cw, fw, (x >= 0.) && y <= 2.*Y0);
-    scalar TL = liq->T, TG = gas->T;
-    TS[bottom] = dirichlet (TSB[]);
-    TL[bottom] = (x >= 0.) ? dirichlet (TLB[]) : neumann (0.);
-    TG[bottom] = (x >= 0.) ? dirichlet (TGB[]) : neumann (0.);
   }
 #endif
 }
