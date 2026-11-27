@@ -819,7 +819,7 @@ void phase_diffusion (Phase * phase, (const) scalar f = unity,
       *varcoeff*. */
 
       double qsrc = 0.;
-      foreach (reduction(+:qsrc))
+      foreach (reduction(+:qsrc), nowarning)
         if (cm[] > 0.) {
           double q = STexp[];
 #if IMPLICIT
@@ -1806,16 +1806,16 @@ void phase_balance_transport (PhaseBalance * pb, const Phase * phase,
     all the rates (e.g. a single rate for boiling, with pure phases). */
 
     if (mEvapList) {
-      bool species = (phase->n == list_len (mEvapList));
+      int nr = list_len (mEvapList);
+      bool species = (phase->n == nr);
       foreach_interfacial_plic (f, F_ERR, serial) {
-        int j = 0;
-        for (scalar mEvap in mEvapList) {
+        for (int j = 0; j < nr; j++) {
           // note: both dirac and dv() multiply by cm
+          scalar mEvap = mEvapList[j];
           double m = mEvap[]*dirac*dt*dv()/cm[];
           if (species)
             balance->mevap[j] += m;
           balance->mevaptot += m;
-          j++;
         }
       }
     }
